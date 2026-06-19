@@ -24,7 +24,7 @@ class CalibrationWorkbenchTest extends TestCase
         $anchors = [];
         foreach ([[0, 0], [10, 0], [0, 10], [10, 10]] as $index => [$x, $y]) {
             $device = Device::query()->create(['identifier' => 'BEACON-'.($index + 1), 'name' => 'Beacon '.($index + 1), 'type' => 'beacon']);
-            $installation = DeviceInstallation::query()->create(['device_id' => $device->id, 'location_id' => $location->id, 'x' => $x, 'y' => $y, 'reference_rssi' => -59, 'path_loss_exponent' => 2, 'started_at' => now()]);
+            $installation = DeviceInstallation::query()->create(['device_id' => $device->id, 'location_id' => $location->id, 'floor_plan_id' => $plan->id, 'x' => $x, 'y' => $y, 'reference_rssi' => -59, 'path_loss_exponent' => 2, 'started_at' => now()]);
             $anchors[$installation->id] = ['rssi' => -76, 'reference_rssi' => -60, 'path_loss_exponent' => 2.2];
         }
 

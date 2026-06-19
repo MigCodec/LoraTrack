@@ -56,6 +56,7 @@ class TtiPositioningTest extends TestCase
             DeviceInstallation::query()->create([
                 'device_id' => $anchor->id,
                 'location_id' => $location->id,
+                'floor_plan_id' => $plan->id,
                 'x' => $x,
                 'y' => $y,
                 'reference_rssi' => -59,

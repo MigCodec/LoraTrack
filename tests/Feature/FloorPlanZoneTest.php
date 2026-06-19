@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Connector;
 use App\Models\Device;
+use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
 use App\Models\Location;
 use App\Models\TelemetryEvent;
@@ -156,6 +157,42 @@ class FloorPlanZoneTest extends TestCase
 
         $beacon = Device::query()->where('identifier', '58BE6F659D9D')->firstOrFail();
         $this->assertSame('Beacon acceso norte', $beacon->name);
-        $this->assertDatabaseHas('device_installations', ['device_id' => $beacon->id, 'location_id' => $location->id, 'x' => 5, 'y' => 5]);
+        $this->assertDatabaseHas('device_installations', ['device_id' => $beacon->id, 'location_id' => $location->id, 'floor_plan_id' => $plan->id, 'x' => 5, 'y' => 5]);
+
+        $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertViewHas('reportedBeaconMacs', fn ($macs): bool => $macs->isEmpty())
+            ->assertViewHas('devices', fn ($devices): bool => ! $devices->contains('id', $beacon->id));
+
+        $this->actingAs($admin)->post(route('installations.store', $plan), [
+            'device_identifier' => '58:BE:6F:65:9D:9D',
+            'x_normalized' => 0.5,
+            'y_normalized' => 0.5,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+        ])->assertSessionHasErrors('device_identifier');
+
+        $secondPlan = FloorPlan::query()->create([
+            'location_id' => $location->id,
+            'name' => 'Plano BLE alternativo',
+            'file_path' => 'floor-plans/ble-2.png',
+            'original_name' => 'ble-2.png',
+            'mime_type' => 'image/png',
+            'width_meters' => 20,
+            'height_meters' => 10,
+        ]);
+        $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $secondPlan]))
+            ->assertOk()
+            ->assertViewHas('reportedBeaconMacs', fn ($macs): bool => $macs->contains('identifier', '58:BE:6F:65:9D:9D'))
+            ->assertViewHas('devices', fn ($devices): bool => $devices->contains('id', $beacon->id));
+
+        $this->actingAs($admin)->post(route('installations.store', $secondPlan), [
+            'device_id' => $beacon->id,
+            'x_normalized' => 0.75,
+            'y_normalized' => 0.5,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+        ])->assertRedirect();
+        $this->assertSame(2, DeviceInstallation::query()->where('device_id', $beacon->id)->whereNull('ended_at')->count());
     }
 }

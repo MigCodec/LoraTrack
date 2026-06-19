@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Asset;
+use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
 use App\Models\Location;
 use App\Models\Sku;
+use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AssetController extends Controller
@@ -42,14 +47,23 @@ class AssetController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $asset = Asset::query()->create($this->validated($request));
+        $validated = $this->validated($request);
+        $asset = DB::transaction(function () use ($request, $validated): Asset {
+            $asset = Asset::query()->create($this->assetData($validated));
+            $this->assignInitialTracker($asset, $validated['tracker_device_id'] ?? null);
+            $this->storePhoto($request, $asset);
 
-        return redirect()->route('assets.edit', $asset)->with('status', 'Activo creado. Ahora puedes asignar su dispositivo.');
+            return $asset;
+        });
+
+        return redirect()->route('assets.edit', $asset)->with('status', 'Activo creado.');
     }
 
     public function update(Request $request, Asset $asset): RedirectResponse
     {
-        $asset->update($this->validated($request, $asset));
+        $validated = $this->validated($request, $asset);
+        $asset->update($this->assetData($validated));
+        $this->storePhoto($request, $asset);
 
         return back()->with('status', 'Activo actualizado.');
     }
@@ -72,7 +86,7 @@ class AssetController extends Controller
             'reportedTrackers' => Device::query()
                 ->where('status', 'active')
                 ->where('type', 'lorawan_tracker')
-                ->whereNotNull('last_seen_at')
+                ->whereDoesntHave('assignments', fn ($query) => $query->whereNull('ended_at'))
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -81,6 +95,63 @@ class AssetController extends Controller
     /** @return array<string,mixed> */
     private function validated(Request $request, ?Asset $asset = null): array
     {
-        return $request->validate(['sku_id' => ['nullable', TenantRule::exists('skus')], 'location_id' => ['nullable', TenantRule::exists('locations')], 'asset_tag' => ['required', 'string', 'max:255', TenantRule::unique('assets', 'asset_tag')->ignore($asset)], 'serial_number' => ['nullable', 'string', 'max:255'], 'name' => ['required', 'string', 'max:255'], 'mobility' => ['required', 'in:mobile,static'], 'status' => ['required', 'in:active,inactive,maintenance']]);
+        return $request->validate([
+            'sku_id' => ['nullable', TenantRule::exists('skus')],
+            'location_id' => ['nullable', TenantRule::exists('locations')],
+            'asset_tag' => ['required', 'string', 'max:255', TenantRule::unique('assets', 'asset_tag')->ignore($asset)],
+            'serial_number' => ['nullable', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
+            'mobility' => ['required', 'in:mobile,static'],
+            'status' => ['required', 'in:active,inactive,maintenance'],
+            'tracker_device_id' => ['nullable', TenantRule::exists('devices')],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            'remove_photo' => ['nullable', 'boolean'],
+        ]);
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function assetData(array $validated): array
+    {
+        unset($validated['tracker_device_id'], $validated['photo'], $validated['remove_photo']);
+
+        return $validated;
+    }
+
+    private function storePhoto(Request $request, Asset $asset): void
+    {
+        if ($request->boolean('remove_photo') && $asset->photo_path) {
+            Storage::disk('local')->delete($asset->photo_path);
+            $asset->forceFill(['photo_path' => null])->save();
+        }
+        if (! $request->hasFile('photo')) {
+            return;
+        }
+
+        Storage::disk('local')->delete(array_filter([$asset->photo_path]));
+        $path = $request->file('photo')->store(
+            'organizations/'.app(OrganizationContext::class)->id().'/assets/'.$asset->id,
+            'local',
+        );
+        $asset->forceFill(['photo_path' => $path])->save();
+    }
+
+    private function assignInitialTracker(Asset $asset, ?string $deviceId): void
+    {
+        if (! $deviceId) {
+            return;
+        }
+        $device = Device::query()->whereKey($deviceId)->lockForUpdate()->firstOrFail();
+        if ($asset->mobility !== 'mobile' || $device->type !== 'lorawan_tracker' || $device->status !== 'active') {
+            throw ValidationException::withMessages(['tracker_device_id' => 'Selecciona un tracker LoRaWAN activo para un activo móvil.']);
+        }
+        if ($device->assignments()->whereNull('ended_at')->exists()) {
+            throw ValidationException::withMessages(['tracker_device_id' => 'El tracker ya está asignado a otro activo.']);
+        }
+        AssetDeviceAssignment::query()->create([
+            'asset_id' => $asset->id,
+            'device_id' => $device->id,
+            'tracking_strategy' => 'fixed_beacons_mobile_tracker',
+            'started_at' => now(),
+        ]);
     }
 }

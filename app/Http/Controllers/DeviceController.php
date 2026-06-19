@@ -68,14 +68,25 @@ class DeviceController extends Controller
             } else {
                 $device = Device::query()->whereKey($validated['device_id'])->lockForUpdate()->firstOrFail();
             }
+            if (DeviceInstallation::query()
+                ->where('device_id', $device->id)
+                ->where('floor_plan_id', $floorPlan->id)
+                ->whereNull('ended_at')
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'device_identifier' => 'Este dispositivo ya está instalado en el plano seleccionado.',
+                ]);
+            }
             DeviceInstallation::query()
                 ->where('device_id', $device->id)
+                ->where('floor_plan_id', $floorPlan->id)
                 ->whereNull('ended_at')
                 ->update(['ended_at' => now()]);
 
             DeviceInstallation::query()->create([
                 'device_id' => $device->id,
                 'location_id' => $floorPlan->location_id,
+                'floor_plan_id' => $floorPlan->id,
                 'x' => (float) $validated['x_normalized'] * (float) $floorPlan->width_meters,
                 'y' => (float) $validated['y_normalized'] * (float) $floorPlan->height_meters,
                 'reference_rssi' => $validated['reference_rssi'],
@@ -89,9 +100,11 @@ class DeviceController extends Controller
 
     public function removeInstallation(DeviceInstallation $deviceInstallation): RedirectResponse
     {
+        $floorPlanId = $deviceInstallation->floor_plan_id;
         $locationId = $deviceInstallation->location_id;
         $deviceInstallation->forceFill(['ended_at' => now()])->save();
-        $plan = FloorPlan::query()->where('location_id', $locationId)->where('is_active', true)->first();
+        $plan = FloorPlan::query()->find($floorPlanId)
+            ?? FloorPlan::query()->where('location_id', $locationId)->where('is_active', true)->first();
 
         return redirect()->route('floor-plans.index', ['plan' => $plan?->id])->with('status', 'Instalación cerrada.');
     }

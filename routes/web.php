@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetDeviceAssignmentController;
+use App\Http\Controllers\AssetPhotoController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\Auth\RegisteredOrganizationController;
@@ -42,6 +43,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::view('/help/devices', 'help.devices')->name('help.devices');
     Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
+    Route::get('/assets/{asset}/photo', AssetPhotoController::class)->name('assets.photo');
     Route::middleware('permission:assets.manage')->group(function (): void {
         Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
         Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');

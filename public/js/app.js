@@ -1,3 +1,17 @@
+const assetForm = document.querySelector('#asset-form');
+if (assetForm) {
+    const mobility = assetForm.elements.mobility;
+    const trackerField = assetForm.querySelector('[data-mobile-tracker-field]');
+    const syncTrackerField = () => {
+        if (!trackerField || !mobility) return;
+        const mobile = mobility.value === 'mobile';
+        trackerField.hidden = !mobile;
+        trackerField.querySelectorAll('select,input').forEach((control) => { control.disabled = !mobile; });
+    };
+    mobility?.addEventListener('change', syncTrackerField);
+    syncTrackerField();
+}
+
 const editor = document.querySelector('#zone-editor');
 
 if (editor && !editor.dataset.editorInitialized) {

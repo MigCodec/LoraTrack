@@ -108,15 +108,16 @@ class TelemetryPositioningService
      */
     private function calculateAndPersist(Asset $asset, TelemetryEvent $event, Collection $installations, callable $rssiFor): void
     {
-        $locationGroup = $installations
-            ->groupBy('location_id')
+        $planGroup = $installations
+            ->whereNotNull('floor_plan_id')
+            ->groupBy('floor_plan_id')
             ->sortByDesc(fn (Collection $group): int => $group->count())
             ->first();
-        if (! $locationGroup instanceof Collection || $locationGroup->count() < 3) {
+        if (! $planGroup instanceof Collection || $planGroup->count() < 3) {
             return;
         }
 
-        $measurements = $locationGroup->map(fn (DeviceInstallation $installation): AnchorMeasurement => new AnchorMeasurement(
+        $measurements = $planGroup->map(fn (DeviceInstallation $installation): AnchorMeasurement => new AnchorMeasurement(
             identifier: $installation->device->identifier,
             x: (float) $installation->x,
             y: (float) $installation->y,
@@ -131,18 +132,13 @@ class TelemetryPositioningService
             return;
         }
 
-        $floorPlan = FloorPlan::query()
-            ->with('zones')
-            ->where('location_id', $locationGroup->first()->location_id)
-            ->where('is_active', true)
-            ->latest()
-            ->first();
+        $floorPlan = FloorPlan::query()->with('zones')->find($planGroup->first()->floor_plan_id);
         $zone = $floorPlan ? $this->zones->classify($floorPlan, $result->x, $result->y) : null;
 
         PositionEstimate::query()->updateOrCreate(
             ['asset_id' => $asset->id, 'telemetry_event_id' => $event->id],
             [
-                'location_id' => $locationGroup->first()->location_id,
+                'location_id' => $planGroup->first()->location_id,
                 'floor_plan_id' => $floorPlan?->id,
                 'zone_id' => $zone?->id,
                 'algorithm' => 'rssi_multilateration',
@@ -156,6 +152,6 @@ class TelemetryPositioningService
             ],
         );
 
-        $asset->forceFill(['location_id' => $locationGroup->first()->location_id])->save();
+        $asset->forceFill(['location_id' => $planGroup->first()->location_id])->save();
     }
 }

@@ -22,7 +22,7 @@ class OperationalHealthController extends Controller
         $pendingJobs = DB::table('jobs')->count();
 
         $plans = FloorPlan::query()->with(['location'])->where('is_active', true)->get()->map(function (FloorPlan $plan): array {
-            $base = DB::table('device_installations')->join('devices', 'devices.id', '=', 'device_installations.device_id')->where('device_installations.location_id', $plan->location_id)->whereNull('device_installations.ended_at');
+            $base = DB::table('device_installations')->join('devices', 'devices.id', '=', 'device_installations.device_id')->where('device_installations.floor_plan_id', $plan->id)->whereNull('device_installations.ended_at');
 
             return [
                 'plan' => $plan,

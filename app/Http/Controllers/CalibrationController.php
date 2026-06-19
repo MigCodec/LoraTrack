@@ -106,7 +106,7 @@ class CalibrationController extends Controller
             foreach ($calibrationRun->parameters as $parameter) {
                 DeviceInstallation::query()
                     ->whereKey($parameter['installation_id'])
-                    ->where('location_id', $calibrationRun->floorPlan->location_id)
+                    ->where('floor_plan_id', $calibrationRun->floor_plan_id)
                     ->whereNull('ended_at')
                     ->lockForUpdate()
                     ->firstOrFail()
@@ -125,7 +125,7 @@ class CalibrationController extends Controller
     {
         return DeviceInstallation::query()
             ->with('device')
-            ->where('location_id', $floorPlan->location_id)
+            ->where('floor_plan_id', $floorPlan->id)
             ->whereNull('ended_at')
             ->whereHas('device', fn ($query) => $query->whereIn('type', ['beacon', 'scanner'])->where('status', 'active'))
             ->orderBy('device_id')

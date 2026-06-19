@@ -26,7 +26,7 @@ class MapController extends Controller
         $positions = PositionEstimate::query()->with(['asset.sku.product', 'zone'])->where('floor_plan_id', $floorPlan->id)->whereIn('id', PositionEstimate::query()->selectRaw('MAX(id)')->where('floor_plan_id', $floorPlan->id)->groupBy('asset_id'))->get();
         $anchors = DeviceInstallation::query()
             ->with('device')
-            ->where('location_id', $floorPlan->location_id)
+            ->where('floor_plan_id', $floorPlan->id)
             ->whereNull('ended_at')
             ->whereHas('device', fn ($query) => $query->whereIn('type', ['beacon', 'scanner']))
             ->get();

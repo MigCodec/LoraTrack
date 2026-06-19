@@ -17,7 +17,7 @@ class Asset extends Model
     use HasUlids;
 
     protected $fillable = [
-        'sku_id', 'location_id', 'asset_tag', 'serial_number', 'name', 'mobility', 'status', 'metadata',
+        'sku_id', 'location_id', 'asset_tag', 'serial_number', 'name', 'mobility', 'status', 'metadata', 'photo_path',
     ];
 
     protected function casts(): array

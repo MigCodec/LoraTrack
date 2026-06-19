@@ -15,7 +15,7 @@ class DeviceInstallation extends Model
     use HasUlids;
 
     protected $fillable = [
-        'device_id', 'location_id', 'x', 'y', 'z', 'latitude', 'longitude', 'reference_rssi',
+        'device_id', 'location_id', 'floor_plan_id', 'x', 'y', 'z', 'latitude', 'longitude', 'reference_rssi',
         'path_loss_exponent', 'started_at', 'ended_at',
     ];
 
@@ -32,5 +32,10 @@ class DeviceInstallation extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function floorPlan(): BelongsTo
+    {
+        return $this->belongsTo(FloorPlan::class);
     }
 }

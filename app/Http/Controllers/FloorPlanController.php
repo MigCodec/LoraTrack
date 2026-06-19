@@ -25,6 +25,13 @@ class FloorPlanController extends Controller
     {
         $plans = FloorPlan::query()->with(['location', 'zones.alertRules'])->latest()->get();
         $selectedPlan = $plans->firstWhere('id', $request->query('plan')) ?? $plans->first();
+        $installations = $selectedPlan
+            ? DeviceInstallation::query()->with('device')->where('floor_plan_id', $selectedPlan->id)->whereNull('ended_at')->get()
+            : collect();
+        $installedDeviceIds = $installations->pluck('device_id');
+        $installedIdentifiers = $installations->map(
+            fn (DeviceInstallation $installation): string => BleObservationExtractor::normalizeMac($installation->device->identifier),
+        );
         $assetPositions = $selectedPlan
             ? PositionEstimate::query()
                 ->with('asset')
@@ -38,18 +45,16 @@ class FloorPlanController extends Controller
 
         return view('floor-plans.index', [
             'locations' => Location::query()->orderBy('name')->get(),
-            'devices' => Device::query()->orderBy('name')->get(),
-            'reportedBeaconMacs' => $this->reportedBeaconMacs($extractor),
+            'devices' => Device::query()->whereNotIn('id', $installedDeviceIds)->orderBy('name')->get(),
+            'reportedBeaconMacs' => $this->reportedBeaconMacs($extractor, $installedIdentifiers),
             'plans' => $plans,
             'selectedPlan' => $selectedPlan,
             'assetPositions' => $assetPositions,
-            'installations' => $selectedPlan
-                ? DeviceInstallation::query()->with('device')->where('location_id', $selectedPlan->location_id)->whereNull('ended_at')->get()
-                : collect(),
+            'installations' => $installations,
         ]);
     }
 
-    private function reportedBeaconMacs(BleObservationExtractor $extractor): Collection
+    private function reportedBeaconMacs(BleObservationExtractor $extractor, Collection $excludedIdentifiers): Collection
     {
         $reported = collect();
         $events = TelemetryEvent::query()->with(['device', 'connector'])->latest('received_at')->limit(250)->get();
@@ -59,7 +64,7 @@ class FloorPlanController extends Controller
                 ?? data_get($event->raw_payload, 'uplink_message.decoded_payload', []);
             foreach ($extractor->extract($decoded) as $observation) {
                 $normalized = BleObservationExtractor::normalizeMac($observation['mac']);
-                if (strlen($normalized) !== 12 || $reported->has($normalized)) {
+                if (strlen($normalized) !== 12 || $reported->has($normalized) || $excludedIdentifiers->contains($normalized)) {
                     continue;
                 }
                 $reported->put($normalized, [

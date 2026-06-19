@@ -9,7 +9,9 @@ use App\Models\Asset;
 use App\Models\Device;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AssetPermissionsAndAlertsTest extends TestCase
@@ -18,19 +20,25 @@ class AssetPermissionsAndAlertsTest extends TestCase
 
     public function test_operator_can_create_and_assign_a_valid_tracker_to_mobile_asset(): void
     {
+        Storage::fake('local');
         $operator = User::factory()->create(['role' => UserRole::Operator]);
         $tracker = Device::query()->create(['identifier' => 'B1000-01', 'name' => 'Tracker B1000', 'type' => 'lorawan_tracker']);
 
+        $this->actingAs($operator)->get(route('assets.create', ['mobility' => 'mobile']))
+            ->assertOk()
+            ->assertSee('Tracker LoRaWAN inicial')
+            ->assertSee('Tracker B1000');
         $this->actingAs($operator)->post(route('assets.store'), [
             'asset_tag' => 'MOV-001', 'name' => 'Montacargas 1', 'mobility' => 'mobile', 'status' => 'active',
+            'tracker_device_id' => $tracker->id,
+            'photo' => UploadedFile::fake()->image('montacargas.jpg', 800, 600),
         ])->assertRedirect();
 
         $asset = Asset::query()->firstOrFail();
-        $this->actingAs($operator)->post(route('asset-assignments.store', $asset), [
-            'device_id' => $tracker->id, 'tracking_strategy' => 'fixed_beacons_mobile_tracker',
-        ])->assertRedirect();
-
         $this->assertDatabaseHas('asset_device_assignments', ['asset_id' => $asset->id, 'device_id' => $tracker->id, 'ended_at' => null]);
+        $this->assertNotNull($asset->fresh()->photo_path);
+        Storage::disk('local')->assertExists($asset->fresh()->photo_path);
+        $this->actingAs($operator)->get(route('assets.photo', $asset))->assertOk();
     }
 
     public function test_mobile_asset_offers_reported_trackers_by_readable_name_and_identifier(): void
@@ -49,7 +57,7 @@ class AssetPermissionsAndAlertsTest extends TestCase
 
         $this->actingAs($operator)->get(route('assets.edit', $asset))
             ->assertOk()
-            ->assertSee('Tracker SenseCAP reportado')
+            ->assertSee('Tracker registrado')
             ->assertSee($tracker->name)
             ->assertSee($tracker->identifier);
 
