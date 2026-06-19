@@ -89,6 +89,20 @@ class FloorPlanZoneTest extends TestCase
             'x' => 30,
             'y' => 10,
         ]);
+        $this->get(route('floor-plans.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('id="saved-anchor-overlay"', false)
+            ->assertSee('class="plan-anchor"', false)
+            ->assertSee('data-editor-layer="beacons"', false)
+            ->assertSee('Beacon fijo 1');
+        $this->get(route('map.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('data-map-layer="beacons"', false);
+        $this->getJson(route('map.data', $plan))
+            ->assertOk()
+            ->assertJsonPath('anchors.0.name', 'Beacon fijo 1')
+            ->assertJsonPath('anchors.0.x', 0.5)
+            ->assertJsonPath('anchors.0.y', 0.25);
     }
 
     public function test_reported_sensecap_macs_can_be_selected_or_entered_when_placing_beacon(): void

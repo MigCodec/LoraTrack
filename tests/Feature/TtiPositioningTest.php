@@ -107,9 +107,12 @@ class TtiPositioningTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))
             ->getJson(route('map.data', $plan))
             ->assertOk()
-            ->assertJsonStructure(['positions' => [[
+            ->assertJsonStructure(['anchors' => [[
+                'id', 'name', 'identifier', 'type', 'x', 'y',
+            ]], 'positions' => [[
                 'accuracy_meters', 'relative_error', 'error_radius_x', 'error_radius_y',
             ]]])
+            ->assertJsonCount(3, 'anchors')
             ->assertJsonPath('positions.0.asset_id', $asset->id);
     }
 }

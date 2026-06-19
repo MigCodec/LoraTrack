@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
 use App\Models\PositionEstimate;
 use Illuminate\Http\JsonResponse;
@@ -23,8 +24,21 @@ class MapController extends Controller
     public function data(FloorPlan $floorPlan): JsonResponse
     {
         $positions = PositionEstimate::query()->with(['asset.sku.product', 'zone'])->where('floor_plan_id', $floorPlan->id)->whereIn('id', PositionEstimate::query()->selectRaw('MAX(id)')->where('floor_plan_id', $floorPlan->id)->groupBy('asset_id'))->get();
+        $anchors = DeviceInstallation::query()
+            ->with('device')
+            ->where('location_id', $floorPlan->location_id)
+            ->whereNull('ended_at')
+            ->whereHas('device', fn ($query) => $query->whereIn('type', ['beacon', 'scanner']))
+            ->get();
 
-        return response()->json(['generated_at' => now()->toIso8601String(), 'positions' => $positions->map(function ($p) use ($floorPlan): array {
+        return response()->json(['generated_at' => now()->toIso8601String(), 'anchors' => $anchors->map(fn ($installation): array => [
+            'id' => $installation->id,
+            'name' => $installation->device->name,
+            'identifier' => $installation->device->identifier,
+            'type' => $installation->device->type,
+            'x' => min(1, max(0, (float) $installation->x / (float) $floorPlan->width_meters)),
+            'y' => min(1, max(0, (float) $installation->y / (float) $floorPlan->height_meters)),
+        ])->values(), 'positions' => $positions->map(function ($p) use ($floorPlan): array {
             $x = (float) $p->x / (float) $floorPlan->width_meters;
             $y = (float) $p->y / (float) $floorPlan->height_meters;
             $accuracyMeters = max(0, (float) $p->accuracy_meters);

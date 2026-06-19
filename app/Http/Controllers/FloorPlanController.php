@@ -8,6 +8,7 @@ use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
 use App\Models\Location;
+use App\Models\PositionEstimate;
 use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Tenancy\OrganizationContext;
@@ -24,6 +25,16 @@ class FloorPlanController extends Controller
     {
         $plans = FloorPlan::query()->with(['location', 'zones.alertRules'])->latest()->get();
         $selectedPlan = $plans->firstWhere('id', $request->query('plan')) ?? $plans->first();
+        $assetPositions = $selectedPlan
+            ? PositionEstimate::query()
+                ->with('asset')
+                ->where('floor_plan_id', $selectedPlan->id)
+                ->whereIn('id', PositionEstimate::query()
+                    ->selectRaw('MAX(id)')
+                    ->where('floor_plan_id', $selectedPlan->id)
+                    ->groupBy('asset_id'))
+                ->get()
+            : collect();
 
         return view('floor-plans.index', [
             'locations' => Location::query()->orderBy('name')->get(),
@@ -31,6 +42,7 @@ class FloorPlanController extends Controller
             'reportedBeaconMacs' => $this->reportedBeaconMacs($extractor),
             'plans' => $plans,
             'selectedPlan' => $selectedPlan,
+            'assetPositions' => $assetPositions,
             'installations' => $selectedPlan
                 ? DeviceInstallation::query()->with('device')->where('location_id', $selectedPlan->location_id)->whereNull('ended_at')->get()
                 : collect(),

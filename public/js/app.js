@@ -163,6 +163,14 @@ const realtimeMap = document.querySelector('#realtime-map');
 if (realtimeMap) {
     const markers = document.querySelector('#map-markers');
     const updated = document.querySelector('#map-updated');
+    const layerControls = [...document.querySelectorAll('[data-map-layer]')];
+    const applyMapLayers = () => {
+        const visible = (name) => document.querySelector(`[data-map-layer="${name}"]`)?.checked ?? true;
+        markers.querySelectorAll('.map-zone').forEach((node) => { node.hidden = !visible('zones'); });
+        markers.querySelectorAll('.map-anchor').forEach((node) => { node.hidden = !visible('beacons'); });
+        markers.querySelectorAll('.asset-marker,.asset-uncertainty').forEach((node) => { node.hidden = !visible('assets'); });
+    };
+    layerControls.forEach((control) => control.addEventListener('change', applyMapLayers));
     const zones = JSON.parse(document.querySelector('#map-zones')?.textContent || '[]');
     zones.forEach((zone) => {
         const element = document.createElement('div'); element.className = 'map-zone'; element.style.left = `${zone.x_min*100}%`; element.style.top = `${zone.y_min*100}%`; element.style.width = `${(zone.x_max-zone.x_min)*100}%`; element.style.height = `${(zone.y_max-zone.y_min)*100}%`; element.style.borderColor = zone.color; element.style.backgroundColor = `${zone.color}22`; element.title = zone.name; markers.appendChild(element);
@@ -170,11 +178,15 @@ if (realtimeMap) {
     const refresh = async () => {
         try {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
-            markers.querySelectorAll('.asset-marker,.asset-uncertainty').forEach((node) => node.remove());
+            markers.querySelectorAll('.map-anchor,.asset-marker,.asset-uncertainty').forEach((node) => node.remove());
+            data.anchors.forEach((anchor) => {
+                const node=document.createElement('span'); node.className=`map-anchor ${anchor.type}`; node.style.left=`${anchor.x*100}%`; node.style.top=`${anchor.y*100}%`; node.title=`${anchor.name} · ${anchor.identifier}`; const dot=document.createElement('i'); const label=document.createElement('small'); label.textContent=anchor.name; node.append(dot,label); markers.appendChild(node);
+            });
             data.positions.forEach((position) => {
                 const uncertainty=document.createElement('div'); uncertainty.className=`asset-uncertainty${position.stale?' stale':''}`; uncertainty.style.left=`${position.x*100}%`; uncertainty.style.top=`${position.y*100}%`; uncertainty.style.width=`${Math.max(1.5,Math.min(200,position.error_radius_x*200))}%`; uncertainty.style.height=`${Math.max(1.5,Math.min(200,position.error_radius_y*200))}%`; uncertainty.title=`Error estimado: ${position.accuracy_meters.toFixed(2)} m · relativo ${(position.relative_error*100).toFixed(2)}%`; markers.appendChild(uncertainty);
                 const node=document.createElement('button'); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; const dot=document.createElement('span'); const label=document.createElement('small'); label.textContent=position.name; node.append(dot,label); markers.appendChild(node);
             });
+            applyMapLayers();
             updated.textContent=`Actualizado ${new Date(data.generated_at).toLocaleTimeString()}`;
         } catch { updated.textContent='No fue posible actualizar'; }
     };

@@ -54,6 +54,14 @@
                         <div class="ribbon-group"><span class="ribbon-label">Dibujar</span><button id="zone-mode" class="ribbon-button" type="button"><x-nav-icon name="plans"/><span>Crear área</span></button></div>
                         <div class="ribbon-group"><span class="ribbon-label">Dispositivos</span><button id="ribbon-anchor-mode" class="ribbon-button" type="button"><x-nav-icon name="map"/><span>Colocar ancla</span></button></div>
                         <div class="ribbon-group"><span class="ribbon-label">Medición</span><a class="ribbon-button" href="{{ route('calibration.index', $selectedPlan) }}"><x-nav-icon name="calibration"/><span>Calibrar RSSI</span></a></div>
+                        <details class="ribbon-layers">
+                            <summary><x-nav-icon name="map"/><span>Visualizar</span></summary>
+                            <div class="ribbon-layer-menu">
+                                <label><input type="checkbox" data-editor-layer="beacons" checked> Beacons</label>
+                                <label><input type="checkbox" data-editor-layer="zones" checked> Zonas</label>
+                                <label><input type="checkbox" data-editor-layer="assets" checked> Assets</label>
+                            </div>
+                        </details>
                         <div class="ribbon-hint" id="editor-mode-status">Selecciona una herramienta para editar el plano.</div>
                     </div>
                 @endif
@@ -64,6 +72,16 @@
                         <div id="saved-zone-overlay" class="absolute inset-0" aria-label="Áreas guardadas">
                             @foreach($selectedPlan->zones as $zone)
                                 <div class="saved-zone" style="left: {{ (float) $zone->x_min * 100 }}%; top: {{ (float) $zone->y_min * 100 }}%; width: {{ ((float) $zone->x_max - (float) $zone->x_min) * 100 }}%; height: {{ ((float) $zone->y_max - (float) $zone->y_min) * 100 }}%; border-color: {{ $zone->color }}; background-color: {{ $zone->color }}33"><span style="background-color: {{ $zone->color }}">{{ $zone->name }}</span></div>
+                            @endforeach
+                        </div>
+                        <div id="saved-anchor-overlay" class="absolute inset-0 pointer-events-none" aria-label="Beacons instalados">
+                            @foreach($installations as $installation)
+                                <span class="plan-anchor" style="left: {{ min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $installation->device->name }} · {{ $installation->device->identifier }}"><i></i><small>{{ $installation->device->name }}</small></span>
+                            @endforeach
+                        </div>
+                        <div id="saved-asset-overlay" class="absolute inset-0 pointer-events-none" aria-label="Assets posicionados">
+                            @foreach($assetPositions as $position)
+                                <span class="plan-asset" style="left: {{ min(100, max(0, (float) $position->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $position->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $position->asset->name }}"><i></i><small>{{ $position->asset->name }}</small></span>
                             @endforeach
                         </div>
                         <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>

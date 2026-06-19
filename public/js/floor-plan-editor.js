@@ -23,7 +23,7 @@
         catch { return []; }
     };
     const zones = readData('zone-data');
-    const installations = readData('installation-data');
+    const layerControls = [...document.querySelectorAll('[data-editor-layer]')];
     let mode = null;
     let start = null;
     let draftZone = null;
@@ -55,7 +55,7 @@
         canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio); context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height);
         const brand = getComputedStyle(document.body);
         if (draftZone) drawZone(draftZone, zoneForm?.elements.color?.value || brand.getPropertyValue('--color-brand-accent').trim() || '#14B8A6', 'Nueva área');
-        [...installations, ...(draftAnchor ? [{...draftAnchor, name: 'Nueva ancla'}] : [])].forEach((item) => {
+        (draftAnchor ? [{...draftAnchor, name: 'Nueva ancla'}] : []).forEach((item) => {
             const x = item.x * width; const y = item.y * height; context.beginPath(); context.arc(x, y, 6, 0, Math.PI * 2); context.fillStyle = item === draftAnchor ? '#dc2626' : brand.getPropertyValue('--color-brand-primary').trim() || '#2563EB'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2; context.stroke(); context.fillStyle = brand.getPropertyValue('--color-brand-secondary').trim() || '#0F172A'; context.font = '600 11px sans-serif'; context.fillText(item.name, x + 9, y + 4);
         });
     };
@@ -84,6 +84,17 @@
         redraw();
     });
     zoneForm?.elements.color?.addEventListener('input', redraw);
+    const applyLayers = () => {
+        const visible = (name) => document.querySelector(`[data-editor-layer="${name}"]`)?.checked ?? true;
+        const zonesOverlay = document.getElementById('saved-zone-overlay');
+        const anchorsOverlay = document.getElementById('saved-anchor-overlay');
+        const assetsOverlay = document.getElementById('saved-asset-overlay');
+        if (zonesOverlay) zonesOverlay.hidden = !visible('zones');
+        if (anchorsOverlay) anchorsOverlay.hidden = !visible('beacons');
+        if (assetsOverlay) assetsOverlay.hidden = !visible('assets');
+    };
+    layerControls.forEach((control) => control.addEventListener('change', applyLayers));
+    applyLayers();
     image.addEventListener('load', redraw);
     if ('ResizeObserver' in window) new ResizeObserver(redraw).observe(image); else window.addEventListener('resize', redraw);
     if (image.complete) redraw();
