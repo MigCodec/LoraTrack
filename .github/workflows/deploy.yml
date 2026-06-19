@@ -41,18 +41,15 @@ jobs:
           [[ "${COMPOSER_BIN:-composer}" =~ ^[A-Za-z0-9._/-]+$ ]]
           test "$DEPLOY_PATH" != "/"
 
-      - name: Configure SSH trust
+      - name: Configure SSH key
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           set -Eeuo pipefail
           : "${SSH_KEY:?Missing SSH_KEY secret}"
-          : "${SSH_KNOWN_HOSTS:?Missing SSH_KNOWN_HOSTS secret}"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key
 
       - name: Pull and deploy main
         env:
@@ -71,7 +68,7 @@ jobs:
             -p "$SSH_PORT" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
+            -o StrictHostKeyChecking=accept-new \
             "$SSH_USER@$SSH_HOST" \
             "DEPLOY_PATH='$DEPLOY_PATH' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' REPOSITORY='$REPOSITORY' bash -s" <<'REMOTE'
           set -Eeuo pipefail

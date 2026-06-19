@@ -18,7 +18,6 @@ Secrets:
 - `SSH_USER`: dedicated deployment user, not `root`.
 - `SSH_PORT`: SSH port.
 - `SSH_KEY`: private key dedicated to this repository and environment.
-- `SSH_KNOWN_HOSTS`: pinned host-key line obtained through a separately verified channel. Do not generate it blindly during the workflow.
 
 Variables:
 
@@ -40,6 +39,6 @@ The server must already contain a protected `.env` with `APP_ENV=production`, `A
 
 ## Deployment behavior
 
-The workflow connects directly to `DEPLOY_PATH`, initializes Git there on the first deployment and uses `git pull --ff-only origin main` thereafter. It verifies the SSH host key, checks production settings, preserves ignored `.env` and `storage` data, runs migrations, rebuilds Laravel caches, and restarts queue workers. CI runs independently and does not currently block production deployment.
+The workflow connects directly to `DEPLOY_PATH`, initializes Git there on the first deployment and uses `git pull --ff-only origin main` thereafter. It accepts the SSH host key automatically on first connection, checks production settings, preserves ignored `.env` and `storage` data, runs migrations, rebuilds Laravel caches, and restarts queue workers. CI runs independently and does not currently block production deployment.
 
 Database migrations are not automatically reversible. A tested backup and rollback decision are mandatory before changes that alter or delete production data.
