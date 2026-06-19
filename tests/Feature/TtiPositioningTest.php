@@ -115,5 +115,25 @@ class TtiPositioningTest extends TestCase
             ]]])
             ->assertJsonCount(3, 'anchors')
             ->assertJsonPath('positions.0.asset_id', $asset->id);
+
+        $this->actingAs(User::factory()->create(['role' => UserRole::Operator]))
+            ->get(route('assets.index', ['mobility' => 'mobile']))
+            ->assertOk()
+            ->assertSee('X 5.00 m')
+            ->assertSee('Y 5.00 m')
+            ->assertSee('Ver en mapa');
+
+        $asset->deviceAssignments()->whereNull('ended_at')->update(['ended_at' => now()]);
+        PositionEstimate::query()->delete();
+        $lateAsset = Asset::query()->create(['asset_tag' => 'ASSET-LATE', 'name' => 'Asignado después del uplink', 'mobility' => 'mobile']);
+        $this->post(route('asset-assignments.store', $lateAsset), [
+            'device_id' => $tracker->id,
+            'tracking_strategy' => 'fixed_beacons_mobile_tracker',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('position_estimates', [
+            'asset_id' => $lateAsset->id,
+            'telemetry_event_id' => $event->id,
+            'floor_plan_id' => $plan->id,
+        ]);
     }
 }

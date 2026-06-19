@@ -49,6 +49,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
         Route::get('/assets/{asset}/edit', [AssetController::class, 'edit'])->name('assets.edit');
         Route::put('/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
+        Route::post('/assets/{asset}/refresh-position', [AssetController::class, 'refreshPosition'])->name('assets.position.refresh');
         Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('assets.destroy');
         Route::post('/assets/{asset}/assignments', [AssetDeviceAssignmentController::class, 'store'])->name('asset-assignments.store');
         Route::delete('/asset-assignments/{assignment}', [AssetDeviceAssignmentController::class, 'destroy'])->name('asset-assignments.destroy');

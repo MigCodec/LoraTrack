@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
+use App\Positioning\TelemetryPositioningService;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 class AssetDeviceAssignmentController extends Controller
 {
-    public function store(Request $request, Asset $asset): RedirectResponse
+    public function store(Request $request, Asset $asset, TelemetryPositioningService $positioning): RedirectResponse
     {
         $validated = $request->validate([
             'device_id' => ['nullable', 'required_without:device_identifier', TenantRule::exists('devices')],
@@ -60,6 +61,8 @@ class AssetDeviceAssignmentController extends Controller
                 'started_at' => now(),
             ]);
         });
+
+        $positioning->repositionLatestForAsset($asset->fresh());
 
         return back()->with('status', 'Dispositivo asignado.');
     }

@@ -32,6 +32,35 @@ class TelemetryPositioningService
         $this->positionMobileBeacons($event);
     }
 
+    public function repositionLatestForAsset(Asset $asset): bool
+    {
+        $assignment = AssetDeviceAssignment::query()
+            ->where('asset_id', $asset->id)
+            ->where('tracking_strategy', 'fixed_beacons_mobile_tracker')
+            ->whereNull('ended_at')
+            ->first();
+        if (! $assignment) {
+            return false;
+        }
+
+        $event = TelemetryEvent::query()
+            ->where('device_id', $assignment->device_id)
+            ->whereHas('signalObservations')
+            ->latest('observed_at')
+            ->latest('received_at')
+            ->first();
+        if (! $event) {
+            return false;
+        }
+
+        $this->positionEvent($event);
+
+        return PositionEstimate::query()
+            ->where('asset_id', $asset->id)
+            ->where('telemetry_event_id', $event->id)
+            ->exists();
+    }
+
     private function positionMobileTracker(TelemetryEvent $event): void
     {
         $assignment = AssetDeviceAssignment::query()

@@ -9,6 +9,7 @@ use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
 use App\Models\Location;
 use App\Models\Sku;
+use App\Positioning\TelemetryPositioningService;
 use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,7 @@ class AssetController extends Controller
 
         return view('assets.index', [
             'assets' => Asset::query()
-                ->with(['sku.product', 'location', 'latestPosition.zone', 'deviceAssignments' => fn ($query) => $query->whereNull('ended_at')->with('device')])
+                ->with(['sku.product', 'location', 'latestPosition.zone', 'latestPosition.floorPlan', 'deviceAssignments' => fn ($query) => $query->whereNull('ended_at')->with('device')])
                 ->where('mobility', $mobility)
                 ->where('status', '!=', 'archived')
                 ->latest()
@@ -45,7 +46,7 @@ class AssetController extends Controller
         return $this->form($asset->load(['deviceAssignments' => fn ($q) => $q->whereNull('ended_at')->with('device')]));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, TelemetryPositioningService $positioning): RedirectResponse
     {
         $validated = $this->validated($request);
         $asset = DB::transaction(function () use ($request, $validated): Asset {
@@ -55,6 +56,7 @@ class AssetController extends Controller
 
             return $asset;
         });
+        $positioning->repositionLatestForAsset($asset->fresh());
 
         return redirect()->route('assets.edit', $asset)->with('status', 'Activo creado.');
     }
@@ -74,6 +76,15 @@ class AssetController extends Controller
         $asset->update(['status' => 'archived']);
 
         return redirect()->route('assets.index', ['mobility' => $asset->mobility])->with('status', 'Activo archivado.');
+    }
+
+    public function refreshPosition(Asset $asset, TelemetryPositioningService $positioning): RedirectResponse
+    {
+        if (! $positioning->repositionLatestForAsset($asset)) {
+            return back()->withErrors(['position' => 'No fue posible triangular: verifica el tracker, su último uplink BLE y al menos 3 anclas del mismo plano.']);
+        }
+
+        return back()->with('status', 'Ubicación recalculada con el último uplink BLE disponible.');
     }
 
     private function form(Asset $asset): View

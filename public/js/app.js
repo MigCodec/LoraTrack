@@ -177,6 +177,7 @@ const realtimeMap = document.querySelector('#realtime-map');
 if (realtimeMap) {
     const markers = document.querySelector('#map-markers');
     const updated = document.querySelector('#map-updated');
+    const positionStatus = document.querySelector('#map-position-status');
     const layerControls = [...document.querySelectorAll('[data-map-layer]')];
     const applyMapLayers = () => {
         const visible = (name) => document.querySelector(`[data-map-layer="${name}"]`)?.checked ?? true;
@@ -201,8 +202,11 @@ if (realtimeMap) {
                 const node=document.createElement('button'); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; const dot=document.createElement('span'); const label=document.createElement('small'); label.textContent=position.name; node.append(dot,label); markers.appendChild(node);
             });
             applyMapLayers();
+            if (positionStatus) positionStatus.textContent = data.positions.length
+                ? `${data.positions.length} activo(s) triangulado(s) en este plano.`
+                : 'Sin posiciones calculadas para este plano. Verifica tracker asignado, uplink BLE procesado y al menos 3 beacons instalados.';
             updated.textContent=`Actualizado ${new Date(data.generated_at).toLocaleTimeString()}`;
-        } catch { updated.textContent='No fue posible actualizar'; }
+        } catch { updated.textContent='No fue posible actualizar'; if (positionStatus) positionStatus.textContent='Falló la consulta de posiciones del mapa.'; }
     };
     refresh(); setInterval(refresh, 10000);
 }

@@ -35,6 +35,7 @@
                     @endforeach
                 </div>
             </div>
+            <p id="map-position-status" class="mt-3 text-xs text-slate-500">Consultando posiciones calculadas…</p>
         </div>
     @endif
 @endsection

@@ -38,6 +38,7 @@
                     <strong>{{ $current->device->name }}</strong><br>
                     <code class="text-xs">{{ $current->device->identifier }}</code><br>
                     {{ $current->tracking_strategy }}
+                    @if($asset->mobility === 'mobile' && $current->tracking_strategy === 'fixed_beacons_mobile_tracker')<form class="mt-3" method="POST" action="{{ route('assets.position.refresh', $asset) }}">@csrf<button class="btn-secondary" type="submit">Recalcular ubicación</button></form>@endif
                     <form class="mt-2" method="POST" action="{{ route('asset-assignments.destroy', $current) }}">@csrf @method('DELETE')<button class="text-red-600">Finalizar asignación</button></form>
                 </div>
             @endif
