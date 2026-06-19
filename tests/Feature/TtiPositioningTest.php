@@ -142,6 +142,12 @@ class TtiPositioningTest extends TestCase
                 'observed_at' => now()->addMinute(),
             ]);
         }
+        $historicalDevice = Device::query()->create([
+            'identifier' => 'HISTORICAL-TRACKER-ROW',
+            'name' => 'Registro histórico duplicado',
+            'type' => 'lorawan_tracker',
+        ]);
+        $event->update(['device_id' => $historicalDevice->id]);
         $lateAsset = Asset::query()->create(['asset_tag' => 'ASSET-LATE', 'name' => 'Asignado después del uplink', 'mobility' => 'mobile']);
         $this->post(route('asset-assignments.store', $lateAsset), [
             'device_id' => $tracker->id,

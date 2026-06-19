@@ -81,7 +81,7 @@ class AssetController extends Controller
     public function refreshPosition(Asset $asset, TelemetryPositioningService $positioning): RedirectResponse
     {
         if (! $positioning->repositionLatestForAsset($asset)) {
-            return back()->withErrors(['position' => 'No fue posible triangular: verifica el tracker, su último uplink BLE y al menos 3 anclas del mismo plano.']);
+            return back()->withErrors(['position' => 'No fue posible triangular. '.$positioning->repositionFailureReason()]);
         }
 
         return back()->with('status', 'Ubicación recalculada con el último uplink BLE disponible.');

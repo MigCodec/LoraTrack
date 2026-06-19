@@ -16,6 +16,12 @@ use InvalidArgumentException;
 
 class TelemetryPositioningService
 {
+    private int $repositionEventsChecked = 0;
+
+    private int $repositionBestAnchorCount = 0;
+
+    private ?string $repositionFailureOverride = null;
+
     public function __construct(
         private readonly RssiMultilateration $multilateration,
         private readonly ZoneClassifier $zones,
@@ -34,12 +40,17 @@ class TelemetryPositioningService
 
     public function repositionLatestForAsset(Asset $asset): bool
     {
+        $this->repositionEventsChecked = 0;
+        $this->repositionBestAnchorCount = 0;
+        $this->repositionFailureOverride = null;
         $assignment = AssetDeviceAssignment::query()
             ->where('asset_id', $asset->id)
             ->where('tracking_strategy', 'fixed_beacons_mobile_tracker')
             ->whereNull('ended_at')
             ->first();
         if (! $assignment) {
+            $this->repositionFailureOverride = 'El activo no tiene un tracker LoRaWAN activo asignado.';
+
             return false;
         }
 
@@ -49,7 +60,7 @@ class TelemetryPositioningService
             ->latest('received_at')
             ->lazy(100);
         foreach ($events as $event) {
-            if ($this->tryPositionEvent($asset, $event)) {
+            if ($this->tryPositionEvent($asset, $assignment, $event)) {
                 return true;
             }
         }
@@ -62,7 +73,7 @@ class TelemetryPositioningService
             ->latest('received_at')
             ->lazy(100);
         foreach ($fallbackEvents as $event) {
-            if ($this->eventMatchesDevice($event, $identifier) && $this->tryPositionEvent($asset, $event)) {
+            if ($this->eventMatchesDevice($event, $identifier) && $this->tryPositionEvent($asset, $assignment, $event)) {
                 return true;
             }
         }
@@ -70,9 +81,25 @@ class TelemetryPositioningService
         return false;
     }
 
-    private function tryPositionEvent(Asset $asset, TelemetryEvent $event): bool
+    public function repositionFailureReason(): string
     {
-        $this->positionEvent($event);
+        if ($this->repositionFailureOverride) {
+            return $this->repositionFailureOverride;
+        }
+        if ($this->repositionEventsChecked === 0) {
+            return 'No se encontraron uplinks históricos del tracker con al menos 3 observaciones BLE.';
+        }
+
+        return "Se revisaron {$this->repositionEventsChecked} uplinks; el máximo fue {$this->repositionBestAnchorCount} MAC coincidentes con beacons instalados en un mismo plano (se requieren 3).";
+    }
+
+    private function tryPositionEvent(Asset $asset, AssetDeviceAssignment $assignment, TelemetryEvent $event): bool
+    {
+        $this->repositionEventsChecked++;
+        $this->repositionBestAnchorCount = max(
+            $this->repositionBestAnchorCount,
+            $this->positionMobileTrackerForAssignment($event, $assignment),
+        );
 
         return PositionEstimate::query()
             ->where('asset_id', $asset->id)
@@ -114,16 +141,26 @@ class TelemetryPositioningService
             return;
         }
 
+        $this->positionMobileTrackerForAssignment($event, $assignment);
+    }
+
+    private function positionMobileTrackerForAssignment(TelemetryEvent $event, AssetDeviceAssignment $assignment): int
+    {
+        $event->loadMissing('signalObservations');
+
         $signals = $event->signalObservations->keyBy('transmitter_mac');
         $installations = $this->activeInstallations('beacon')->filter(
             fn (DeviceInstallation $installation): bool => $signals->has(
                 BleObservationExtractor::normalizeMac($installation->device->identifier),
             ),
         );
+        $bestAnchorCount = (int) ($installations->groupBy('floor_plan_id')->map->count()->max() ?? 0);
 
         $this->calculateAndPersist($assignment->asset, $event, $installations, function (DeviceInstallation $installation) use ($signals): int {
             return (int) $signals[BleObservationExtractor::normalizeMac($installation->device->identifier)]->rssi;
         });
+
+        return $bestAnchorCount;
     }
 
     private function positionMobileBeacons(TelemetryEvent $event): void
