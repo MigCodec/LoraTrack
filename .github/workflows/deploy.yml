@@ -52,17 +52,9 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-
-          eval "$(ssh-agent -s)"
-          printf '%s\n' '#!/bin/sh' 'printf "%s\\n" "$SSH_PASSPHRASE"' > "$RUNNER_TEMP/ssh-askpass"
-          chmod 700 "$RUNNER_TEMP/ssh-askpass"
-          export SSH_ASKPASS="$RUNNER_TEMP/ssh-askpass"
-          export SSH_ASKPASS_REQUIRE=force
-          export DISPLAY=:0
-          ssh-add ~/.ssh/deploy_key </dev/null
-
-          printf 'SSH_AUTH_SOCK=%s\n' "$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
-          printf 'SSH_AGENT_PID=%s\n' "$SSH_AGENT_PID" >> "$GITHUB_ENV"
+          ssh-keygen -p -P "$SSH_PASSPHRASE" -N '' -f ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null
+          unset SSH_PASSPHRASE
 
       - name: Pull and deploy main
         env:
@@ -130,5 +122,4 @@ jobs:
       - name: Remove ephemeral SSH material
         if: always()
         run: |
-          ssh-agent -k >/dev/null 2>&1 || true
-          rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts "$RUNNER_TEMP/ssh-askpass"
+          rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts
