@@ -125,6 +125,23 @@ class TtiPositioningTest extends TestCase
 
         $asset->deviceAssignments()->whereNull('ended_at')->update(['ended_at' => now()]);
         PositionEstimate::query()->delete();
+        $newerUnusableEvent = TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'device_id' => $tracker->id,
+            'external_event_id' => hash('sha256', 'newer-unusable-position-test'),
+            'observed_at' => now()->addMinute(),
+            'received_at' => now()->addMinute(),
+            'raw_payload' => ['end_device_ids' => ['dev_eui' => 'TRACKER01']],
+            'processing_status' => 'processed',
+        ]);
+        foreach (['FFFFFFFFFF01', 'FFFFFFFFFF02', 'FFFFFFFFFF03'] as $mac) {
+            $newerUnusableEvent->signalObservations()->create([
+                'transmitter_mac' => $mac,
+                'receiver_identifier' => 'TRACKER01',
+                'rssi' => -75,
+                'observed_at' => now()->addMinute(),
+            ]);
+        }
         $lateAsset = Asset::query()->create(['asset_tag' => 'ASSET-LATE', 'name' => 'Asignado después del uplink', 'mobility' => 'mobile']);
         $this->post(route('asset-assignments.store', $lateAsset), [
             'device_id' => $tracker->id,

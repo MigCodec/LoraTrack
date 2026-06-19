@@ -43,22 +43,64 @@ class TelemetryPositioningService
             return false;
         }
 
-        $event = TelemetryEvent::query()
+        $events = TelemetryEvent::query()
             ->where('device_id', $assignment->device_id)
-            ->whereHas('signalObservations')
-            ->latest('observed_at')
+            ->has('signalObservations', '>=', 3)
             ->latest('received_at')
-            ->first();
-        if (! $event) {
-            return false;
+            ->lazy(100);
+        foreach ($events as $event) {
+            if ($this->tryPositionEvent($asset, $event)) {
+                return true;
+            }
         }
 
+        $assignment->loadMissing('device');
+        $identifier = $assignment->device->identifier;
+        $fallbackEvents = TelemetryEvent::query()
+            ->where(fn ($query) => $query->whereNull('device_id')->orWhere('device_id', '!=', $assignment->device_id))
+            ->has('signalObservations', '>=', 3)
+            ->latest('received_at')
+            ->lazy(100);
+        foreach ($fallbackEvents as $event) {
+            if ($this->eventMatchesDevice($event, $identifier) && $this->tryPositionEvent($asset, $event)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function tryPositionEvent(Asset $asset, TelemetryEvent $event): bool
+    {
         $this->positionEvent($event);
 
         return PositionEstimate::query()
             ->where('asset_id', $asset->id)
             ->where('telemetry_event_id', $event->id)
             ->exists();
+    }
+
+    private function eventMatchesDevice(TelemetryEvent $event, string $identifier): bool
+    {
+        $candidates = array_filter([
+            $event->device?->identifier,
+            data_get($event->normalized_payload, 'device_identifier'),
+            data_get($event->raw_payload, 'end_device_ids.dev_eui'),
+            data_get($event->raw_payload, 'end_device_ids.device_id'),
+        ], 'is_string');
+        $plain = mb_strtoupper(trim($identifier));
+        $hex = BleObservationExtractor::normalizeMac($identifier);
+
+        foreach ($candidates as $candidate) {
+            if (mb_strtoupper(trim($candidate)) === $plain) {
+                return true;
+            }
+            if ($hex !== '' && BleObservationExtractor::normalizeMac($candidate) === $hex) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function positionMobileTracker(TelemetryEvent $event): void
