@@ -96,6 +96,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::get('/connectors', [ConnectorController::class, 'index'])->name('connectors.index');
         Route::get('/connectors/{connector}', [ConnectorController::class, 'show'])->name('connectors.show');
+        Route::get('/connectors/{connector}/events/{telemetryEvent}', [ConnectorController::class, 'showEvent'])->name('connectors.events.show');
         Route::get('/connectors/create/{provider}', [ConnectorController::class, 'create'])->name('connectors.create');
         Route::post('/connectors', [ConnectorController::class, 'store'])->name('connectors.store');
         Route::post('/connectors/{connector}/test', [ConnectorController::class, 'test'])->name('connectors.test');

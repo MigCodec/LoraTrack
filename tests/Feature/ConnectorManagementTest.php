@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\ConnectorProvider;
 use App\Enums\UserRole;
 use App\Models\Connector;
+use App\Models\TelemetryEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -76,5 +77,32 @@ class ConnectorManagementTest extends TestCase
         $this->actingAs($admin)->post(route('connectors.rotate-webhook-token', $connector))
             ->assertRedirect()->assertSessionHas('new_webhook_token');
         $this->assertNotSame(str_repeat('a', 32), $connector->fresh()->credentials['webhook_token']);
+    }
+
+    public function test_admin_can_open_the_raw_payload_of_a_connector_event(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $connector = Connector::query()->create([
+            'name' => 'TTI Bodega', 'provider' => 'tti_webhook', 'kind' => 'telemetry', 'status' => 'active',
+        ]);
+        $event = TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'external_event_id' => hash('sha256', 'payload-visible'),
+            'event_type' => 'uplink',
+            'received_at' => now(),
+            'raw_payload' => ['end_device_ids' => ['device_id' => 'tracker-visible'], 'uplink_message' => ['f_cnt' => 17]],
+            'normalized_payload' => ['device_identifier' => 'AABBCCDD'],
+            'processing_status' => 'processed',
+        ]);
+
+        $this->actingAs($admin)->get(route('connectors.show', $connector))
+            ->assertOk()->assertSee(route('connectors.events.show', [$connector, $event]));
+        $this->actingAs($admin)->get(route('connectors.events.show', [$connector, $event]))
+            ->assertOk()->assertSee('JSON original')->assertSee('tracker-visible')->assertSee('AABBCCDD');
+
+        $otherConnector = Connector::query()->create([
+            'name' => 'Otro', 'provider' => 'tti_webhook', 'kind' => 'telemetry', 'status' => 'active',
+        ]);
+        $this->actingAs($admin)->get(route('connectors.events.show', [$otherConnector, $event]))->assertNotFound();
     }
 }

@@ -12,6 +12,7 @@ use App\Enums\ConnectorStatus;
 use App\Http\Requests\StoreConnectorRequest;
 use App\Jobs\SyncCatalogConnector;
 use App\Models\Connector;
+use App\Models\TelemetryEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -46,6 +47,16 @@ class ConnectorController extends Controller
             'definition' => $registry->get($connector->provider),
             'events' => $connector->telemetryEvents()->with('device')->latest('received_at')->limit(100)->get(),
             'logs' => $connector->activityLogs()->latest()->limit(100)->get(),
+        ]);
+    }
+
+    public function showEvent(Connector $connector, TelemetryEvent $telemetryEvent): View
+    {
+        abort_unless($telemetryEvent->connector_id === $connector->id, 404);
+
+        return view('connectors.event', [
+            'connector' => $connector,
+            'event' => $telemetryEvent->load(['device', 'signalObservations']),
         ]);
     }
 
