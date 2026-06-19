@@ -79,9 +79,16 @@ jobs:
           set -Eeuo pipefail
           umask 027
 
-          command -v git >/dev/null
-          command -v "$PHP_BIN" >/dev/null
-          command -v "$COMPOSER_BIN" >/dev/null
+          command -v git >/dev/null || { echo 'Git executable not found.' >&2; exit 1; }
+          command -v "$PHP_BIN" >/dev/null || { echo "PHP executable not found: $PHP_BIN" >&2; exit 1; }
+
+          if [[ "$COMPOSER_BIN" == *.phar ]]; then
+            test -f "$COMPOSER_BIN" || { echo "Composer PHAR not found: $COMPOSER_BIN" >&2; exit 1; }
+            composer() { "$PHP_BIN" "$COMPOSER_BIN" "$@"; }
+          else
+            command -v "$COMPOSER_BIN" >/dev/null || { echo "Composer executable not found: $COMPOSER_BIN" >&2; exit 1; }
+            composer() { "$COMPOSER_BIN" "$@"; }
+          fi
 
           install -d -m 750 "$DEPLOY_PATH"
           cd "$DEPLOY_PATH"
@@ -108,7 +115,7 @@ jobs:
           grep -Eq '^APP_KEY=base64:.+' .env || { echo 'A persistent APP_KEY is required.' >&2; exit 1; }
 
           install -d -m 770 storage/framework/{cache,sessions,views} storage/logs bootstrap/cache
-          "$COMPOSER_BIN" install --no-dev --no-interaction --prefer-dist --no-progress --classmap-authoritative
+          composer install --no-dev --no-interaction --prefer-dist --no-progress --classmap-authoritative
           "$PHP_BIN" artisan migrate --force
           "$PHP_BIN" artisan optimize:clear
           "$PHP_BIN" artisan config:cache

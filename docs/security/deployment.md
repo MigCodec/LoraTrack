@@ -24,7 +24,7 @@ Variables:
 
 - `DEPLOY_PATH`: Laravel application directory; its `public/` subdirectory must be the web document root.
 - `PHP_BIN`: optional absolute cPanel PHP 8.2 binary, for example `/opt/cpanel/ea-php82/root/usr/bin/php`.
-- `COMPOSER_BIN`: optional absolute, preinstalled Composer 2 binary.
+- `COMPOSER_BIN`: optional absolute path to a preinstalled Composer 2 executable or `composer.phar`. PHAR files are run with `PHP_BIN`.
 
 The server must already contain a protected `.env` with `APP_ENV=production`, `APP_DEBUG=false`, a persistent `APP_KEY`, database credentials, mail configuration, and Microsoft credentials where applicable. The workflow refuses to create or replace `.env` and refuses to download executable tooling at deployment time.
 
