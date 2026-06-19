@@ -34,7 +34,7 @@ class CalibrationController extends Controller
             'anchor_type' => ['required', 'in:beacon,scanner'],
             'expected_x' => ['required', 'numeric', 'between:0,'.$floorPlan->width_meters],
             'expected_y' => ['required', 'numeric', 'between:0,'.$floorPlan->height_meters],
-            'anchors' => ['required', 'array', 'min:4'],
+            'anchors' => ['required', 'array', 'min:3'],
             'anchors.*.rssi' => ['required', 'integer', 'between:-127,-1'],
             'anchors.*.reference_rssi' => ['required', 'integer', 'between:-127,-1'],
             'anchors.*.path_loss_exponent' => ['required', 'numeric', 'between:0.5,8'],
@@ -43,8 +43,8 @@ class CalibrationController extends Controller
         $installations = $this->installations($floorPlan)
             ->filter(fn (DeviceInstallation $installation): bool => $installation->device->type === $validated['anchor_type'])
             ->whereIn('id', array_keys($validated['anchors']));
-        if ($installations->count() < 4) {
-            throw ValidationException::withMessages(['anchors' => 'Selecciona al menos cuatro anclas activas de este plano.']);
+        if ($installations->count() < 3) {
+            throw ValidationException::withMessages(['anchors' => 'Selecciona al menos tres anclas activas de este plano.']);
         }
 
         $measurements = [];

@@ -27,8 +27,10 @@ class MapController extends Controller
         return response()->json(['generated_at' => now()->toIso8601String(), 'positions' => $positions->map(function ($p) use ($floorPlan): array {
             $x = (float) $p->x / (float) $floorPlan->width_meters;
             $y = (float) $p->y / (float) $floorPlan->height_meters;
+            $accuracyMeters = max(0, (float) $p->accuracy_meters);
+            $planDiagonal = hypot((float) $floorPlan->width_meters, (float) $floorPlan->height_meters);
 
-            return ['asset_id' => $p->asset_id, 'name' => $p->asset->name, 'sku' => $p->asset->sku?->code, 'product' => $p->asset->sku?->product?->name, 'zone' => $p->zone?->name, 'x' => min(1, max(0, $x)), 'y' => min(1, max(0, $y)), 'out_of_bounds' => $x < 0 || $x > 1 || $y < 0 || $y > 1, 'confidence' => (float) $p->confidence, 'calculated_at' => $p->calculated_at->toIso8601String(), 'stale' => $p->calculated_at->lt(now()->subMinutes(10))];
+            return ['asset_id' => $p->asset_id, 'name' => $p->asset->name, 'sku' => $p->asset->sku?->code, 'product' => $p->asset->sku?->product?->name, 'zone' => $p->zone?->name, 'x' => min(1, max(0, $x)), 'y' => min(1, max(0, $y)), 'out_of_bounds' => $x < 0 || $x > 1 || $y < 0 || $y > 1, 'confidence' => (float) $p->confidence, 'accuracy_meters' => round($accuracyMeters, 3), 'relative_error' => $planDiagonal > 0 ? round($accuracyMeters / $planDiagonal, 6) : 0, 'error_radius_x' => $accuracyMeters / (float) $floorPlan->width_meters, 'error_radius_y' => $accuracyMeters / (float) $floorPlan->height_meters, 'calculated_at' => $p->calculated_at->toIso8601String(), 'stale' => $p->calculated_at->lt(now()->subMinutes(10))];
         })->values()]);
     }
 }

@@ -89,7 +89,7 @@ jobs:
             composer() { "$COMPOSER_BIN" "$@"; }
           fi
 
-          install -d -m 750 "$DEPLOY_PATH"
+          mkdir -p "$DEPLOY_PATH"
           cd "$DEPLOY_PATH"
 
           if [ -f artisan ]; then

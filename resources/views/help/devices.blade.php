@@ -14,7 +14,7 @@
             <section class="panel p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-accent">Modo 1</p>
                 <h2 class="mt-2 text-lg font-semibold text-slate-950">Activo móvil con tracker LoRaWAN</h2>
-                <p class="mt-3 text-sm leading-6 text-slate-600">El tracker B1000 viaja con el activo. Cuatro o más beacons BLE quedan instalados en coordenadas conocidas del plano.</p>
+                <p class="mt-3 text-sm leading-6 text-slate-600">El tracker viaja con el activo. Tres o más beacons BLE quedan instalados en coordenadas conocidas del plano.</p>
                 <ol class="mt-4 list-inside list-decimal space-y-2 text-sm text-slate-600">
                     <li>Registrar los beacons BLE y colocarlos como anclas en Planos y zonas.</li>
                     <li>Registrar el tracker como <strong>Tracker LoRaWAN</strong>.</li>
@@ -26,7 +26,7 @@
             <section class="panel p-6">
                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-accent">Modo 2</p>
                 <h2 class="mt-2 text-lg font-semibold text-slate-950">Activo con beacon BLE</h2>
-                <p class="mt-3 text-sm leading-6 text-slate-600">El beacon se une al activo. Cuatro o más scanners BLE quedan instalados en coordenadas conocidas y reportan por la infraestructura LoRaWAN/HTTP/MQTT.</p>
+                <p class="mt-3 text-sm leading-6 text-slate-600">El beacon se une al activo. Tres o más scanners BLE quedan instalados en coordenadas conocidas y reportan por la infraestructura LoRaWAN/HTTP/MQTT.</p>
                 <ol class="mt-4 list-inside list-decimal space-y-2 text-sm text-slate-600">
                     <li>Registrar y colocar los scanners como anclas fijas del plano.</li>
                     <li>Registrar el beacon con su MAC estable.</li>
@@ -62,7 +62,7 @@
   ],
   "receiver_identifier": "B1000-001"
 }</code></pre>
-            <p class="mt-4 text-sm text-slate-600">LoraTrack exige al menos cuatro anclas no colineales en el mismo plano. La calibración utiliza RSSI a 1 metro y el factor de pérdida ambiental.</p>
+            <p class="mt-4 text-sm text-slate-600">LoraTrack exige al menos tres anclas no colineales en el mismo plano. La calibración utiliza RSSI a 1 metro y el factor de pérdida ambiental; el mapa representa el error estimado mediante un círculo de incertidumbre.</p>
         </section>
     </div>
 @endsection

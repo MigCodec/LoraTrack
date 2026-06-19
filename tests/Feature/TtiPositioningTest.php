@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\ConnectorKind;
 use App\Enums\ConnectorProvider;
+use App\Enums\UserRole;
 use App\Jobs\ProcessTtiUplink;
 use App\Models\Asset;
 use App\Models\AssetDeviceAssignment;
@@ -14,6 +15,7 @@ use App\Models\FloorPlan;
 use App\Models\Location;
 use App\Models\PositionEstimate;
 use App\Models\TelemetryEvent;
+use App\Models\User;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\PayloadProfileDecoder;
 use App\Positioning\TelemetryPositioningService;
@@ -49,7 +51,6 @@ class TtiPositioningTest extends TestCase
             ['AABBCCDDEE01', 0, 0],
             ['AABBCCDDEE02', 10, 0],
             ['AABBCCDDEE03', 0, 10],
-            ['AABBCCDDEE04', 10, 10],
         ] as [$identifier, $x, $y]) {
             $anchor = Device::query()->create(['identifier' => $identifier, 'name' => $identifier, 'type' => 'beacon']);
             DeviceInstallation::query()->create([
@@ -87,7 +88,6 @@ class TtiPositioningTest extends TestCase
                     ['mac' => 'AA:BB:CC:DD:EE:01', 'rssi' => -76],
                     ['mac' => 'AA:BB:CC:DD:EE:02', 'rssi' => -76],
                     ['mac' => 'AA:BB:CC:DD:EE:03', 'rssi' => -76],
-                    ['mac' => 'AA:BB:CC:DD:EE:04', 'rssi' => -76],
                 ]]],
             ],
         ]);
@@ -101,6 +101,15 @@ class TtiPositioningTest extends TestCase
         $position = PositionEstimate::query()->firstOrFail();
         $this->assertSame($zone->id, $position->zone_id);
         $this->assertEqualsWithDelta(5.0, (float) $position->x, 0.01);
+        $this->assertCount(3, $position->evidence);
         $this->assertSame($location->id, $asset->fresh()->location_id);
+
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))
+            ->getJson(route('map.data', $plan))
+            ->assertOk()
+            ->assertJsonStructure(['positions' => [[
+                'accuracy_meters', 'relative_error', 'error_radius_x', 'error_radius_y',
+            ]]])
+            ->assertJsonPath('positions.0.asset_id', $asset->id);
     }
 }

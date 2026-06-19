@@ -112,7 +112,7 @@ class TelemetryPositioningService
             ->groupBy('location_id')
             ->sortByDesc(fn (Collection $group): int => $group->count())
             ->first();
-        if (! $locationGroup instanceof Collection || $locationGroup->count() < 4) {
+        if (! $locationGroup instanceof Collection || $locationGroup->count() < 3) {
             return;
         }
 

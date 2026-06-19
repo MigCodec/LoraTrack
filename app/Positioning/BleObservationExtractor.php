@@ -14,15 +14,8 @@ class BleObservationExtractor
         }
 
         $candidates = [];
-        foreach (['observations', 'beacons', 'ble', 'scan', 'devices'] as $key) {
-            if (isset($decodedPayload[$key]) && is_array($decodedPayload[$key])) {
-                $candidates = array_merge($candidates, $decodedPayload[$key]);
-            }
-        }
-
-        if ($this->looksLikeObservation($decodedPayload)) {
-            $candidates[] = $decodedPayload;
-        }
+        $visited = 0;
+        $this->collectCandidates($decodedPayload, $candidates, $visited);
 
         $observations = [];
         foreach ($candidates as $candidate) {
@@ -52,6 +45,26 @@ class BleObservationExtractor
         return array_values($observations);
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $candidates
+     */
+    private function collectCandidates(mixed $value, array &$candidates, int &$visited, int $depth = 0): void
+    {
+        if (! is_array($value) || $depth > 16 || $visited >= 5000) {
+            return;
+        }
+        $visited++;
+
+        if ($this->looksLikeObservation($value)) {
+            $candidates[] = $value;
+        }
+        foreach ($value as $nested) {
+            if (is_array($nested)) {
+                $this->collectCandidates($nested, $candidates, $visited, $depth + 1);
+            }
+        }
+    }
+
     public static function normalizeMac(string $mac): string
     {
         return mb_strtoupper((string) preg_replace('/[^A-Fa-f0-9]/', '', $mac));
@@ -60,7 +73,7 @@ class BleObservationExtractor
     /** @param array<string, mixed> $payload */
     private function looksLikeObservation(array $payload): bool
     {
-        return isset($payload['rssi'])
-            && (isset($payload['mac']) || isset($payload['mac_address']) || isset($payload['address']));
+        return (isset($payload['rssi']) || isset($payload['signal']) || isset($payload['signal_strength']))
+            && (isset($payload['mac']) || isset($payload['mac_address']) || isset($payload['address']) || isset($payload['beacon_mac']));
     }
 }

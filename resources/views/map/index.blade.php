@@ -16,7 +16,7 @@
         <div class="panel empty-state">El plano necesita una vista previa raster.</div>
     @else
         <div class="panel p-4">
-            <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Actualización cada 10 segundos · {{ $plan->zones->count() }} áreas definidas</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
+            <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Actualización cada 10 segundos · {{ $plan->zones->count() }} áreas definidas · el círculo representa el error estimado</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
             <div id="realtime-map" class="relative inline-block max-w-full overflow-hidden rounded-xl border" data-endpoint="{{ route('map.data', $plan) }}">
                 <img class="block max-h-[75vh] max-w-full" src="{{ route('floor-plans.file', $plan) }}" alt="{{ $plan->name }}">
                 <div id="map-markers" class="absolute inset-0">

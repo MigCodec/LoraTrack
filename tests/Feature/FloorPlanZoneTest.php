@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Connector;
 use App\Models\Device;
 use App\Models\FloorPlan;
 use App\Models\Location;
+use App\Models\TelemetryEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -87,5 +89,59 @@ class FloorPlanZoneTest extends TestCase
             'x' => 30,
             'y' => 10,
         ]);
+    }
+
+    public function test_reported_sensecap_macs_can_be_selected_or_entered_when_placing_beacon(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $location = Location::query()->create(['name' => 'Piso BLE', 'type' => 'floor']);
+        $plan = FloorPlan::query()->create([
+            'location_id' => $location->id,
+            'name' => 'Plano BLE',
+            'file_path' => 'floor-plans/ble.png',
+            'original_name' => 'ble.png',
+            'mime_type' => 'image/png',
+            'width_meters' => 20,
+            'height_meters' => 10,
+        ]);
+        $tracker = Device::query()->create([
+            'identifier' => '2CF7F1C073100560', 'name' => 'sensecap-001', 'type' => 'lorawan_tracker', 'last_seen_at' => now(),
+        ]);
+        $connector = Connector::query()->create([
+            'name' => 'TTI Bodega', 'kind' => 'telemetry', 'provider' => 'tti_webhook', 'status' => 'active',
+        ]);
+        TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'device_id' => $tracker->id,
+            'external_event_id' => hash('sha256', 'sensecap-floor-plan'),
+            'event_type' => 'uplink',
+            'received_at' => now(),
+            'processing_status' => 'processed',
+            'normalized_payload' => ['decoded' => ['messages' => [[
+                ['measurementId' => '5002', 'measurementValue' => [
+                    ['mac' => '58:BE:6F:65:9D:9D', 'rssi' => '-90'],
+                ], 'type' => 'BLE Scan'],
+            ]]]],
+            'raw_payload' => ['end_device_ids' => ['device_id' => 'sensecap-001']],
+        ]);
+
+        $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('58:BE:6F:65:9D:9D')
+            ->assertSee('sensecap-001')
+            ->assertSee('TTI Bodega');
+
+        $this->actingAs($admin)->post(route('installations.store', $plan), [
+            'device_identifier' => '58:BE:6F:65:9D:9D',
+            'device_name' => 'Beacon acceso norte',
+            'x_normalized' => 0.25,
+            'y_normalized' => 0.5,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+        ])->assertRedirect();
+
+        $beacon = Device::query()->where('identifier', '58BE6F659D9D')->firstOrFail();
+        $this->assertSame('Beacon acceso norte', $beacon->name);
+        $this->assertDatabaseHas('device_installations', ['device_id' => $beacon->id, 'location_id' => $location->id, 'x' => 5, 'y' => 5]);
     }
 }

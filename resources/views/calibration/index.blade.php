@@ -15,8 +15,8 @@
         <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Coloca físicamente el tracker o beacon en una coordenada conocida, toma varias lecturas y utiliza el RSSI mediano de cada ancla. Modifica los parámetros y repite hasta reducir el error. No calibres usando una sola posición: prueba centro, bordes y esquinas.</p>
         <div class="mt-4 rounded-xl bg-slate-50 p-4 font-mono text-sm text-slate-700">distancia (m) = 10<sup>((RSSI a 1 m − RSSI medido) / (10 × n))</sup></div>
 
-        @if($installations->count() < 4)
-            <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Hay {{ $installations->count() }} anclas activas. Instala al menos cuatro beacons o cuatro scanners antes de calibrar.</div>
+        @if($installations->count() < 3)
+            <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Hay {{ $installations->count() }} anclas activas. Instala al menos tres beacons o tres scanners antes de calibrar.</div>
         @else
             <form id="calibration-form" method="POST" action="{{ route('calibration.preview', $plan) }}" class="mt-6">@csrf
                 <div class="grid gap-4 md:grid-cols-4">

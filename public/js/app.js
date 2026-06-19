@@ -170,8 +170,11 @@ if (realtimeMap) {
     const refresh = async () => {
         try {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
-            markers.querySelectorAll('.asset-marker').forEach((node) => node.remove());
-            data.positions.forEach((position) => { const node=document.createElement('button'); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · ${Math.round(position.confidence*100)}%${position.out_of_bounds?' · fuera del plano':''}`; const dot=document.createElement('span'); const label=document.createElement('small'); label.textContent=position.name; node.append(dot,label); markers.appendChild(node); });
+            markers.querySelectorAll('.asset-marker,.asset-uncertainty').forEach((node) => node.remove());
+            data.positions.forEach((position) => {
+                const uncertainty=document.createElement('div'); uncertainty.className=`asset-uncertainty${position.stale?' stale':''}`; uncertainty.style.left=`${position.x*100}%`; uncertainty.style.top=`${position.y*100}%`; uncertainty.style.width=`${Math.max(1.5,Math.min(200,position.error_radius_x*200))}%`; uncertainty.style.height=`${Math.max(1.5,Math.min(200,position.error_radius_y*200))}%`; uncertainty.title=`Error estimado: ${position.accuracy_meters.toFixed(2)} m · relativo ${(position.relative_error*100).toFixed(2)}%`; markers.appendChild(uncertainty);
+                const node=document.createElement('button'); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; const dot=document.createElement('span'); const label=document.createElement('small'); label.textContent=position.name; node.append(dot,label); markers.appendChild(node);
+            });
             updated.textContent=`Actualizado ${new Date(data.generated_at).toLocaleTimeString()}`;
         } catch { updated.textContent='No fue posible actualizar'; }
     };
@@ -192,8 +195,8 @@ if (calibrationForm) {
             row.querySelectorAll('input').forEach((input) => { input.disabled = !active; });
             if (active) visible += 1;
         });
-        submit.disabled = visible < 4;
-        count.textContent = visible >= 4 ? `${visible} anclas incluidas en esta prueba.` : `Solo hay ${visible}; se requieren al menos 4 anclas del mismo tipo.`;
+        submit.disabled = visible < 3;
+        count.textContent = visible >= 3 ? `${visible} anclas incluidas en esta prueba.` : `Solo hay ${visible}; se requieren al menos 3 anclas del mismo tipo.`;
     };
     type.addEventListener('change', refreshAnchors);
     refreshAnchors();

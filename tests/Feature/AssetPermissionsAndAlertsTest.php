@@ -33,6 +33,61 @@ class AssetPermissionsAndAlertsTest extends TestCase
         $this->assertDatabaseHas('asset_device_assignments', ['asset_id' => $asset->id, 'device_id' => $tracker->id, 'ended_at' => null]);
     }
 
+    public function test_mobile_asset_offers_reported_trackers_by_readable_name_and_identifier(): void
+    {
+        $operator = User::factory()->create(['role' => UserRole::Operator]);
+        $tracker = Device::query()->create([
+            'identifier' => '2CF7F1C073100560',
+            'name' => 'sensecap-001',
+            'type' => 'lorawan_tracker',
+            'status' => 'active',
+            'last_seen_at' => now(),
+        ]);
+        $asset = Asset::query()->create([
+            'asset_tag' => 'MOV-SENSECAP', 'name' => 'Activo SenseCAP', 'mobility' => 'mobile', 'status' => 'active',
+        ]);
+
+        $this->actingAs($operator)->get(route('assets.edit', $asset))
+            ->assertOk()
+            ->assertSee('Tracker SenseCAP reportado')
+            ->assertSee($tracker->name)
+            ->assertSee($tracker->identifier);
+
+        $this->actingAs($operator)->post(route('asset-assignments.store', $asset), [
+            'device_identifier' => strtolower($tracker->identifier),
+            'tracking_strategy' => 'fixed_beacons_mobile_tracker',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('asset_device_assignments', [
+            'asset_id' => $asset->id, 'device_id' => $tracker->id, 'tracking_strategy' => 'fixed_beacons_mobile_tracker', 'ended_at' => null,
+        ]);
+    }
+
+    public function test_manual_sensecap_identifier_is_created_only_for_mobile_assets(): void
+    {
+        $operator = User::factory()->create(['role' => UserRole::Operator]);
+        $mobile = Asset::query()->create([
+            'asset_tag' => 'MOV-MANUAL', 'name' => 'Móvil manual', 'mobility' => 'mobile', 'status' => 'active',
+        ]);
+        $static = Asset::query()->create([
+            'asset_tag' => 'STA-MANUAL', 'name' => 'Estático manual', 'mobility' => 'static', 'status' => 'active',
+        ]);
+
+        $this->actingAs($operator)->post(route('asset-assignments.store', $mobile), [
+            'device_identifier' => '2cf7f1c073100561',
+            'tracking_strategy' => 'fixed_beacons_mobile_tracker',
+        ])->assertRedirect();
+        $tracker = Device::query()->where('identifier', '2CF7F1C073100561')->firstOrFail();
+        $this->assertSame('lorawan_tracker', $tracker->type);
+        $this->assertSame('SenseCAP T1000-B', $tracker->model);
+
+        $this->actingAs($operator)->from(route('assets.edit', $static))->post(route('asset-assignments.store', $static), [
+            'device_identifier' => '2CF7F1C073100562',
+            'tracking_strategy' => 'fixed_beacons_mobile_tracker',
+        ])->assertRedirect(route('assets.edit', $static))->assertSessionHasErrors('device_identifier');
+        $this->assertDatabaseMissing('devices', ['identifier' => '2CF7F1C073100562']);
+    }
+
     public function test_viewer_cannot_mutate_assets(): void
     {
         $viewer = User::factory()->create(['role' => UserRole::Viewer]);

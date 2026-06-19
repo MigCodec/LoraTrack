@@ -45,4 +45,21 @@ class RssiMultilaterationTest extends TestCase
         $this->assertSame('AABBCCDDEEFF', $observations[0]['mac']);
         $this->assertSame(-82, $observations[1]['rssi']);
     }
+
+    public function test_it_extracts_sensecap_ble_scans_from_nested_messages(): void
+    {
+        $observations = (new BleObservationExtractor)->extract([
+            'messages' => [[
+                ['measurementId' => '4200', 'measurementValue' => [], 'type' => 'Event Status'],
+                ['measurementId' => '5002', 'measurementValue' => [
+                    ['mac' => '58:BE:6F:65:9D:9D', 'rssi' => '-90'],
+                    ['mac' => 'C5:D9:D3:37:0F:C7', 'rssi' => '-91'],
+                ], 'type' => 'BLE Scan'],
+            ]],
+        ]);
+
+        $this->assertCount(2, $observations);
+        $this->assertSame('58BE6F659D9D', $observations[0]['mac']);
+        $this->assertSame(-90, $observations[0]['rssi']);
+    }
 }

@@ -64,7 +64,18 @@ class AssetController extends Controller
 
     private function form(Asset $asset): View
     {
-        return view('assets.form', ['asset' => $asset, 'skus' => Sku::query()->with('product')->orderBy('code')->get(), 'locations' => Location::query()->orderBy('name')->get(), 'devices' => Device::query()->where('status', 'active')->orderBy('name')->get()]);
+        return view('assets.form', [
+            'asset' => $asset,
+            'skus' => Sku::query()->with('product')->orderBy('code')->get(),
+            'locations' => Location::query()->orderBy('name')->get(),
+            'devices' => Device::query()->where('status', 'active')->orderBy('name')->get(),
+            'reportedTrackers' => Device::query()
+                ->where('status', 'active')
+                ->where('type', 'lorawan_tracker')
+                ->whereNotNull('last_seen_at')
+                ->orderBy('name')
+                ->get(),
+        ]);
     }
 
     /** @return array<string,mixed> */

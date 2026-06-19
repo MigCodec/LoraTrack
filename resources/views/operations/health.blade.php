@@ -16,9 +16,9 @@
 
     <div class="mt-6 grid gap-6 xl:grid-cols-2">
         <section class="panel">
-            <div class="panel-header"><div><h2 class="panel-title">Planos y redundancia</h2><p class="panel-subtitle">Cuatro anclas por estrategia para operar</p></div></div>
+            <div class="panel-header"><div><h2 class="panel-title">Planos y redundancia</h2><p class="panel-subtitle">Tres anclas no colineales por estrategia para operar</p></div></div>
             <div class="table-wrap"><table class="data-table"><thead><tr><th>Plano</th><th>Beacons</th><th>Scanners</th><th>Archivo</th></tr></thead><tbody>
-                @forelse($plans as $item)<tr><td><strong>{{ $item['plan']->name }}</strong><br><span class="text-xs text-slate-400">{{ $item['plan']->location->name }}</span></td><td><span class="status-badge status-{{ $item['beacons'] >= 4 ? 'active' : 'disabled' }}">{{ $item['beacons'] }}</span></td><td><span class="status-badge status-{{ $item['scanners'] >= 4 ? 'active' : 'disabled' }}">{{ $item['scanners'] }}</span></td><td><span class="status-badge status-{{ $item['file_ok'] ? 'active' : 'error' }}">{{ $item['file_ok'] ? 'Privado OK' : 'Faltante' }}</span></td></tr>@empty<tr><td colspan="4">No hay planos activos.</td></tr>@endforelse
+                @forelse($plans as $item)<tr><td><strong>{{ $item['plan']->name }}</strong><br><span class="text-xs text-slate-400">{{ $item['plan']->location->name }}</span></td><td><span class="status-badge status-{{ $item['beacons'] >= 3 ? 'active' : 'disabled' }}">{{ $item['beacons'] }}</span></td><td><span class="status-badge status-{{ $item['scanners'] >= 3 ? 'active' : 'disabled' }}">{{ $item['scanners'] }}</span></td><td><span class="status-badge status-{{ $item['file_ok'] ? 'active' : 'error' }}">{{ $item['file_ok'] ? 'Privado OK' : 'Faltante' }}</span></td></tr>@empty<tr><td colspan="4">No hay planos activos.</td></tr>@endforelse
             </tbody></table></div>
         </section>
 

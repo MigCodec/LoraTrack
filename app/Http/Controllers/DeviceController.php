@@ -7,12 +7,14 @@ namespace App\Http\Controllers;
 use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
+use App\Positioning\BleObservationExtractor;
 use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DeviceController extends Controller
 {
@@ -32,7 +34,7 @@ class DeviceController extends Controller
     public function install(Request $request, FloorPlan $floorPlan): RedirectResponse
     {
         $validated = $request->validate([
-            'device_id' => ['required', Rule::exists('devices', 'id')->where(function ($query): void {
+            'device_id' => ['nullable', 'required_without:device_identifier', Rule::exists('devices', 'id')->where(function ($query): void {
                 $query->where(function ($tenantQuery): void {
                     $tenantQuery->where('organization_id', app(OrganizationContext::class)->id());
                     if (app()->environment('testing')) {
@@ -40,6 +42,8 @@ class DeviceController extends Controller
                     }
                 });
             })->whereIn('type', ['beacon', 'scanner'])->where('status', 'active')],
+            'device_identifier' => ['nullable', 'required_without:device_id', 'string', 'max:255'],
+            'device_name' => ['nullable', 'string', 'max:255'],
             'x_normalized' => ['required', 'numeric', 'between:0,1'],
             'y_normalized' => ['required', 'numeric', 'between:0,1'],
             'reference_rssi' => ['required', 'integer', 'between:-127,-1'],
@@ -47,14 +51,30 @@ class DeviceController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $floorPlan): void {
-            Device::query()->whereKey($validated['device_id'])->lockForUpdate()->firstOrFail();
+            if (! empty($validated['device_identifier'])) {
+                $identifier = BleObservationExtractor::normalizeMac($validated['device_identifier']);
+                if (strlen($identifier) !== 12) {
+                    throw ValidationException::withMessages(['device_identifier' => 'La MAC del beacon debe contener exactamente 12 dígitos hexadecimales.']);
+                }
+                $device = Device::query()->where('type', 'beacon')->get()->first(
+                    fn (Device $candidate): bool => BleObservationExtractor::normalizeMac($candidate->identifier) === $identifier,
+                );
+                $device ??= Device::query()->create([
+                    'identifier' => $identifier,
+                    'name' => ($validated['device_name'] ?? null) ?: 'Beacon '.implode(':', str_split($identifier, 2)),
+                    'type' => 'beacon',
+                    'status' => 'active',
+                ]);
+            } else {
+                $device = Device::query()->whereKey($validated['device_id'])->lockForUpdate()->firstOrFail();
+            }
             DeviceInstallation::query()
-                ->where('device_id', $validated['device_id'])
+                ->where('device_id', $device->id)
                 ->whereNull('ended_at')
                 ->update(['ended_at' => now()]);
 
             DeviceInstallation::query()->create([
-                'device_id' => $validated['device_id'],
+                'device_id' => $device->id,
                 'location_id' => $floorPlan->location_id,
                 'x' => (float) $validated['x_normalized'] * (float) $floorPlan->width_meters,
                 'y' => (float) $validated['y_normalized'] * (float) $floorPlan->height_meters,
