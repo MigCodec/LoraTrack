@@ -18,6 +18,7 @@ Secrets:
 - `SSH_USER`: dedicated deployment user, not `root`.
 - `SSH_PORT`: SSH port.
 - `SSH_KEY`: private key dedicated to this repository and environment.
+- `SSH_PASSPHRASE`: passphrase used to unlock `SSH_KEY` through an ephemeral `ssh-agent`.
 
 Variables:
 
