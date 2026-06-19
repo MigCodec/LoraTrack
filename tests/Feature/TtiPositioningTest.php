@@ -1,0 +1,106 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\ConnectorKind;
+use App\Enums\ConnectorProvider;
+use App\Jobs\ProcessTtiUplink;
+use App\Models\Asset;
+use App\Models\AssetDeviceAssignment;
+use App\Models\Connector;
+use App\Models\Device;
+use App\Models\DeviceInstallation;
+use App\Models\FloorPlan;
+use App\Models\Location;
+use App\Models\PositionEstimate;
+use App\Models\TelemetryEvent;
+use App\Positioning\BleObservationExtractor;
+use App\Positioning\PayloadProfileDecoder;
+use App\Positioning\TelemetryPositioningService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class TtiPositioningTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_mac_and_rssi_observations_position_asset_inside_zone(): void
+    {
+        $location = Location::query()->create(['name' => 'Piso 1', 'type' => 'floor']);
+        $plan = FloorPlan::query()->create([
+            'location_id' => $location->id,
+            'name' => 'Piso 1',
+            'file_path' => 'floor-plans/test.png',
+            'original_name' => 'test.png',
+            'mime_type' => 'image/png',
+            'width_meters' => 10,
+            'height_meters' => 10,
+        ]);
+        $zone = $plan->zones()->create([
+            'name' => 'Zona central',
+            'color' => '#78A22F',
+            'x_min' => 0.4,
+            'y_min' => 0.4,
+            'x_max' => 0.6,
+            'y_max' => 0.6,
+        ]);
+
+        foreach ([
+            ['AABBCCDDEE01', 0, 0],
+            ['AABBCCDDEE02', 10, 0],
+            ['AABBCCDDEE03', 0, 10],
+            ['AABBCCDDEE04', 10, 10],
+        ] as [$identifier, $x, $y]) {
+            $anchor = Device::query()->create(['identifier' => $identifier, 'name' => $identifier, 'type' => 'beacon']);
+            DeviceInstallation::query()->create([
+                'device_id' => $anchor->id,
+                'location_id' => $location->id,
+                'x' => $x,
+                'y' => $y,
+                'reference_rssi' => -59,
+                'path_loss_exponent' => 2,
+                'started_at' => now(),
+            ]);
+        }
+
+        $tracker = Device::query()->create(['identifier' => 'TRACKER01', 'name' => 'Tracker 01', 'type' => 'lorawan_tracker']);
+        $asset = Asset::query()->create(['asset_tag' => 'ASSET-1', 'name' => 'Producto A', 'mobility' => 'mobile']);
+        AssetDeviceAssignment::query()->create([
+            'asset_id' => $asset->id,
+            'device_id' => $tracker->id,
+            'tracking_strategy' => 'fixed_beacons_mobile_tracker',
+            'started_at' => now(),
+        ]);
+        $connector = Connector::query()->create([
+            'name' => 'TTI',
+            'kind' => ConnectorKind::Telemetry,
+            'provider' => ConnectorProvider::TtiWebhook,
+        ]);
+        $event = TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'external_event_id' => hash('sha256', 'position-test'),
+            'observed_at' => now(),
+            'received_at' => now(),
+            'raw_payload' => [
+                'end_device_ids' => ['device_id' => 'Tracker 01', 'dev_eui' => 'TRACKER01'],
+                'uplink_message' => ['decoded_payload' => ['beacons' => [
+                    ['mac' => 'AA:BB:CC:DD:EE:01', 'rssi' => -76],
+                    ['mac' => 'AA:BB:CC:DD:EE:02', 'rssi' => -76],
+                    ['mac' => 'AA:BB:CC:DD:EE:03', 'rssi' => -76],
+                    ['mac' => 'AA:BB:CC:DD:EE:04', 'rssi' => -76],
+                ]]],
+            ],
+        ]);
+
+        (new ProcessTtiUplink($event->id))->handle(
+            app(BleObservationExtractor::class),
+            app(PayloadProfileDecoder::class),
+            app(TelemetryPositioningService::class),
+        );
+
+        $position = PositionEstimate::query()->firstOrFail();
+        $this->assertSame($zone->id, $position->zone_id);
+        $this->assertEqualsWithDelta(5.0, (float) $position->x, 0.01);
+        $this->assertSame($location->id, $asset->fresh()->location_id);
+    }
+}
