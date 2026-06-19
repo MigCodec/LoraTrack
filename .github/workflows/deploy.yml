@@ -13,13 +13,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
-    name: Verify release
-    uses: ./.github/workflows/ci.yml
-
   deploy:
-    name: Deploy approved commit
-    needs: verify
+    name: Deploy directly to production
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -141,4 +136,3 @@ jobs:
       - name: Remove ephemeral SSH material
         if: always()
         run: rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts
-

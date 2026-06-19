@@ -175,7 +175,7 @@ composer audit
 
 ## Seguridad y despliegue
 
-El repositorio incluye CI, análisis CodeQL, Dependabot y un despliegue SSH sin PAT para repositorios públicos. Las acciones están fijadas por SHA y el despliegue exige un Environment protegido llamado `production`, verificación estricta de la clave del host y un `.env` de producción preexistente.
+El repositorio incluye CI para PHP, Dependabot y un despliegue SSH directo sin PAT para repositorios públicos. Las acciones están fijadas por SHA y el despliegue exige un Environment llamado `production`, verificación estricta de la clave del host y un `.env` de producción preexistente. CI se ejecuta por separado y no bloquea el despliegue solicitado al hacer push a `main`.
 
 Antes de publicar o desplegar, aplica la configuración descrita en [despliegue seguro](docs/security/deployment.md), revisa la [política de seguridad](SECURITY.md) y completa la [matriz de aseguramiento](docs/security/assurance.md). Estos controles técnicos no equivalen por sí solos a una certificación ISO ni a la aprobación de seguridad de un cliente.
 

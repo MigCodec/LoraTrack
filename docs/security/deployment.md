@@ -4,9 +4,9 @@
 
 Configure GitHub before the first push:
 
-1. Protect `main`: require pull requests, at least one independent approval, resolution of review conversations, signed commits where organizational policy requires them, and passing `CI` and `CodeQL` checks.
+1. Protect `main`: require pull requests, at least one independent approval, resolution of review conversations and signed commits where organizational policy requires them. El despliegue directo actual no espera CI; activar checks obligatorios requiere volver a incorporar esa dependencia explícitamente.
 2. Disallow force pushes and branch deletion. Restrict who can push and deploy.
-3. Enable secret scanning, push protection, Dependabot alerts, dependency graph, private vulnerability reporting, and CodeQL default/setup alerts.
+3. Enable secret scanning, push protection, Dependabot alerts, dependency graph and private vulnerability reporting. Configura por separado un SAST compatible con PHP; el workflow CodeQL anterior fue retirado porque CodeQL no analiza PHP.
 4. Create a `production` Environment with required reviewers, deployment branch restricted to `main`, and no administrator bypass.
 5. Use organization SSO/MFA, least-privilege teams, periodic access reviews, and an emergency-access procedure.
 
@@ -41,7 +41,6 @@ The server must already contain a protected `.env` with `APP_ENV=production`, `A
 
 ## Deployment behavior
 
-The workflow tests the exact commit, requires approval through the `production` Environment, pins action dependencies by commit SHA, verifies the SSH host key, checks production settings, deploys the immutable commit, preserves private storage and `.env`, runs migrations, rebuilds Laravel caches, and restarts queue workers.
+The workflow deploys the exact pushed commit directly, pins action dependencies by commit SHA, verifies the SSH host key, checks production settings, preserves private storage and `.env`, runs migrations, rebuilds Laravel caches, and restarts queue workers. CI runs independently and does not currently block production deployment.
 
 Database migrations are not automatically reversible. A tested backup and rollback decision are mandatory before changes that alter or delete production data.
-
