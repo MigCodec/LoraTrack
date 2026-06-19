@@ -77,7 +77,6 @@ jobs:
             "$SSH_USER@$SSH_HOST" \
             "DEPLOY_PATH='$DEPLOY_PATH' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' REPOSITORY='$REPOSITORY' bash -s" <<'REMOTE'
           set -Eeuo pipefail
-          umask 027
 
           command -v git >/dev/null || { echo 'Git executable not found.' >&2; exit 1; }
           command -v "$PHP_BIN" >/dev/null || { echo "PHP executable not found: $PHP_BIN" >&2; exit 1; }
@@ -110,7 +109,6 @@ jobs:
           fi
 
           test -f public/index.php || { echo 'Laravel public/index.php is missing.' >&2; exit 1; }
-          chmod -R a+rX public
 
           test -f .env || { echo 'Production .env is required.' >&2; exit 1; }
           grep -Eq '^APP_ENV=production$' .env || { echo 'APP_ENV must be production.' >&2; exit 1; }
