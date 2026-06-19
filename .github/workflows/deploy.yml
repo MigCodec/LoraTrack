@@ -25,26 +25,21 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
-          REPO_PATH: ${{ vars.REPO_PATH }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-          PHP_BIN: ${{ vars.PHP_BIN }}
-          COMPOSER_BIN: ${{ vars.COMPOSER_BIN }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || secrets.DEPLOY_PATH }}
+          PHP_BIN: ${{ vars.PHP_BIN || secrets.PHP_BIN }}
+          COMPOSER_BIN: ${{ vars.COMPOSER_BIN || secrets.COMPOSER_BIN }}
         run: |
           set -Eeuo pipefail
           : "${SSH_HOST:?Missing SSH_HOST secret}"
           : "${SSH_USER:?Missing SSH_USER secret}"
           : "${SSH_PORT:?Missing SSH_PORT secret}"
-          : "${REPO_PATH:?Missing REPO_PATH variable}"
           : "${DEPLOY_PATH:?Missing DEPLOY_PATH variable}"
           [[ "$SSH_PORT" =~ ^[0-9]{1,5}$ ]]
           [[ "$SSH_USER" =~ ^[A-Za-z0-9._-]+$ ]]
-          [[ "$REPO_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]
           [[ "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]
           [[ "${PHP_BIN:-php}" =~ ^[A-Za-z0-9._/-]+$ ]]
           [[ "${COMPOSER_BIN:-composer}" =~ ^[A-Za-z0-9._/-]+$ ]]
-          test "$REPO_PATH" != "/"
           test "$DEPLOY_PATH" != "/"
-          test "$REPO_PATH" != "$DEPLOY_PATH"
 
       - name: Configure SSH trust
         env:
@@ -59,17 +54,15 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
 
-      - name: Deploy immutable commit
+      - name: Pull and deploy main
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
-          REPO_PATH: ${{ vars.REPO_PATH }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-          PHP_BIN: ${{ vars.PHP_BIN }}
-          COMPOSER_BIN: ${{ vars.COMPOSER_BIN }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || secrets.DEPLOY_PATH }}
+          PHP_BIN: ${{ vars.PHP_BIN || secrets.PHP_BIN }}
+          COMPOSER_BIN: ${{ vars.COMPOSER_BIN || secrets.COMPOSER_BIN }}
           REPOSITORY: ${{ github.repository }}
-          COMMIT_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
           PHP_BIN="${PHP_BIN:-php}"
@@ -80,49 +73,40 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \
-            "REPO_PATH='$REPO_PATH' DEPLOY_PATH='$DEPLOY_PATH' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' REPOSITORY='$REPOSITORY' COMMIT_SHA='$COMMIT_SHA' bash -s" <<'REMOTE'
+            "DEPLOY_PATH='$DEPLOY_PATH' PHP_BIN='$PHP_BIN' COMPOSER_BIN='$COMPOSER_BIN' REPOSITORY='$REPOSITORY' bash -s" <<'REMOTE'
           set -Eeuo pipefail
           umask 027
 
           command -v git >/dev/null
-          command -v rsync >/dev/null
           command -v "$PHP_BIN" >/dev/null
           command -v "$COMPOSER_BIN" >/dev/null
 
-          if [ -d "$REPO_PATH/.git" ]; then
-            git -C "$REPO_PATH" remote set-url origin "https://github.com/$REPOSITORY.git"
-            git -C "$REPO_PATH" fetch --force --prune origin "$COMMIT_SHA"
+          install -d -m 750 "$DEPLOY_PATH"
+          cd "$DEPLOY_PATH"
+
+          if [ -f artisan ]; then
+            "$PHP_BIN" artisan down --retry=60 --refresh=15 || true
+          fi
+          trap 'if [ -f artisan ]; then "$PHP_BIN" artisan up || true; fi' EXIT
+
+          if [ -d .git ]; then
+            git remote set-url origin "https://github.com/$REPOSITORY.git"
+            git checkout main
+            git pull --ff-only origin main
           else
-            install -d -m 750 "$(dirname "$REPO_PATH")"
-            git clone --no-checkout "https://github.com/$REPOSITORY.git" "$REPO_PATH"
-            git -C "$REPO_PATH" fetch --force origin "$COMMIT_SHA"
+            git init
+            git remote add origin "https://github.com/$REPOSITORY.git"
+            git fetch --prune origin main
+            git checkout --force -B main origin/main
           fi
 
-          git -C "$REPO_PATH" checkout --detach --force "$COMMIT_SHA"
-          test "$(git -C "$REPO_PATH" rev-parse HEAD)" = "$COMMIT_SHA"
-          "$COMPOSER_BIN" --working-dir="$REPO_PATH" install \
-            --no-dev --no-interaction --prefer-dist --no-progress --no-scripts \
-            --classmap-authoritative
-
-          test -f "$DEPLOY_PATH/.env" || { echo 'Production .env is required.' >&2; exit 1; }
-          grep -Eq '^APP_ENV=production$' "$DEPLOY_PATH/.env" || { echo 'APP_ENV must be production.' >&2; exit 1; }
-          grep -Eq '^APP_DEBUG=false$' "$DEPLOY_PATH/.env" || { echo 'APP_DEBUG must be false.' >&2; exit 1; }
-          grep -Eq '^APP_KEY=base64:.+' "$DEPLOY_PATH/.env" || { echo 'A persistent APP_KEY is required.' >&2; exit 1; }
-
-          cd "$DEPLOY_PATH"
-          "$PHP_BIN" artisan down --retry=60 --refresh=15 || true
-          trap '"$PHP_BIN" artisan up || true' EXIT
-
-          rsync -a --delete \
-            --exclude='.git/' \
-            --exclude='.env' \
-            --exclude='storage/' \
-            --exclude='public/storage' \
-            --exclude='public/.well-known/' \
-            "$REPO_PATH/" "$DEPLOY_PATH/"
+          test -f .env || { echo 'Production .env is required.' >&2; exit 1; }
+          grep -Eq '^APP_ENV=production$' .env || { echo 'APP_ENV must be production.' >&2; exit 1; }
+          grep -Eq '^APP_DEBUG=false$' .env || { echo 'APP_DEBUG must be false.' >&2; exit 1; }
+          grep -Eq '^APP_KEY=base64:.+' .env || { echo 'A persistent APP_KEY is required.' >&2; exit 1; }
 
           install -d -m 770 storage/framework/{cache,sessions,views} storage/logs bootstrap/cache
-          "$COMPOSER_BIN" dump-autoload --no-dev --classmap-authoritative --no-interaction
+          "$COMPOSER_BIN" install --no-dev --no-interaction --prefer-dist --no-progress --classmap-authoritative
           "$PHP_BIN" artisan migrate --force
           "$PHP_BIN" artisan optimize:clear
           "$PHP_BIN" artisan config:cache

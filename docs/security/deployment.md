@@ -22,7 +22,6 @@ Secrets:
 
 Variables:
 
-- `REPO_PATH`: private checkout/cache directory outside the document root.
 - `DEPLOY_PATH`: Laravel application directory; its `public/` subdirectory must be the web document root.
 - `PHP_BIN`: optional absolute cPanel PHP 8.2 binary, for example `/opt/cpanel/ea-php82/root/usr/bin/php`.
 - `COMPOSER_BIN`: optional absolute, preinstalled Composer 2 binary.
@@ -41,6 +40,6 @@ The server must already contain a protected `.env` with `APP_ENV=production`, `A
 
 ## Deployment behavior
 
-The workflow deploys the exact pushed commit directly, pins action dependencies by commit SHA, verifies the SSH host key, checks production settings, preserves private storage and `.env`, runs migrations, rebuilds Laravel caches, and restarts queue workers. CI runs independently and does not currently block production deployment.
+The workflow connects directly to `DEPLOY_PATH`, initializes Git there on the first deployment and uses `git pull --ff-only origin main` thereafter. It verifies the SSH host key, checks production settings, preserves ignored `.env` and `storage` data, runs migrations, rebuilds Laravel caches, and restarts queue workers. CI runs independently and does not currently block production deployment.
 
 Database migrations are not automatically reversible. A tested backup and rollback decision are mandatory before changes that alter or delete production data.
