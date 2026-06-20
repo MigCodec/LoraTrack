@@ -67,7 +67,7 @@
         </form>
 
         <aside class="panel h-fit p-5">
-            <span class="connector-icon">{{ strtoupper(substr($definition['name'], 0, 2)) }}</span>
+            <x-connector-icon :provider="$definition['provider']">{{ $definition['name'] }}</x-connector-icon>
             <h2 class="mt-4 font-semibold text-slate-950">{{ $definition['name'] }}</h2>
             <p class="mt-2 text-sm leading-relaxed text-slate-500">{{ $definition['description'] }}</p>
             <p class="mt-5 rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">El conector se guardará como borrador. Pruébalo antes de activarlo.</p>

@@ -4,10 +4,13 @@
 
 @section('content')
     <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="flex items-start gap-4">
+            <x-connector-icon :provider="$connector->provider">{{ $definition['name'] }}</x-connector-icon>
+            <div>
             <a class="text-sm text-brand-primary" href="{{ route('connectors.index') }}">← Todos los conectores</a>
             <h2 class="mt-2 text-xl font-semibold text-slate-950">{{ $connector->name }}</h2>
             <p class="mt-1 text-sm text-slate-500">{{ $definition['name'] }} · {{ $connector->kind->label() }}</p>
+            </div>
         </div>
         <div class="flex flex-wrap gap-2">
             <form method="POST" action="{{ route('connectors.test', $connector) }}">@csrf<button class="btn-secondary">Probar</button></form>

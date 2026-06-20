@@ -15,6 +15,17 @@ class ConnectorManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_connector_catalog_displays_an_icon_for_every_provider(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $response = $this->actingAs($admin)->get(route('connectors.index'))->assertOk();
+
+        foreach (ConnectorProvider::cases() as $provider) {
+            $response->assertSee('data-provider-icon="'.$provider->value.'"', false);
+        }
+    }
+
     public function test_tti_form_offers_secure_token_generator(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
