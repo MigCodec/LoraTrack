@@ -16,7 +16,7 @@ class FloorPlan extends Model
     use HasUlids;
 
     protected $fillable = [
-        'location_id', 'name', 'disk', 'file_path', 'preview_path', 'original_name',
+        'location_id', 'name', 'tab_color', 'disk', 'file_path', 'preview_path', 'original_name',
         'mime_type', 'width_meters', 'height_meters', 'is_active',
     ];
 

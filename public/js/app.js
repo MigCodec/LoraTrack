@@ -1,3 +1,95 @@
+document.querySelectorAll('.plan-ribbon').forEach((ribbon) => {
+    const dropdowns = [...ribbon.querySelectorAll('details.ribbon-command, details.ribbon-layers')];
+    const closeDropdowns = (except = null) => dropdowns.forEach((dropdown) => {
+        if (dropdown !== except) dropdown.removeAttribute('open');
+    });
+
+    dropdowns.forEach((dropdown) => dropdown.addEventListener('toggle', () => {
+        if (dropdown.open) closeDropdowns(dropdown);
+    }));
+    ribbon.addEventListener('click', (event) => {
+        if (event.target.closest('.ribbon-button')) closeDropdowns();
+    });
+});
+
+const sheetContextMenu = document.querySelector('#plan-sheet-context-menu');
+if (sheetContextMenu) {
+    const sheetTabs = [...document.querySelectorAll('.plan-sheet-tab[data-update-url]')];
+    const renameDialog = document.querySelector('#plan-rename-dialog');
+    const renameForm = document.querySelector('#plan-rename-form');
+    const renameInput = document.querySelector('#plan-rename-input');
+    const colorDialog = document.querySelector('#plan-color-dialog');
+    const colorForm = document.querySelector('#plan-color-form');
+    const colorInput = document.querySelector('#plan-color-input');
+    const colorValue = document.querySelector('#plan-color-value');
+    const deleteForm = document.querySelector('#plan-sheet-delete-form');
+    let selectedSheet = null;
+
+    const closeSheetMenu = () => { sheetContextMenu.hidden = true; };
+    const openSheetMenu = (tab, clientX, clientY) => {
+        selectedSheet = tab;
+        sheetContextMenu.hidden = false;
+        const width = sheetContextMenu.offsetWidth;
+        const height = sheetContextMenu.offsetHeight;
+        sheetContextMenu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - width - 8))}px`;
+        sheetContextMenu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - height - 8))}px`;
+        sheetContextMenu.querySelector('[role="menuitem"]')?.focus();
+    };
+
+    sheetTabs.forEach((tab) => {
+        tab.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            openSheetMenu(tab, event.clientX, event.clientY);
+        });
+        tab.addEventListener('keydown', (event) => {
+            if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                event.preventDefault();
+                const rect = tab.getBoundingClientRect();
+                openSheetMenu(tab, rect.left + 12, rect.bottom - 4);
+            }
+        });
+    });
+    sheetContextMenu.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-sheet-action]')?.dataset.sheetAction;
+        if (!action || !selectedSheet) return;
+        closeSheetMenu();
+        if (action === 'open') window.location.assign(selectedSheet.href);
+        if (action === 'calibrate') window.location.assign(selectedSheet.dataset.calibrationUrl);
+        if (action === 'rename') {
+            renameForm.action = selectedSheet.dataset.updateUrl;
+            renameInput.value = selectedSheet.dataset.planName;
+            renameDialog.showModal();
+            renameInput.focus();
+            renameInput.select();
+        }
+        if (action === 'color') {
+            const currentColor = /^#[0-9a-f]{6}$/i.test(selectedSheet.dataset.tabColor) ? selectedSheet.dataset.tabColor : '#14b8a6';
+            colorForm.action = selectedSheet.dataset.updateUrl;
+            colorInput.value = currentColor;
+            colorValue.value = currentColor;
+            colorDialog.showModal();
+            colorInput.focus();
+        }
+        if (action === 'delete' && window.confirm(`¿Eliminar el plano "${selectedSheet.dataset.planName}" y sus zonas?`)) {
+            deleteForm.action = selectedSheet.dataset.deleteUrl;
+            deleteForm.submit();
+        }
+    });
+    document.querySelector('[data-close-rename]')?.addEventListener('click', () => renameDialog.close());
+    colorInput?.addEventListener('input', () => { colorValue.value = colorInput.value; });
+    document.querySelector('[data-close-color]')?.addEventListener('click', () => colorDialog.close());
+    document.querySelector('[data-reset-tab-color]')?.addEventListener('click', () => {
+        colorValue.value = '';
+        colorForm.requestSubmit();
+    });
+    document.addEventListener('pointerdown', (event) => {
+        if (!sheetContextMenu.hidden && !sheetContextMenu.contains(event.target)) closeSheetMenu();
+    });
+    window.addEventListener('blur', closeSheetMenu);
+    window.addEventListener('resize', closeSheetMenu);
+    window.addEventListener('scroll', closeSheetMenu, true);
+}
+
 const assetForm = document.querySelector('#asset-form');
 if (assetForm) {
     const mobility = assetForm.elements.mobility;
@@ -15,6 +107,7 @@ if (assetForm) {
 const editor = document.querySelector('#zone-editor');
 
 if (editor && !editor.dataset.editorInitialized) {
+    editor.dataset.editorInitialized = 'app';
     const image = editor.querySelector('#floor-plan-image');
     const canvas = editor.querySelector('#zone-canvas');
     const context = canvas.getContext('2d');
@@ -30,6 +123,12 @@ if (editor && !editor.dataset.editorInitialized) {
     const zoneModeButton = document.querySelector('#zone-mode');
     const ribbonAnchorModeButton = document.querySelector('#ribbon-anchor-mode');
     const modeStatus = document.querySelector('#editor-mode-status');
+    const geometryMetrics = document.querySelector('#zone-geometry-metrics');
+    const zoneArea = document.querySelector('[data-zone-area]');
+    const zonePerimeter = document.querySelector('[data-zone-perimeter]');
+    const planWidthMeters = Number(editor.dataset.widthMeters);
+    const planHeightMeters = Number(editor.dataset.heightMeters);
+    const layerControls = [...document.querySelectorAll('[data-editor-layer]')];
     let start = null;
     let draft = null;
     let draftAnchor = null;
@@ -143,6 +242,15 @@ if (editor && !editor.dataset.editorInitialized) {
             form.elements[key].value = valid ? draft[key].toFixed(7) : '';
         });
         submit.disabled = !valid;
+        if (geometryMetrics) {
+            geometryMetrics.hidden = !valid;
+            if (valid) {
+                const widthMeters = (draft.x_max - draft.x_min) * planWidthMeters;
+                const heightMeters = (draft.y_max - draft.y_min) * planHeightMeters;
+                zoneArea.textContent = `${(widthMeters * heightMeters).toLocaleString(undefined, {maximumFractionDigits: 2})} m²`;
+                zonePerimeter.textContent = `${(2 * (widthMeters + heightMeters)).toLocaleString(undefined, {maximumFractionDigits: 2})} m`;
+            }
+        }
         status.textContent = valid ? 'Área seleccionada. Asigna un nombre y guarda la zona.' : 'El rectángulo es demasiado pequeño.';
         status.className = valid ? 'rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800' : 'rounded-lg bg-amber-50 p-3 text-xs text-amber-800';
         redraw();
@@ -168,6 +276,17 @@ if (editor && !editor.dataset.editorInitialized) {
         anchorModeButton.textContent = 'Haz clic sobre el plano…';
         anchorStatus.textContent = 'Modo ancla activo: haz clic en la posición conocida.';
     });
+    const applyEditorLayers = () => {
+        const visible = (name) => document.querySelector(`[data-editor-layer="${name}"]`)?.checked ?? true;
+        const layers = {
+            zones: document.querySelector('#saved-zone-overlay'),
+            beacons: document.querySelector('#saved-anchor-overlay'),
+            assets: document.querySelector('#saved-asset-overlay'),
+        };
+        Object.entries(layers).forEach(([name, layer]) => { if (layer) layer.hidden = !visible(name); });
+    };
+    layerControls.forEach((control) => control.addEventListener('change', applyEditorLayers));
+    applyEditorLayers();
     image.addEventListener('load', redraw);
     new ResizeObserver(redraw).observe(image);
     if (image.complete) redraw();

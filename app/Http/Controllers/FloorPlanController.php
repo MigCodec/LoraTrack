@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateFloorPlanRequest;
 use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
@@ -127,5 +128,13 @@ class FloorPlanController extends Controller
         $floorPlan->delete();
 
         return redirect()->route('floor-plans.index')->with('status', 'Plano eliminado.');
+    }
+
+    public function update(UpdateFloorPlanRequest $request, FloorPlan $floorPlan): RedirectResponse
+    {
+        $floorPlan->update($request->validated());
+        $status = $request->exists('name') ? 'Nombre del plano actualizado.' : 'Color de la pestaña actualizado.';
+
+        return redirect()->route('floor-plans.index', ['plan' => $floorPlan])->with('status', $status);
     }
 }

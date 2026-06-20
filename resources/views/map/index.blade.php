@@ -18,14 +18,17 @@
         <div class="panel p-4">
             <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Actualización cada 10 segundos · {{ $plan->zones->count() }} áreas definidas · el círculo representa el error estimado</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
             <div class="plan-ribbon mb-3" role="toolbar" aria-label="Capas del mapa">
-                <details class="ribbon-layers">
-                    <summary><x-nav-icon name="map"/><span>Visualizar</span></summary>
-                    <div class="ribbon-layer-menu">
-                        <label><input type="checkbox" data-map-layer="beacons" checked> Beacons</label>
-                        <label><input type="checkbox" data-map-layer="zones" checked> Zonas</label>
-                        <label><input type="checkbox" data-map-layer="assets" checked> Assets</label>
-                    </div>
-                </details>
+                <div class="ribbon-group">
+                    <span class="ribbon-label">Vista</span>
+                    <details class="ribbon-layers">
+                        <summary><x-nav-icon name="map"/><span>Visualizar</span></summary>
+                        <div class="ribbon-layer-menu">
+                            <label><input type="checkbox" data-map-layer="beacons" checked> Beacons</label>
+                            <label><input type="checkbox" data-map-layer="zones" checked> Zonas</label>
+                            <label><input type="checkbox" data-map-layer="assets" checked> Assets</label>
+                        </div>
+                    </details>
+                </div>
             </div>
             <div id="realtime-map" class="relative inline-block max-w-full overflow-hidden rounded-xl border" data-endpoint="{{ route('map.data', $plan) }}">
                 <img class="block max-h-[75vh] max-w-full" src="{{ route('floor-plans.file', $plan) }}" alt="{{ $plan->name }}">

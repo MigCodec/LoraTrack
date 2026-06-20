@@ -41,7 +41,36 @@ class FloorPlanZoneTest extends TestCase
             ->assertOk()
             ->assertSee('id="zone-mode"', false)
             ->assertSee('id="ribbon-anchor-mode"', false)
-            ->assertSee('id="zone-form"', false);
+            ->assertSee('id="zone-form"', false)
+            ->assertSee('class="plan-editor-overview"', false)
+            ->assertDontSee('class="plan-editor-tools"', false)
+            ->assertDontSee('data-editor-mode="explore"', false)
+            ->assertSee('id="zone-geometry-metrics"', false)
+            ->assertDontSee('floor-plan-editor.js', false)
+            ->assertSee('Registrar dispositivo')
+            ->assertSee('Zonas (0)')
+            ->assertSee('Anclas (0)')
+            ->assertSee('class="plan-sheet-tabs"', false)
+            ->assertSeeInOrder(['id="zone-editor"', 'class="plan-sheet-tabs"'], false)
+            ->assertSee('Cambiar nombre…')
+            ->assertSee('Color de pestaña…')
+            ->assertSee('Eliminar hoja…')
+            ->assertDontSee('Eliminar plano');
+
+        $this->put(route('floor-plans.update', $plan), ['name' => 'Planta renombrada'])
+            ->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
+        $this->assertDatabaseHas('floor_plans', ['id' => $plan->id, 'name' => 'Planta renombrada']);
+
+        $this->put(route('floor-plans.update', $plan), ['tab_color' => '#7C3AED'])
+            ->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
+        $this->assertDatabaseHas('floor_plans', ['id' => $plan->id, 'tab_color' => '#7C3AED']);
+        $this->get(route('floor-plans.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('style="--sheet-color: #7C3AED"', false);
+
+        $this->put(route('floor-plans.update', $plan), ['tab_color' => ''])
+            ->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
+        $this->assertDatabaseHas('floor_plans', ['id' => $plan->id, 'tab_color' => null]);
 
         $this->actingAs($admin)->post(route('zones.store', $plan), [
             'name' => 'Bodega Z',

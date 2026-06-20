@@ -1,0 +1,57 @@
+.plan-editor-overview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    margin: -1rem -1rem 0;
+    border-bottom: 1px solid #dbe2e8;
+    padding: .9rem 1rem;
+    background: #fff;
+}
+
+.plan-editor-current,
+.plan-editor-ready div,
+.plan-editor-stats span {
+    display: flex;
+    flex-direction: column;
+}
+
+.plan-editor-current { min-width: 11rem; }
+.plan-editor-current span,
+.plan-editor-current small,
+.plan-editor-ready small { color: #64748b; font-size: .65rem; }
+.plan-editor-current strong { color: #0f172a; font-size: 1rem; }
+.plan-editor-current small { margin-top: .12rem; }
+
+.plan-editor-ready { display: flex; align-items: center; gap: .55rem; }
+.plan-editor-ready i { width: .65rem; height: .65rem; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px #dcfce7; }
+.plan-editor-ready strong { font-size: .82rem; }
+.plan-editor-ready small { font-size: .62rem; }
+
+.plan-editor-stats { display: flex; gap: .55rem; }
+.plan-editor-stats > div { display: flex; min-width: 6.2rem; align-items: center; gap: .55rem; border: 1px solid #dbe2e8; border-radius: .35rem; padding: .45rem .65rem; background: #fff; box-shadow: 0 1px 3px #0f172a12; }
+.plan-editor-stats .nav-icon { width: 1.35rem; height: 1.35rem; color: var(--color-brand-primary); opacity: 1; }
+.plan-editor-stats span { color: #64748b; font-size: .6rem; }
+.plan-editor-stats strong { color: #0f172a; font-size: 1rem; line-height: 1; }
+
+.plan-editor-layout { margin-top: .75rem; }
+.plan-editor-stage { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: flex-start; border: 1px solid #dbe2e8; border-radius: .35rem; background: #f8fafc; padding: .75rem; }
+.plan-editor-stage #zone-editor { box-shadow: 0 1px 4px #0f172a1f; }
+
+.editor-properties-panel { position: sticky; top: 1rem; border-radius: .35rem; }
+.editor-properties-label { margin: -1.25rem -1.25rem 1rem; border-bottom: 1px solid #e2e8f0; padding: .7rem 1.25rem; color: #334155; font-size: .65rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.zone-geometry-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.zone-geometry-metrics div { border: 1px solid #dbe2e8; border-radius: .35rem; background: #f8fafc; padding: .55rem; }
+.zone-geometry-metrics dt { color: #64748b; font-size: .62rem; text-transform: uppercase; }
+.zone-geometry-metrics dd { margin-top: .12rem; color: #0f172a; font-size: .82rem; font-weight: 700; }
+
+@media (max-width: 75rem) {
+    .plan-editor-overview { align-items: flex-start; flex-wrap: wrap; }
+    .plan-editor-ready { order: 3; width: 100%; }
+}
+
+@media (max-width: 48rem) {
+    .plan-editor-stats { width: 100%; overflow-x: auto; }
+    .plan-editor-stats > div { min-width: 5.5rem; }
+    .plan-editor-stage { padding: .35rem; }
+}

@@ -67,6 +67,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/locations', [FloorPlanController::class, 'storeLocation'])->name('locations.store');
         Route::post('/devices', [DeviceController::class, 'store'])->name('devices.store');
         Route::post('/floor-plans', [FloorPlanController::class, 'store'])->name('floor-plans.store');
+        Route::put('/floor-plans/{floorPlan}', [FloorPlanController::class, 'update'])->name('floor-plans.update');
         Route::delete('/floor-plans/{floorPlan}', [FloorPlanController::class, 'destroy'])->name('floor-plans.destroy');
         Route::post('/floor-plans/{floorPlan}/zones', [ZoneController::class, 'store'])->name('zones.store');
         Route::put('/zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
