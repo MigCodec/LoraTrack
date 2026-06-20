@@ -112,8 +112,18 @@ class TtiPositioningTest extends TestCase
                 'id', 'name', 'identifier', 'type', 'x', 'y',
             ]], 'positions' => [[
                 'accuracy_meters', 'relative_error', 'error_radius_x', 'error_radius_y',
+                'x_meters', 'y_meters', 'algorithm', 'algorithm_version', 'calculated_at', 'observed_at', 'received_at',
+                'evidence' => [[
+                    'identifier', 'name', 'type', 'rssi', 'estimated_distance_meters',
+                    'geometric_distance_meters', 'residual_meters', 'reference_rssi',
+                    'path_loss_exponent', 'x_meters', 'y_meters', 'x', 'y',
+                    'circle_diameter_x', 'circle_diameter_y',
+                ]],
             ]]])
             ->assertJsonCount(3, 'anchors')
+            ->assertJsonCount(3, 'positions.0.evidence')
+            ->assertJsonPath('positions.0.evidence.0.type', 'beacon')
+            ->assertJsonPath('positions.0.evidence.0.reference_rssi', -59)
             ->assertJsonPath('positions.0.asset_id', $asset->id);
 
         $this->actingAs(User::factory()->create(['role' => UserRole::Operator]))

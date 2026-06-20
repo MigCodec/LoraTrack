@@ -178,29 +178,84 @@ if (realtimeMap) {
     const markers = document.querySelector('#map-markers');
     const updated = document.querySelector('#map-updated');
     const positionStatus = document.querySelector('#map-position-status');
+    const technicalDialog = document.querySelector('#asset-technical-dialog');
+    const evidenceBody = document.querySelector('#asset-detail-evidence');
+    const circleColors = ['#2563eb', '#dc2626', '#7c3aed', '#d97706', '#059669', '#0891b2'];
+    let selectedAssetId = null;
     const layerControls = [...document.querySelectorAll('[data-map-layer]')];
     const applyMapLayers = () => {
         const visible = (name) => document.querySelector(`[data-map-layer="${name}"]`)?.checked ?? true;
         markers.querySelectorAll('.map-zone').forEach((node) => { node.hidden = !visible('zones'); });
         markers.querySelectorAll('.map-anchor').forEach((node) => { node.hidden = !visible('beacons'); });
-        markers.querySelectorAll('.asset-marker,.asset-uncertainty').forEach((node) => { node.hidden = !visible('assets'); });
+        markers.querySelectorAll('.asset-marker,.asset-uncertainty,.asset-detection-circle').forEach((node) => { node.hidden = !visible('assets'); });
     };
     layerControls.forEach((control) => control.addEventListener('change', applyMapLayers));
     const zones = JSON.parse(document.querySelector('#map-zones')?.textContent || '[]');
     zones.forEach((zone) => {
         const element = document.createElement('div'); element.className = 'map-zone'; element.style.left = `${zone.x_min*100}%`; element.style.top = `${zone.y_min*100}%`; element.style.width = `${(zone.x_max-zone.x_min)*100}%`; element.style.height = `${(zone.y_max-zone.y_min)*100}%`; element.style.borderColor = zone.color; element.style.backgroundColor = `${zone.color}22`; element.title = zone.name; markers.appendChild(element);
     });
+    const setDetail = (id, value) => { const element = document.querySelector(id); if (element) element.textContent = value; };
+    const formatDate = (value) => value ? new Date(value).toLocaleString() : '—';
+    const clearAssetDetails = () => {
+        markers.querySelectorAll('.asset-detection-circle').forEach((node) => node.remove());
+        markers.querySelectorAll('.asset-marker.is-selected').forEach((node) => node.classList.remove('is-selected'));
+    };
+    const showAssetDetails = (position, openDialog = true) => {
+        clearAssetDetails();
+        selectedAssetId = position.asset_id;
+        markers.querySelector(`[data-asset-id="${CSS.escape(position.asset_id)}"]`)?.classList.add('is-selected');
+
+        position.evidence.forEach((anchor, index) => {
+            const color = circleColors[index % circleColors.length];
+            const circle = document.createElement('div');
+            circle.className = 'asset-detection-circle';
+            circle.style.setProperty('--circle-color', color);
+            circle.style.left = `${anchor.x * 100}%`;
+            circle.style.top = `${anchor.y * 100}%`;
+            circle.style.width = `${Math.min(400, anchor.circle_diameter_x * 100)}%`;
+            circle.style.height = `${Math.min(400, anchor.circle_diameter_y * 100)}%`;
+            circle.title = `${anchor.name}: ${anchor.rssi} dBm, ${anchor.estimated_distance_meters.toFixed(2)} m`;
+            const number = document.createElement('span'); number.textContent = String(index + 1); circle.appendChild(number); markers.appendChild(circle);
+        });
+
+        setDetail('#asset-technical-title', position.name);
+        setDetail('#asset-technical-subtitle', [position.product, position.sku].filter(Boolean).join(' · ') || 'Sin producto asociado');
+        setDetail('#asset-detail-position', `X ${position.x_meters.toFixed(2)} m · Y ${position.y_meters.toFixed(2)} m`);
+        setDetail('#asset-detail-zone', position.zone || 'Sin zona');
+        setDetail('#asset-detail-confidence', `${Math.round(position.confidence * 100)}%`);
+        setDetail('#asset-detail-error', `±${position.accuracy_meters.toFixed(2)} m`);
+        setDetail('#asset-detail-algorithm', `${position.algorithm} v${position.algorithm_version}`);
+        setDetail('#asset-detail-calculated', formatDate(position.calculated_at));
+        setDetail('#asset-detail-observed', formatDate(position.observed_at));
+        setDetail('#asset-detail-received', formatDate(position.received_at));
+        evidenceBody.replaceChildren(...position.evidence.map((anchor, index) => {
+            const row = document.createElement('tr');
+            const name = document.createElement('td');
+            const swatch = document.createElement('span'); swatch.className = 'asset-evidence-swatch'; swatch.style.setProperty('--swatch-color', circleColors[index % circleColors.length]);
+            name.append(swatch, document.createTextNode(`${index + 1}. ${anchor.name}`));
+            const rssi = document.createElement('td'); rssi.textContent = `${anchor.rssi} dBm`;
+            const distance = document.createElement('td'); distance.textContent = `${anchor.estimated_distance_meters.toFixed(2)} m`;
+            const residual = document.createElement('td'); residual.textContent = `${anchor.residual_meters >= 0 ? '+' : ''}${anchor.residual_meters.toFixed(2)} m`;
+            const calibration = document.createElement('td'); calibration.textContent = anchor.reference_rssi === null ? '—' : `${anchor.reference_rssi} dBm @ 1 m · n=${Number(anchor.path_loss_exponent).toFixed(2)}`;
+            row.append(name, rssi, distance, residual, calibration); return row;
+        }));
+        if (openDialog && technicalDialog && !technicalDialog.open) technicalDialog.show();
+    };
+    technicalDialog?.addEventListener('close', () => { selectedAssetId = null; clearAssetDetails(); });
     const refresh = async () => {
         try {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
-            markers.querySelectorAll('.map-anchor,.asset-marker,.asset-uncertainty').forEach((node) => node.remove());
+            markers.querySelectorAll('.map-anchor,.asset-marker,.asset-uncertainty,.asset-detection-circle').forEach((node) => node.remove());
             data.anchors.forEach((anchor) => {
                 const node=document.createElement('span'); node.className=`map-anchor ${anchor.type}`; node.style.left=`${anchor.x*100}%`; node.style.top=`${anchor.y*100}%`; node.title=`${anchor.name} · ${anchor.identifier}`; const dot=document.createElement('i'); const label=document.createElement('small'); label.textContent=anchor.name; node.append(dot,label); markers.appendChild(node);
             });
             data.positions.forEach((position) => {
-                const uncertainty=document.createElement('div'); uncertainty.className=`asset-uncertainty${position.stale?' stale':''}`; uncertainty.style.left=`${position.x*100}%`; uncertainty.style.top=`${position.y*100}%`; uncertainty.style.width=`${Math.max(1.5,Math.min(200,position.error_radius_x*200))}%`; uncertainty.style.height=`${Math.max(1.5,Math.min(200,position.error_radius_y*200))}%`; uncertainty.title=`Error estimado: ${position.accuracy_meters.toFixed(2)} m · relativo ${(position.relative_error*100).toFixed(2)}%`; markers.appendChild(uncertainty);
-                const node=document.createElement('button'); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; const dot=document.createElement('span'); const label=document.createElement('small'); label.textContent=position.name; node.append(dot,label); markers.appendChild(node);
+                const uncertaintyDiameter = Math.max(1.5, Math.min(200, position.relative_error * 200));
+                const uncertainty=document.createElement('div'); uncertainty.className=`asset-uncertainty${position.stale?' stale':''}`; uncertainty.style.left=`${position.x*100}%`; uncertainty.style.top=`${position.y*100}%`; uncertainty.style.width=`${uncertaintyDiameter}%`; uncertainty.style.height=`${uncertaintyDiameter}%`; uncertainty.title=`Error estimado: ${position.accuracy_meters.toFixed(2)} m · relativo ${(position.relative_error*100).toFixed(2)}%`; markers.appendChild(uncertainty);
+                const node=document.createElement('button'); node.type='button'; node.dataset.assetId=position.asset_id; node.setAttribute('aria-haspopup','dialog'); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; const dot=document.createElement('span'); const label=document.createElement('small'); label.textContent=position.name; node.append(dot,label); node.addEventListener('click',()=>showAssetDetails(position)); markers.appendChild(node);
             });
+            const selectedPosition = data.positions.find((position) => position.asset_id === selectedAssetId);
+            if (selectedPosition && technicalDialog?.open) showAssetDetails(selectedPosition, false);
             applyMapLayers();
             if (positionStatus) positionStatus.textContent = data.positions.length
                 ? `${data.positions.length} activo(s) triangulado(s) en este plano.`

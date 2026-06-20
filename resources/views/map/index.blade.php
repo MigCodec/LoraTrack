@@ -37,5 +37,36 @@
             </div>
             <p id="map-position-status" class="mt-3 text-xs text-slate-500">Consultando posiciones calculadas…</p>
         </div>
+
+        <dialog id="asset-technical-dialog" class="asset-technical-dialog" aria-labelledby="asset-technical-title">
+            <div class="asset-technical-header">
+                <div>
+                    <p class="text-xs text-slate-500">Detalle de posicionamiento</p>
+                    <h2 id="asset-technical-title" class="text-lg font-semibold"></h2>
+                    <p id="asset-technical-subtitle" class="text-xs text-slate-500"></p>
+                </div>
+                <form method="dialog"><button class="asset-technical-close" aria-label="Cerrar detalle">&times;</button></form>
+            </div>
+            <div class="asset-technical-body">
+                <dl class="asset-technical-metrics">
+                    <div><dt>Posición</dt><dd id="asset-detail-position"></dd></div>
+                    <div><dt>Zona</dt><dd id="asset-detail-zone"></dd></div>
+                    <div><dt>Confianza</dt><dd id="asset-detail-confidence"></dd></div>
+                    <div><dt>Error estimado</dt><dd id="asset-detail-error"></dd></div>
+                    <div><dt>Algoritmo</dt><dd id="asset-detail-algorithm"></dd></div>
+                    <div><dt>Calculada</dt><dd id="asset-detail-calculated"></dd></div>
+                    <div><dt>Observada</dt><dd id="asset-detail-observed"></dd></div>
+                    <div><dt>Recibida</dt><dd id="asset-detail-received"></dd></div>
+                </dl>
+                <h3 class="mt-4 text-sm font-semibold">Anclas usadas por la estimación</h3>
+                <p class="mb-2 text-xs text-slate-500">Las circunferencias del plano representan la distancia inferida desde cada RSSI. El residual compara esa distancia con la solución calculada.</p>
+                <div class="table-wrap">
+                    <table class="data-table asset-evidence-table">
+                        <thead><tr><th>Ancla</th><th>RSSI</th><th>Distancia</th><th>Residual</th><th>Calibración</th></tr></thead>
+                        <tbody id="asset-detail-evidence"></tbody>
+                    </table>
+                </div>
+            </div>
+        </dialog>
     @endif
 @endsection

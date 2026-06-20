@@ -183,7 +183,7 @@ Estas URLs son puntos de partida, no sustituyen revisar autenticación, paginaci
 - La intensidad RSSI no equivale directamente a distancia confiable. Cualquier conversión debe usar parámetros calibrables por dispositivo y entorno.
 - Cuando la evidencia sea insuficiente, devolver una posición desconocida o de baja confianza en vez de fabricar precisión.
 - El payload confirmado contiene como mínimo MAC y RSSI. El normalizador debe aceptar aliases documentados, pero el contrato interno siempre usa `transmitter_mac` normalizada y `rssi` entero en dBm.
-- Aunque la solución matemática 2D comienza con tres anclas, la regla operativa exige al menos cuatro anclas activas, no colineales, con coordenadas conocidas en la misma ubicación. Cada instalación conserva RSSI de referencia a un metro y exponente de pérdida calibrables.
+- La solución matemática 2D y la regla operativa exigen al menos tres anclas activas, no colineales, con coordenadas conocidas en la misma ubicación. Cada instalación conserva RSSI de referencia a un metro y exponente de pérdida calibrables.
 - Mantener por separado posición actual e historial. La vista actual puede ser una proyección regenerable desde los eventos.
 
 ## Planos y zonas
