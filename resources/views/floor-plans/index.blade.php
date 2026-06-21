@@ -119,12 +119,12 @@
                         </div>
                         <div id="saved-anchor-overlay" class="absolute inset-0 pointer-events-none" aria-label="Beacons instalados">
                             @foreach($installations as $installation)
-                                <span class="plan-anchor" style="left: {{ min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $installation->device->name }} · {{ $installation->device->identifier }}"><i></i><small>{{ $installation->device->name }}</small></span>
+                                <span class="plan-anchor" style="left: {{ min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $installation->device->name }} · {{ $installation->device->identifier }}"><x-spatial-marker-icon :type="$installation->device->type === 'scanner' ? 'scanner' : 'anchor'"/><small class="sr-only">{{ $installation->device->name }}</small></span>
                             @endforeach
                         </div>
                         <div id="saved-asset-overlay" class="absolute inset-0 pointer-events-none" aria-label="Assets posicionados">
                             @foreach($assetPositions as $position)
-                                <span class="plan-asset" style="left: {{ min(100, max(0, (float) $position->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $position->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $position->asset->name }}"><i></i><small>{{ $position->asset->name }}</small></span>
+                                <span class="plan-asset" style="left: {{ min(100, max(0, (float) $position->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $position->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $position->asset->name }}"><x-spatial-marker-icon type="asset"/><small class="sr-only">{{ $position->asset->name }}</small></span>
                             @endforeach
                         </div>
                         <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>

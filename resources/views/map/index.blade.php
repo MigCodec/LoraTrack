@@ -3,6 +3,10 @@
 @section('title', 'Mapa')
 @section('heading', 'Mapa operativo')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/floor-plan-editor.css') }}?v={{ filemtime(public_path('css/floor-plan-editor.css')) }}">
+@endpush
+
 @section('content')
     <div class="mb-5 flex gap-2 overflow-x-auto">
         @foreach($plans as $item)

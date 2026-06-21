@@ -199,9 +199,6 @@ if (editor && !editor.dataset.editorInitialized) {
             context.strokeStyle = '#ffffff';
             context.lineWidth = 2;
             context.stroke();
-            context.fillStyle = brand.getPropertyValue('--color-brand-secondary').trim() || '#0F172A';
-            context.font = '600 11px sans-serif';
-            context.fillText(installation.name, x + 9, y + 4);
         });
     };
 
@@ -301,6 +298,21 @@ if (realtimeMap) {
     const evidenceBody = document.querySelector('#asset-detail-evidence');
     const circleColors = ['#2563eb', '#dc2626', '#7c3aed', '#d97706', '#059669', '#0891b2'];
     let selectedAssetId = null;
+    const spatialMarkerIcon = (type) => {
+        const symbols = {
+            asset: '<path class="spatial-marker-symbol" d="M9 11.5h10v7H9zM11.5 11.5v-2h5v2M9 14.5h10M12 14.5v1.5h4v-1.5"/>',
+            scanner: '<circle class="spatial-marker-symbol" cx="14" cy="14" r="2"/><path class="spatial-marker-symbol" d="M10.5 10.5a5 5 0 0 0 0 7M17.5 10.5a5 5 0 0 1 0 7"/>',
+            anchor: '<path class="spatial-marker-symbol" d="M14 9v10M10.5 12.5 14 9l3.5 3.5M10 19h8"/>',
+        };
+        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        icon.setAttribute('class', `spatial-marker-icon is-${type}`);
+        icon.setAttribute('width', '28');
+        icon.setAttribute('height', '34');
+        icon.setAttribute('viewBox', '0 0 28 34');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = `<path class="spatial-marker-pin" d="M14 1.5C7.1 1.5 2 6.6 2 13.1c0 8.4 12 18.9 12 18.9s12-10.5 12-18.9C26 6.6 20.9 1.5 14 1.5Z"/>${symbols[type] || symbols.anchor}`;
+        return icon;
+    };
     const layerControls = [...document.querySelectorAll('[data-map-layer]')];
     const applyMapLayers = () => {
         const visible = (name) => document.querySelector(`[data-map-layer="${name}"]`)?.checked ?? true;
@@ -366,12 +378,12 @@ if (realtimeMap) {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
             markers.querySelectorAll('.map-anchor,.asset-marker,.asset-uncertainty,.asset-detection-circle').forEach((node) => node.remove());
             data.anchors.forEach((anchor) => {
-                const node=document.createElement('span'); node.className=`map-anchor ${anchor.type}`; node.style.left=`${anchor.x*100}%`; node.style.top=`${anchor.y*100}%`; node.title=`${anchor.name} · ${anchor.identifier}`; const dot=document.createElement('i'); const label=document.createElement('small'); label.textContent=anchor.name; node.append(dot,label); markers.appendChild(node);
+                const node=document.createElement('span'); node.className=`map-anchor ${anchor.type}`; node.style.left=`${anchor.x*100}%`; node.style.top=`${anchor.y*100}%`; node.title=`${anchor.name} · ${anchor.identifier}`; node.setAttribute('aria-label', anchor.name); node.appendChild(spatialMarkerIcon(anchor.type === 'scanner' ? 'scanner' : 'anchor')); markers.appendChild(node);
             });
             data.positions.forEach((position) => {
                 const uncertaintyDiameter = Math.max(1.5, Math.min(200, position.relative_error * 200));
                 const uncertainty=document.createElement('div'); uncertainty.className=`asset-uncertainty${position.stale?' stale':''}`; uncertainty.style.left=`${position.x*100}%`; uncertainty.style.top=`${position.y*100}%`; uncertainty.style.width=`${uncertaintyDiameter}%`; uncertainty.style.height=`${uncertaintyDiameter}%`; uncertainty.title=`Error estimado: ${position.accuracy_meters.toFixed(2)} m · relativo ${(position.relative_error*100).toFixed(2)}%`; markers.appendChild(uncertainty);
-                const node=document.createElement('button'); node.type='button'; node.dataset.assetId=position.asset_id; node.setAttribute('aria-haspopup','dialog'); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; const dot=document.createElement('span'); const label=document.createElement('small'); label.textContent=position.name; node.append(dot,label); node.addEventListener('click',()=>showAssetDetails(position)); markers.appendChild(node);
+                const node=document.createElement('button'); node.type='button'; node.dataset.assetId=position.asset_id; node.setAttribute('aria-haspopup','dialog'); node.setAttribute('aria-label', `Ver detalles de ${position.name}`); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; node.appendChild(spatialMarkerIcon('asset')); node.addEventListener('click',()=>showAssetDetails(position)); markers.appendChild(node);
             });
             const selectedPosition = data.positions.find((position) => position.asset_id === selectedAssetId);
             if (selectedPosition && technicalDialog?.open) showAssetDetails(selectedPosition, false);

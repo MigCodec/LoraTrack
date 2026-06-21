@@ -38,6 +38,14 @@
 .plan-editor-stage { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: flex-start; border: 1px solid #dbe2e8; border-radius: .35rem; background: #f8fafc; padding: .75rem; }
 .plan-editor-stage #zone-editor { box-shadow: 0 1px 4px #0f172a1f; }
 
+.spatial-marker-icon { display: block; width: 28px; height: 34px; overflow: visible; filter: drop-shadow(0 2px 3px rgb(15 23 42 / .38)); }
+.spatial-marker-pin { fill: var(--color-brand-primary); stroke: #fff; stroke-width: 2; }
+.spatial-marker-icon.is-asset .spatial-marker-pin { fill: var(--color-brand-accent); }
+.spatial-marker-icon.is-scanner .spatial-marker-pin { fill: #7c3aed; }
+.asset-marker.out-of-bounds .spatial-marker-pin { fill: #dc2626; }
+.spatial-marker-symbol { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.plan-anchor, .plan-asset, .map-anchor, .asset-marker { line-height: 0; }
+
 .editor-properties-panel { position: sticky; top: 1rem; border-radius: .35rem; }
 .editor-properties-label { margin: -1.25rem -1.25rem 1rem; border-bottom: 1px solid #e2e8f0; padding: .7rem 1.25rem; color: #334155; font-size: .65rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .zone-geometry-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }

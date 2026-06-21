@@ -3,25 +3,25 @@
 @php($provider = $provider instanceof BackedEnum ? $provider->value : (string) $provider)
 
 <span {{ $attributes->class(['connector-icon'])->merge(['data-provider-icon' => $provider]) }}>
+    @if($provider === 'tti_webhook')
+        <img width="24" height="24" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QA/wD/AP+gvaeTAAAAB3RJTUUH5QEUDw8XZ1EX3AAAAuxJREFUWMPtlk+IVXUUxz+/65vnYG+eSooDEQoj5EIoEDQQ2rUwyzRMcKXRIh03rlwMkVjLFtGyghZBBCWBK2kjRIgLc6GtUif8s7BwiBkRkee759Pi3vdm3nt35D1y5xz4cS+/+/ud3+d8zzk/LqzYij3vlkbeMR2QB6TUBKcQ0FlID0jAV7WR3GUjrT6WQwgp7QTPIhfQCwRnyWMnufBhaySXo+EqwCTwJfI6WszJm+gEEQcg/f1sAE4EpARhHQm0TQTALmRHKX0HAHQHsovkuf8PMB0gE4QfgG+hCwTfEvwCbADHugDRBRgDNiBw+CEkMiSRpRyA718YEuB4J8+cQD5Da+UBu8H9aL4YfcUTQN5AjyJN8jiP/sD7C4/4ae0QAIWTJuG7QG1JhC8BewjvPgUgiHgV+Q7cjED4DtKkln3Be/Pw87qe4wa7ICzzbqM4fMkIm4SpXFM1JNyLbu7OaR09SKs9URZxnwLH83FgD7Ib/RP9kaAIayDC0imd/Pd9h4Sur1CmCdZpx1renjuEvIJeRM/XkGnwDNIgDGQb+vnAwUuLjgowy/TFMrWhY8gMcBLN0I+Q0xl6hOjKnaH70EnCGJB4qQqVI5ZbF4ST6D7CrJxrEB6pETb6aMfR1YPSlxUay6Sm8r1n/2p0vG9do7ZIPKTTyhrotOAwgL1+CoBOwcWIAM9AodqyC6pgGEKtDuAwwSxeNEPlcLgIn6ZQ573nHgitcBa9V273e5twDnhCONYH+wScQ9sV+/LS58C9mxHe7GkZvYfeIbzWbatitNCr6CXCK303JOgV5BLhVcJWX4teQ+8A9/oAbq5i+8xf6DZkPXob+RS9jF5HthJuRBeAr5FvCOeRP9At6IvIY/Q34BRyA7lVtJtbkRz9FfgEuAX8C7wG1IHfgY8TBxdgVbaxcMg/6F1A2gGwDp0CHhW/XbRo5Z0fuSYyVco8S0oPiKDcVy/3rQFmgfky4gS8DGwqge6zYiv23Nt/ee9DC6gdlhQAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjEtMDEtMjBUMTU6MTU6MjMrMDE6MDB0nC7JAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIxLTAxLTIwVDE1OjE1OjIzKzAxOjAwBcGWdQAAAFd6VFh0UmF3IHByb2ZpbGUgdHlwZSBpcHRjAAB4nOPyDAhxVigoyk/LzEnlUgADIwsuYwsTIxNLkxQDEyBEgDTDZAMjs1Qgy9jUyMTMxBzEB8uASKBKLgDqFxF08kI1lQAAAABJRU5ErkJggg==" alt="">
+    @else
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         @switch($provider)
-            @case('tti_webhook')
-                <path d="M12 18V9"/><path d="m9 12 3-3 3 3"/><circle cx="12" cy="6" r="2"/><path d="M7.8 4.2a6 6 0 0 0 0 8.5M16.2 4.2a6 6 0 0 1 0 8.5M5 2a9 9 0 0 0 0 13M19 2a9 9 0 0 1 0 13"/><path d="M8 21h8"/>
-                @break
             @case('mqtt')
-                <path d="M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M5 11a6 6 0 0 1 6 6M5 6a11 11 0 0 1 11 11M5 2a15 15 0 0 1 15 15"/>
+                <path fill="#660066" stroke="none" d="M10.657 23.994h-9.45A1.212 1.212 0 0 1 0 22.788v-9.18h.071c5.784 0 10.504 4.65 10.586 10.386Zm7.606 0h-4.045C14.135 16.246 7.795 9.977 0 9.942V6.038h.071c9.983 0 18.121 8.044 18.192 17.956Zm4.53 0h-.97C21.754 12.071 11.995 2.407 0 2.372v-1.16C0 .55.544.006 1.207.006h7.64C15.733 2.49 21.257 7.789 24 14.508v8.291c0 .663-.544 1.195-1.207 1.195ZM16.713.006h6.092A1.19 1.19 0 0 1 24 1.2v5.914c-.91-1.242-2.046-2.65-3.158-3.762C19.588 2.11 18.122.987 16.714.005Z"/>
                 @break
             @case('sap_s4hana')
-                <ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>
+                <path fill="#0FAAFF" stroke="none" d="M0 6.064v11.872h12.13L24 6.064zm3.264 2.208h.005c.863.001 1.915.245 2.676.633l-.82 1.43c-.835-.404-1.255-.442-1.73-.467-.708-.038-1.064.215-1.069.488-.007.332.669.633 1.305.838.964.306 2.19.715 2.377 1.9L7.77 8.437h2.046l2.064 5.576-.007-5.575h2.37c2.257 0 3.318.764 3.318 2.519 0 1.575-1.09 2.514-2.936 2.514h-.763l-.01 2.094-3.588-.003-.25-.908c-.37.122-.787.189-1.23.189-.456 0-.885-.071-1.263-.2l-.358.919-2 .006.09-.462c-.029.025-.057.05-.087.074-.535.43-1.208.629-2.037.644l-.213.002a5.075 5.075 0 0 1-2.581-.675l.73-1.448c.79.467 1.286.572 1.956.558.347-.007.598-.07.761-.239a.557.557 0 0 0 .156-.369c.007-.376-.53-.553-1.185-.756-.531-.164-1.135-.389-1.606-.735-.559-.41-.825-.924-.812-1.65a1.99 1.99 0 0 1 .566-1.377c.519-.537 1.357-.863 2.363-.863zm10.597 1.67v1.904h.521c.694 0 1.247-.23 1.248-.964 0-.709-.554-.94-1.248-.94zm-5.087.767l-.748 2.362c.223.085.481.133.757.133.268 0 .52-.047.742-.126l-.736-2.37z"/>
                 @break
             @case('business_central')
-                <rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><path d="M17 14v6M14 17h6"/>
+                <path fill="#002050" stroke="none" d="m6 2 11.25 6.5-3.75 3L6 8zm0 7 3.5 2.25L6 22 18 9v6L6 22z"/>
                 @break
             @case('shopify')
-                <path d="M5 8h14l1 13H4L5 8Z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/><path d="M9 15c1.5 1.3 4.5 1.3 6 0"/>
+                <path fill="#7AB55C" stroke="none" d="M15.337 23.979l7.216-1.561s-2.604-17.613-2.625-17.73c-.018-.116-.114-.192-.211-.192s-1.929-.136-1.929-.136-1.275-1.274-1.439-1.411c-.045-.037-.075-.057-.121-.074l-.914 21.104h.023zM11.71 11.305s-.81-.424-1.774-.424c-1.447 0-1.504.906-1.504 1.141 0 1.232 3.24 1.715 3.24 4.629 0 2.295-1.44 3.76-3.406 3.76-2.354 0-3.54-1.465-3.54-1.465l.646-2.086s1.245 1.066 2.28 1.066c.675 0 .975-.545.975-.932 0-1.619-2.654-1.694-2.654-4.359-.034-2.237 1.571-4.416 4.827-4.416 1.257 0 1.875.361 1.875.361l-.945 2.715-.02.01zM11.17.83c.136 0 .271.038.405.135-.984.465-2.064 1.639-2.508 3.992-.656.213-1.293.405-1.889.578C7.697 3.75 8.951.84 11.17.84V.83zm1.235 2.949v.135c-.754.232-1.583.484-2.394.736.466-1.777 1.333-2.645 2.085-2.971.193.501.309 1.176.309 2.1zm.539-2.234c.694.074 1.141.867 1.429 1.755-.349.114-.735.231-1.158.366v-.252c0-.752-.096-1.371-.271-1.871v.002zm2.992 1.289c-.02 0-.06.021-.078.021s-.289.075-.714.21c-.423-1.233-1.176-2.37-2.508-2.37h-.115C12.135.209 11.669 0 11.265 0 8.159 0 6.675 3.877 6.21 5.846c-1.194.365-2.063.636-2.16.674-.675.213-.694.232-.772.87-.075.462-1.83 14.063-1.83 14.063L15.009 24l.927-21.166z"/>
                 @break
             @case('odoo')
-                <circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="m8.7 10.7 6.6-3.4M8.7 13.3l6.6 3.4"/>
+                <path fill="#714B67" stroke="none" d="M21.1002 15.7957c-1.6015 0-2.8997-1.2983-2.8997-2.8998s1.2983-2.8997 2.8997-2.8997c1.6015 0 2.8998 1.2982 2.8998 2.8997 0 1.5999-1.2979 2.8998-2.8998 2.8998zm0-1.2c.9388.0006 1.7003-.7601 1.7008-1.6989.0004-.9388-.7602-1.7003-1.699-1.7007h-.0018c-.9388.0004-1.6994.7619-1.699 1.7007.0005.9381.761 1.6985 1.699 1.699zm-6.0655 1.2c-1.6014 0-2.8997-1.2983-2.8997-2.8998s1.2983-2.8997 2.8997-2.8997c1.6015 0 2.8998 1.2982 2.8998 2.8997 0 1.5999-1.2999 2.8998-2.8998 2.8998zm0-1.2c.9389.0006 1.7003-.7601 1.7008-1.6989.0005-.9388-.7602-1.7003-1.699-1.7007h-.0018c-.9388.0004-1.6994.7619-1.699 1.7007.0005.9381.761 1.6985 1.699 1.699zM11.865 12.858c0 1.6199-1.2979 2.9378-2.8977 2.9378s-2.8998-1.314-2.8998-2.9358 1.1799-2.8597 2.8998-2.8597c.6359 0 1.2239.134 1.6998.484v-1.68a.6.6 0 0 1 1.2 0v4.0537h-.002zm-2.8977 1.7399c.9388.0005 1.7002-.7602 1.7007-1.699.0005-.9388-.7602-1.7003-1.699-1.7007h-.0017c-.9389.0004-1.6995.7619-1.699 1.7007.0004.9381.7608 1.6985 1.699 1.699zm-6.0675 1.1979C1.2983 15.7957 0 14.4974 0 12.8959s1.2983-2.8997 2.8998-2.8997 2.8997 1.2982 2.8997 2.8997c0 1.5999-1.2999 2.8998-2.8997 2.8998zm0-1.2c.9388.0006 1.7002-.7601 1.7007-1.699.0005-.9387-.7602-1.7002-1.699-1.7006h-.0017c-.9388.0004-1.6995.7619-1.699 1.7007.0004.9381.7608 1.6985 1.699 1.699z"/>
                 @break
             @case('csv')
                 <path d="M6 2h8l4 4v16H6V2Z"/><path d="M14 2v5h5M9 11h6M9 15h6M9 19h4"/>
@@ -30,5 +30,6 @@
                 <path d="M8 12h8M5 8v3a3 3 0 0 0 3 3M19 8v3a3 3 0 0 1-3 3"/><path d="M3 4h4v4H3zM17 4h4v4h-4zM10 16h4v4h-4z"/>
         @endswitch
     </svg>
+    @endif
     <span class="sr-only">{{ $slot->isEmpty() ? 'Conector '.$provider : $slot }}</span>
 </span>
