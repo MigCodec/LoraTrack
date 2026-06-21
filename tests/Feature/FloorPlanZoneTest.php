@@ -125,6 +125,9 @@ class FloorPlanZoneTest extends TestCase
             ->assertSee('id="saved-anchor-overlay"', false)
             ->assertSee('class="plan-anchor"', false)
             ->assertSee('data-anchor-details', false)
+            ->assertSee('data-anchor-reposition', false)
+            ->assertSee('name="x_meters"', false)
+            ->assertSee('name="y_meters"', false)
             ->assertSee('action="'.route('installations.update', $installation).'"', false)
             ->assertSee('data-editor-layer="beacons"', false)
             ->assertSee('Beacon fijo 1');
@@ -139,6 +142,8 @@ class FloorPlanZoneTest extends TestCase
 
         $this->put(route('installations.update', $installation), [
             'name' => 'Beacon calibrado',
+            'x_meters' => 30,
+            'y_meters' => 10,
             'reference_rssi' => -63,
             'path_loss_exponent' => 2.4,
         ])->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
@@ -146,8 +151,21 @@ class FloorPlanZoneTest extends TestCase
         $this->assertSame(-63, $installation->fresh()->reference_rssi);
         $this->assertSame(2.4, $installation->fresh()->path_loss_exponent);
 
-        $this->delete(route('installations.destroy', $installation))->assertRedirect();
+        $this->put(route('installations.update', $installation), [
+            'name' => 'Beacon reubicado',
+            'x_meters' => 36,
+            'y_meters' => 12,
+            'reference_rssi' => -64,
+            'path_loss_exponent' => 2.5,
+        ])->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
         $this->assertNotNull($installation->fresh()->ended_at);
+        $relocatedInstallation = DeviceInstallation::query()->where('device_id', $device->id)->whereNull('ended_at')->firstOrFail();
+        $this->assertSame(36.0, $relocatedInstallation->x);
+        $this->assertSame(12.0, $relocatedInstallation->y);
+        $this->assertSame(-64, $relocatedInstallation->reference_rssi);
+
+        $this->delete(route('installations.destroy', $relocatedInstallation))->assertRedirect();
+        $this->assertNotNull($relocatedInstallation->fresh()->ended_at);
     }
 
     public function test_reported_sensecap_macs_can_be_selected_or_entered_when_placing_beacon(): void

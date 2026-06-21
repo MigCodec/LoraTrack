@@ -87,6 +87,7 @@
 }
 
 details.plan-anchor { width: 16px; height: 16px; pointer-events: auto; }
+details.plan-anchor[open] { z-index: 100; }
 details.plan-anchor > summary { display: block; width: 16px; height: 16px; cursor: pointer; list-style: none; }
 details.plan-anchor > summary::-webkit-details-marker { display: none; }
 details.plan-anchor > summary:hover > i,
@@ -137,6 +138,8 @@ details.plan-anchor[data-popup-vertical="up"] > .anchor-inline-popup { top: auto
 .anchor-context-coordinates { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
 .anchor-context-coordinates span { border: 1px solid #e2e8f0; border-radius: .5rem; background: #f8fafc; padding: .55rem; color: #64748b; font-size: .68rem; }
 .anchor-context-coordinates strong { display: block; margin-top: .15rem; color: #0f172a; font-size: .8rem; }
+.anchor-context-position-actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.anchor-context-position-actions p { color: #64748b; font-size: .68rem; line-height: 1.4; }
 .anchor-context-actions { display: flex; justify-content: flex-end; }
 .anchor-context-danger { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-top: 1px solid #fee2e2; background: #fff7f7; padding: .8rem 1rem; }
 .anchor-context-danger p { color: #7f1d1d; font-size: .65rem; line-height: 1.35; }

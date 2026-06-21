@@ -113,16 +113,46 @@ class DeviceController extends Controller
     public function updateInstallation(UpdateDeviceInstallationRequest $request, DeviceInstallation $deviceInstallation): RedirectResponse
     {
         $validated = $request->validated();
+        $floorPlan = $deviceInstallation->floorPlan;
+        if ((float) $validated['x_meters'] > (float) $floorPlan->width_meters) {
+            throw ValidationException::withMessages(['x_meters' => 'La posición X debe estar dentro del ancho del plano.']);
+        }
+        if ((float) $validated['y_meters'] > (float) $floorPlan->height_meters) {
+            throw ValidationException::withMessages(['y_meters' => 'La posición Y debe estar dentro del alto del plano.']);
+        }
 
         DB::transaction(function () use ($deviceInstallation, $validated): void {
             $deviceInstallation->device()->update(['name' => $validated['name']]);
-            $deviceInstallation->update([
+            $x = (float) $validated['x_meters'];
+            $y = (float) $validated['y_meters'];
+            $positionChanged = abs($x - (float) $deviceInstallation->x) > 0.000001
+                || abs($y - (float) $deviceInstallation->y) > 0.000001;
+
+            if (! $positionChanged) {
+                $deviceInstallation->update([
+                    'reference_rssi' => $validated['reference_rssi'],
+                    'path_loss_exponent' => $validated['path_loss_exponent'],
+                ]);
+
+                return;
+            }
+
+            $deviceInstallation->forceFill(['ended_at' => now()])->save();
+            DeviceInstallation::query()->create([
+                'organization_id' => $deviceInstallation->organization_id,
+                'device_id' => $deviceInstallation->device_id,
+                'location_id' => $deviceInstallation->location_id,
+                'floor_plan_id' => $deviceInstallation->floor_plan_id,
+                'x' => $x,
+                'y' => $y,
+                'z' => $deviceInstallation->z,
                 'reference_rssi' => $validated['reference_rssi'],
                 'path_loss_exponent' => $validated['path_loss_exponent'],
+                'started_at' => now(),
             ]);
         });
 
         return redirect()->route('floor-plans.index', ['plan' => $deviceInstallation->floor_plan_id])
-            ->with('status', 'Parámetros del beacon actualizados.');
+            ->with('status', 'Parámetros y posición del beacon actualizados.');
     }
 }

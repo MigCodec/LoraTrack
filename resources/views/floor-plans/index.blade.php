@@ -126,10 +126,11 @@
                                         <summary title="Editar {{ $installation->device->name }}" aria-label="Editar {{ $installation->device->name }}"><i aria-hidden="true"></i></summary>
                                         <div class="anchor-inline-popup" role="dialog" aria-label="Parámetros de {{ $installation->device->name }}">
                                             <div class="anchor-context-header"><div><p class="anchor-context-kicker">Beacon instalado</p><h2>{{ $installation->device->name }}</h2><p>{{ $installation->device->type }} · {{ $installation->device->identifier }}</p></div></div>
-                                            <form method="POST" action="{{ route('installations.update', $installation) }}" class="anchor-context-body">
+                                            <form method="POST" action="{{ route('installations.update', $installation) }}" class="anchor-context-body" data-anchor-edit-form data-installation-id="{{ $installation->id }}">
                                                 @csrf @method('PUT')
                                                 <label class="field-label">Nombre<input class="field-input" name="name" value="{{ $installation->device->name }}" maxlength="255" required></label>
-                                                <div class="anchor-context-coordinates"><span>Posición X <strong>{{ number_format((float) $installation->x, 2) }} m</strong></span><span>Posición Y <strong>{{ number_format((float) $installation->y, 2) }} m</strong></span></div>
+                                                <div class="grid grid-cols-2 gap-3"><label class="field-label">Posición X (m)<input class="field-input" type="number" name="x_meters" value="{{ $installation->x }}" min="0" max="{{ $selectedPlan->width_meters }}" step="0.001" required></label><label class="field-label">Posición Y (m)<input class="field-input" type="number" name="y_meters" value="{{ $installation->y }}" min="0" max="{{ $selectedPlan->height_meters }}" step="0.001" required></label></div>
+                                                <div class="anchor-context-position-actions"><p>Puedes escribir las coordenadas en metros o seleccionar el punto directamente sobre el plano.</p><button class="btn-secondary" type="button" data-anchor-reposition>Elegir en plano</button></div>
                                                 <div class="grid grid-cols-2 gap-3"><label class="field-label">RSSI a 1 m<input class="field-input" type="number" name="reference_rssi" value="{{ $installation->reference_rssi }}" min="-127" max="-1" required></label><label class="field-label">Factor ambiental<input class="field-input" type="number" name="path_loss_exponent" value="{{ $installation->path_loss_exponent }}" min="0.5" max="8" step="0.01" required></label></div>
                                                 <div class="anchor-context-actions"><button class="btn-primary" type="submit">Guardar cambios</button></div>
                                             </form>
@@ -152,7 +153,7 @@
                         <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>
                     </div>
                     <script id="zone-data" type="application/json">{{ Illuminate\Support\Js::encode($selectedPlan->zones->map(fn($zone) => ['name' => $zone->name, 'color' => $zone->color, 'x_min' => (float) $zone->x_min, 'y_min' => (float) $zone->y_min, 'x_max' => (float) $zone->x_max, 'y_max' => (float) $zone->y_max])->values()) }}</script>
-                    <script id="installation-data" type="application/json">{{ Illuminate\Support\Js::encode($installations->map(fn($installation) => ['name' => $installation->device->name, 'type' => $installation->device->type, 'x' => (float) $installation->x / (float) $selectedPlan->width_meters, 'y' => (float) $installation->y / (float) $selectedPlan->height_meters])->values()) }}</script>
+                    <script id="installation-data" type="application/json">{{ Illuminate\Support\Js::encode($installations->map(fn($installation) => ['id' => $installation->id, 'name' => $installation->device->name, 'type' => $installation->device->type, 'x' => (float) $installation->x / (float) $selectedPlan->width_meters, 'y' => (float) $installation->y / (float) $selectedPlan->height_meters])->values()) }}</script>
                         </div>
                     </div>
                 @else

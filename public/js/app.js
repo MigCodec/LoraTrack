@@ -132,6 +132,7 @@ if (editor && !editor.dataset.editorInitialized) {
     let start = null;
     let draft = null;
     let draftAnchor = null;
+    let relocationForm = null;
     let activeMode = null;
 
     const setMode = (mode) => {
@@ -140,8 +141,8 @@ if (editor && !editor.dataset.editorInitialized) {
         if (anchorForm) anchorForm.hidden = mode !== 'anchor';
         zoneModeButton?.classList.toggle('is-active', mode === 'zone');
         ribbonAnchorModeButton?.classList.toggle('is-active', mode === 'anchor');
-        canvas.style.cursor = mode === 'zone' ? 'crosshair' : mode === 'anchor' ? 'copy' : 'default';
-        if (modeStatus) modeStatus.textContent = mode === 'zone' ? 'Modo área activo: arrastra sobre el plano.' : mode === 'anchor' ? 'Modo ancla activo: haz clic en una ubicación conocida.' : 'Selecciona una herramienta para editar el plano.';
+        canvas.style.cursor = mode === 'zone' ? 'crosshair' : ['anchor', 'relocate-anchor'].includes(mode) ? 'copy' : 'default';
+        if (modeStatus) modeStatus.textContent = mode === 'zone' ? 'Modo área activo: arrastra sobre el plano.' : mode === 'anchor' ? 'Modo ancla activo: haz clic en una ubicación conocida.' : mode === 'relocate-anchor' ? 'Reubicando beacon: haz clic en su nueva posición.' : 'Selecciona una herramienta para editar el plano.';
     };
 
     const pointer = (event) => {
@@ -203,6 +204,28 @@ if (editor && !editor.dataset.editorInitialized) {
     };
 
     canvas.addEventListener('pointerdown', (event) => {
+        if (activeMode === 'relocate-anchor' && relocationForm) {
+            const point = pointer(event);
+            relocationForm.elements.x_meters.value = (point.x * planWidthMeters).toFixed(3);
+            relocationForm.elements.y_meters.value = (point.y * planHeightMeters).toFixed(3);
+            const details = relocationForm.closest('[data-anchor-details]');
+            if (details) {
+                details.style.left = `${point.x * 100}%`;
+                details.style.top = `${point.y * 100}%`;
+            }
+            const installation = installationData.find((item) => String(item.id) === relocationForm.dataset.installationId);
+            if (installation) Object.assign(installation, point);
+            const selectedForm = relocationForm;
+            relocationForm = null;
+            setMode(null);
+            redraw();
+            window.setTimeout(() => {
+                const selectedDetails = selectedForm.closest('[data-anchor-details]');
+                if (selectedDetails) selectedDetails.open = true;
+                selectedForm.querySelector('[data-anchor-reposition]')?.focus();
+            }, 0);
+            return;
+        }
         if (activeMode === 'anchor' && anchorForm) {
             draftAnchor = pointer(event);
             anchorForm.elements.x_normalized.value = draftAnchor.x.toFixed(7);
@@ -255,6 +278,7 @@ if (editor && !editor.dataset.editorInitialized) {
 
     form?.elements.color?.addEventListener('input', redraw);
     zoneModeButton?.addEventListener('click', () => {
+        relocationForm = null;
         draftAnchor = null;
         setMode('zone');
         status.textContent = 'Arrastra sobre el plano para definir el área.';
@@ -262,6 +286,7 @@ if (editor && !editor.dataset.editorInitialized) {
         form?.querySelector('input[name="name"]')?.focus();
     });
     ribbonAnchorModeButton?.addEventListener('click', () => {
+        relocationForm = null;
         draft = null;
         setMode('anchor');
         anchorStatus.textContent = 'Haz clic en la posición conocida del dispositivo.';
@@ -269,6 +294,7 @@ if (editor && !editor.dataset.editorInitialized) {
         anchorForm?.querySelector('select[name="device_id"]')?.focus();
     });
     anchorModeButton?.addEventListener('click', () => {
+        relocationForm = null;
         setMode('anchor');
         anchorModeButton.textContent = 'Haz clic sobre el plano…';
         anchorStatus.textContent = 'Modo ancla activo: haz clic en la posición conocida.';
@@ -286,6 +312,12 @@ if (editor && !editor.dataset.editorInitialized) {
     applyEditorLayers();
 
     const anchorDetails = [...document.querySelectorAll('[data-anchor-details]')];
+    document.querySelectorAll('[data-anchor-reposition]').forEach((button) => button.addEventListener('click', () => {
+        relocationForm = button.closest('[data-anchor-edit-form]');
+        const details = button.closest('[data-anchor-details]');
+        if (details) details.open = false;
+        setMode('relocate-anchor');
+    }));
     anchorDetails.forEach((details) => details.addEventListener('toggle', () => {
         if (details.open) anchorDetails.forEach((other) => { if (other !== details) other.removeAttribute('open'); });
     }));
