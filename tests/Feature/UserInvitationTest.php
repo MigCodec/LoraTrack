@@ -122,6 +122,52 @@ class UserInvitationTest extends TestCase
             ->assertDontSee('oculto@example.test');
     }
 
+    public function test_admin_can_delete_a_pending_invitation_and_invalidate_its_link(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create();
+        $organization = Organization::query()->create(['name' => 'Empresa Uno', 'slug' => 'empresa-uno-delete']);
+        $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->post(route('user-invitations.store'), [
+                'email' => 'eliminar@example.test',
+                'role' => UserRole::Viewer->value,
+                'access_type' => 'permanent',
+            ])->assertRedirect();
+
+        $invitation = OrganizationInvitation::query()->where('email', 'eliminar@example.test')->firstOrFail();
+        $invitedUser = User::query()->where('email', 'eliminar@example.test')->firstOrFail();
+        $mail = Mail::queued(OrganizationInvitationMail::class)->first();
+        $token = basename((string) parse_url($mail->invitationUrl, PHP_URL_PATH));
+
+        $this->delete(route('user-invitations.destroy', $invitation))->assertRedirect()->assertSessionHas('status');
+
+        $this->assertDatabaseMissing('organization_invitations', ['id' => $invitation->id]);
+        $this->assertDatabaseMissing('organization_memberships', ['organization_id' => $organization->id, 'user_id' => $invitedUser->id]);
+        $this->assertDatabaseMissing('users', ['id' => $invitedUser->id]);
+        $this->get(route('invitations.accept', $token))->assertNotFound();
+    }
+
+    public function test_non_admin_cannot_delete_an_invitation(): void
+    {
+        $viewer = User::factory()->create();
+        $organization = Organization::query()->create(['name' => 'Empresa Uno', 'slug' => 'empresa-uno-forbidden']);
+        $organization->memberships()->create(['user_id' => $viewer->id, 'role' => UserRole::Viewer]);
+        $invitation = OrganizationInvitation::query()->create([
+            'organization_id' => $organization->id,
+            'email' => 'pendiente@example.test',
+            'role' => UserRole::Viewer,
+            'token_hash' => hash('sha256', 'token'),
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($viewer)->withSession(['organization_id' => $organization->id])
+            ->delete(route('user-invitations.destroy', $invitation))->assertForbidden();
+
+        $this->assertDatabaseHas('organization_invitations', ['id' => $invitation->id]);
+    }
+
     public function test_admin_can_resend_an_expired_invitation_and_the_previous_token_is_invalidated(): void
     {
         Mail::fake();

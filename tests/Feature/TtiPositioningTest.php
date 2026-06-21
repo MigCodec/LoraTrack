@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\PayloadProfileDecoder;
 use App\Positioning\TelemetryPositioningService;
+use App\Telemetry\AssetLastSeenUpdater;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -97,6 +98,7 @@ class TtiPositioningTest extends TestCase
             app(BleObservationExtractor::class),
             app(PayloadProfileDecoder::class),
             app(TelemetryPositioningService::class),
+            app(AssetLastSeenUpdater::class),
         );
 
         $position = PositionEstimate::query()->firstOrFail();
@@ -104,6 +106,7 @@ class TtiPositioningTest extends TestCase
         $this->assertEqualsWithDelta(5.0, (float) $position->x, 0.01);
         $this->assertCount(3, $position->evidence);
         $this->assertSame($location->id, $asset->fresh()->location_id);
+        $this->assertTrue($asset->fresh()->last_seen_at->equalTo($event->observed_at));
 
         $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))
             ->getJson(route('map.data', $plan))
@@ -112,7 +115,7 @@ class TtiPositioningTest extends TestCase
                 'id', 'name', 'identifier', 'type', 'x', 'y',
             ]], 'positions' => [[
                 'accuracy_meters', 'relative_error', 'error_radius_x', 'error_radius_y',
-                'x_meters', 'y_meters', 'algorithm', 'algorithm_version', 'calculated_at', 'observed_at', 'received_at',
+                'x_meters', 'y_meters', 'algorithm', 'algorithm_version', 'calculated_at', 'last_seen_at', 'observed_at', 'received_at',
                 'evidence' => [[
                     'identifier', 'name', 'type', 'rssi', 'estimated_distance_meters',
                     'geometric_distance_meters', 'residual_meters', 'reference_rssi',
@@ -124,13 +127,15 @@ class TtiPositioningTest extends TestCase
             ->assertJsonCount(3, 'positions.0.evidence')
             ->assertJsonPath('positions.0.evidence.0.type', 'beacon')
             ->assertJsonPath('positions.0.evidence.0.reference_rssi', -59)
-            ->assertJsonPath('positions.0.asset_id', $asset->id);
+            ->assertJsonPath('positions.0.asset_id', $asset->id)
+            ->assertJsonPath('positions.0.last_seen_at', $event->observed_at->toIso8601String());
 
         $this->actingAs(User::factory()->create(['role' => UserRole::Operator]))
             ->get(route('assets.index', ['mobility' => 'mobile']))
             ->assertOk()
             ->assertSee('X 5.00 m')
             ->assertSee('Y 5.00 m')
+            ->assertSee('Última señal')
             ->assertSee('Ver en mapa');
 
         $asset->deviceAssignments()->whereNull('ended_at')->update(['ended_at' => now()]);

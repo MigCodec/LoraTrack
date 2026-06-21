@@ -114,6 +114,7 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::post('/users/invitations', [UserInvitationController::class, 'store'])->middleware('throttle:10,1')->name('user-invitations.store');
         Route::post('/users/invitations/{organizationInvitation}/resend', [UserInvitationController::class, 'resend'])->middleware('throttle:10,1')->name('user-invitations.resend');
+        Route::delete('/users/invitations/{organizationInvitation}', [UserInvitationController::class, 'destroy'])->name('user-invitations.destroy');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::patch('/users/memberships', [UserController::class, 'bulkUpdate'])->name('users.memberships.bulk-update');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');

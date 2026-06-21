@@ -105,6 +105,23 @@ class AssetPermissionsAndAlertsTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_mobile_and_static_asset_lists_show_the_last_uplink_time(): void
+    {
+        $viewer = User::factory()->create(['role' => UserRole::Viewer]);
+        $seenAt = now()->subMinutes(5)->startOfSecond();
+        Asset::query()->create([
+            'asset_tag' => 'MOV-SEEN', 'name' => 'Móvil visto', 'mobility' => 'mobile', 'status' => 'active', 'last_seen_at' => $seenAt,
+        ]);
+        Asset::query()->create([
+            'asset_tag' => 'STA-SEEN', 'name' => 'Estático visto', 'mobility' => 'static', 'status' => 'active', 'last_seen_at' => $seenAt,
+        ]);
+
+        $this->actingAs($viewer)->get(route('assets.index', ['mobility' => 'mobile']))
+            ->assertOk()->assertSee('Móvil visto')->assertSee('Última señal')->assertSee($seenAt->format('d/m/Y H:i:s'));
+        $this->actingAs($viewer)->get(route('assets.index', ['mobility' => 'static']))
+            ->assertOk()->assertSee('Estático visto')->assertSee('Última señal')->assertSee($seenAt->format('d/m/Y H:i:s'));
+    }
+
     public function test_alert_evaluation_ignores_passive_beacons_and_does_not_repeat_email(): void
     {
         Mail::fake();

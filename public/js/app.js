@@ -448,6 +448,7 @@ if (realtimeMap) {
         setDetail('#asset-detail-confidence', `${Math.round(position.confidence * 100)}%`);
         setDetail('#asset-detail-error', `±${position.accuracy_meters.toFixed(2)} m`);
         setDetail('#asset-detail-algorithm', `${position.algorithm} v${position.algorithm_version}`);
+        setDetail('#asset-detail-last-seen', formatDate(position.last_seen_at));
         setDetail('#asset-detail-calculated', formatDate(position.calculated_at));
         setDetail('#asset-detail-observed', formatDate(position.observed_at));
         setDetail('#asset-detail-received', formatDate(position.received_at));
@@ -479,7 +480,7 @@ if (realtimeMap) {
             data.positions.forEach((position) => {
                 const uncertaintyDiameter = Math.max(1.5, Math.min(200, position.relative_error * 200));
                 const uncertainty=document.createElement('div'); uncertainty.className=`asset-uncertainty${position.stale?' stale':''}`; uncertainty.style.left=`${position.x*100}%`; uncertainty.style.top=`${position.y*100}%`; uncertainty.style.width=`${uncertaintyDiameter}%`; uncertainty.style.height=`${uncertaintyDiameter}%`; uncertainty.title=`Error estimado: ${position.accuracy_meters.toFixed(2)} m · relativo ${(position.relative_error*100).toFixed(2)}%`; markers.appendChild(uncertainty);
-                const node=document.createElement('button'); node.type='button'; node.dataset.assetId=position.asset_id; node.setAttribute('aria-haspopup','dialog'); node.setAttribute('aria-label', `Ver detalles de ${position.name}`); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; node.appendChild(spatialMarkerIcon('asset')); node.addEventListener('click',()=>showAssetDetails(position,node)); markers.appendChild(node);
+                const node=document.createElement('button'); node.type='button'; node.dataset.assetId=position.asset_id; node.setAttribute('aria-haspopup','dialog'); node.setAttribute('aria-label', `Ver detalles de ${position.name}`); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · última señal ${formatDate(position.last_seen_at)} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; node.appendChild(spatialMarkerIcon('asset')); node.addEventListener('click',()=>showAssetDetails(position,node)); markers.appendChild(node);
             });
             const selectedPosition = data.positions.find((position) => position.asset_id === selectedAssetId);
             if (selectedPosition && technicalDialog?.open) showAssetDetails(selectedPosition, markers.querySelector(`[data-asset-id="${CSS.escape(selectedPosition.asset_id)}"]`), false);

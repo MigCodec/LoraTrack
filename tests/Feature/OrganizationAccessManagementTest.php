@@ -71,6 +71,35 @@ class OrganizationAccessManagementTest extends TestCase
         $this->assertNull($admin->memberships()->firstOrFail()->expires_at);
     }
 
+    public function test_admin_can_remove_a_member_without_deleting_the_global_user_account(): void
+    {
+        $admin = User::factory()->create();
+        $member = User::factory()->create();
+        $organization = Organization::query()->create(['name' => 'Empresa Uno', 'slug' => 'empresa-remove-member']);
+        $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
+        $organization->memberships()->create(['user_id' => $member->id, 'role' => UserRole::Viewer]);
+
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->delete(route('users.destroy', $member))->assertRedirect()->assertSessionHas('status');
+
+        $this->assertDatabaseMissing('organization_memberships', ['organization_id' => $organization->id, 'user_id' => $member->id]);
+        $this->assertDatabaseHas('users', ['id' => $member->id]);
+    }
+
+    public function test_non_admin_cannot_remove_a_company_member(): void
+    {
+        $viewer = User::factory()->create();
+        $member = User::factory()->create();
+        $organization = Organization::query()->create(['name' => 'Empresa Uno', 'slug' => 'empresa-remove-forbidden']);
+        $organization->memberships()->create(['user_id' => $viewer->id, 'role' => UserRole::Viewer]);
+        $organization->memberships()->create(['user_id' => $member->id, 'role' => UserRole::Operator]);
+
+        $this->actingAs($viewer)->withSession(['organization_id' => $organization->id])
+            ->delete(route('users.destroy', $member))->assertForbidden();
+
+        $this->assertDatabaseHas('organization_memberships', ['organization_id' => $organization->id, 'user_id' => $member->id]);
+    }
+
     public function test_users_page_lists_company_groups_and_access_status(): void
     {
         $admin = User::factory()->create();

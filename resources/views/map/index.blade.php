@@ -61,6 +61,7 @@
                     <div><dt>Confianza</dt><dd id="asset-detail-confidence"></dd></div>
                     <div><dt>Error estimado</dt><dd id="asset-detail-error"></dd></div>
                     <div><dt>Algoritmo</dt><dd id="asset-detail-algorithm"></dd></div>
+                    <div><dt>Última señal</dt><dd id="asset-detail-last-seen"></dd></div>
                     <div><dt>Calculada</dt><dd id="asset-detail-calculated"></dd></div>
                     <div><dt>Observada</dt><dd id="asset-detail-observed"></dd></div>
                     <div><dt>Recibida</dt><dd id="asset-detail-received"></dd></div>

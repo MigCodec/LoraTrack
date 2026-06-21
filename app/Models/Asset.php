@@ -17,12 +17,12 @@ class Asset extends Model
     use HasUlids;
 
     protected $fillable = [
-        'sku_id', 'location_id', 'asset_tag', 'serial_number', 'name', 'mobility', 'status', 'metadata', 'photo_path',
+        'sku_id', 'location_id', 'asset_tag', 'serial_number', 'name', 'mobility', 'status', 'last_seen_at', 'metadata', 'photo_path',
     ];
 
     protected function casts(): array
     {
-        return ['metadata' => 'array'];
+        return ['last_seen_at' => 'datetime', 'metadata' => 'array'];
     }
 
     public function sku(): BelongsTo

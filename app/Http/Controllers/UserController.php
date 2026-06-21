@@ -100,9 +100,6 @@ class UserController extends Controller
         $membership = $this->membership($user);
         $this->ensurePermanentAdministratorRemains([$membership->id], UserRole::Viewer, now());
         $membership->delete();
-        if ($user->memberships()->doesntExist()) {
-            $user->delete();
-        }
 
         return back()->with('status', 'Usuario retirado de la organización.');
     }

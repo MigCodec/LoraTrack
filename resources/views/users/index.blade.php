@@ -27,7 +27,17 @@
                                 <p class="truncate text-sm font-semibold text-slate-800">{{ $invitation->email }}</p>
                                 <p class="mt-1 text-xs text-slate-500">{{ $invitation->role->label() }} · {{ $invitation->expires_at->isPast() ? 'enlace vencido' : 'invitación vence '.$invitation->expires_at->diffForHumans() }}</p>
                                 <p class="mt-1 text-xs text-slate-400">Acceso: {{ $invitation->membership_expires_at ? 'hasta '.$invitation->membership_expires_at->format('d/m/Y') : 'permanente' }}</p>
-                                <form method="POST" action="{{ route('user-invitations.resend', $invitation) }}" class="mt-2">@csrf<button class="text-xs font-semibold text-blue-600" type="submit">Reenviar invitación</button></form>
+                                <div class="mt-2 flex gap-3">
+                                    <form method="POST" action="{{ route('user-invitations.resend', $invitation) }}">
+                                        @csrf
+                                        <button class="text-xs font-semibold text-blue-600" type="submit">Reenviar invitación</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('user-invitations.destroy', $invitation) }}" onsubmit="return confirm('¿Eliminar esta invitación? El enlace dejará de funcionar.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="text-xs font-semibold text-red-600" type="submit">Eliminar invitación</button>
+                                    </form>
+                                </div>
                             </div>
                         @endforeach
                     </div>

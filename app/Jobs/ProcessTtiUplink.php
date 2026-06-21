@@ -9,6 +9,7 @@ use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\PayloadProfileDecoder;
 use App\Positioning\TelemetryPositioningService;
+use App\Telemetry\AssetLastSeenUpdater;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -37,7 +38,7 @@ class ProcessTtiUplink implements ShouldQueue
 
     public function __construct(public readonly string $telemetryEventId) {}
 
-    public function handle(BleObservationExtractor $extractor, PayloadProfileDecoder $profileDecoder, TelemetryPositioningService $positioning): void
+    public function handle(BleObservationExtractor $extractor, PayloadProfileDecoder $profileDecoder, TelemetryPositioningService $positioning, AssetLastSeenUpdater $lastSeenUpdater): void
     {
         $event = TelemetryEvent::query()->findOrFail($this->telemetryEventId);
         $context = app(OrganizationContext::class);
@@ -91,6 +92,7 @@ class ProcessTtiUplink implements ShouldQueue
                 );
             }
 
+            $lastSeenUpdater->updateFromUplink($event->load('signalObservations'));
             $positioning->positionEvent($event->fresh());
             $event->forceFill([
                 'processing_status' => 'processed',

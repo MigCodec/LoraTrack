@@ -93,6 +93,28 @@ class UserInvitationController extends Controller
         return back()->with('status', "Invitación reenviada a {$organizationInvitation->email}. El enlace anterior dejó de ser válido.");
     }
 
+    public function destroy(OrganizationInvitation $organizationInvitation): RedirectResponse
+    {
+        $organization = app(OrganizationContext::class)->organization();
+        abort_unless($organization && $organizationInvitation->organization_id === $organization->id, 404);
+        abort_if($organizationInvitation->accepted_at, 422, 'La invitación ya fue aceptada. Quita al usuario desde la lista de miembros.');
+
+        DB::transaction(function () use ($organization, $organizationInvitation): void {
+            $user = User::query()->whereRaw('LOWER(email) = ?', [mb_strtolower($organizationInvitation->email)])->lockForUpdate()->first();
+            $organizationInvitation->delete();
+            if (! $user) {
+                return;
+            }
+
+            $organization->memberships()->where('user_id', $user->id)->delete();
+            if ($user->memberships()->doesntExist() && ! $user->email_verified_at && blank($user->microsoft_id)) {
+                $user->delete();
+            }
+        });
+
+        return back()->with('status', 'Invitación eliminada. El enlace dejó de ser válido.');
+    }
+
     private function queueMail(Organization $organization, string $administratorName, string $email, UserRole $role, string $token, Carbon $expiresAt, ?Carbon $membershipExpiresAt): void
     {
         Mail::to($email)->queue(new OrganizationInvitationMail(

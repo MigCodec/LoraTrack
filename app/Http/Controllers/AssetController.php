@@ -27,7 +27,7 @@ class AssetController extends Controller
 
         return view('assets.index', [
             'assets' => Asset::query()
-                ->with(['sku.product', 'location', 'latestPosition.zone', 'latestPosition.floorPlan', 'deviceAssignments' => fn ($query) => $query->whereNull('ended_at')->with('device')])
+                ->with(['sku.product', 'location', 'latestPosition.zone', 'latestPosition.floorPlan', 'latestPosition.telemetryEvent', 'deviceAssignments' => fn ($query) => $query->whereNull('ended_at')->with('device')])
                 ->where('mobility', $mobility)
                 ->where('status', '!=', 'archived')
                 ->latest()
