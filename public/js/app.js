@@ -537,6 +537,31 @@ userSelections.forEach((selection) => selection.addEventListener('change', () =>
     selectAllUsers.indeterminate = !selectAllUsers.checked && userSelections.some((item) => item.checked);
 }));
 
+document.querySelectorAll('[data-recipient-picker]').forEach((picker) => {
+    const search = picker.querySelector('[data-recipient-search]');
+    const options = [...picker.querySelectorAll('[data-recipient-option]')];
+    const count = picker.querySelector('[data-recipient-count]');
+    const refreshCount = () => {
+        const selected = options.filter((option) => option.querySelector('input').checked).length;
+        count.textContent = `${selected} seleccionado${selected === 1 ? '' : 's'}`;
+    };
+    const filter = () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        options.forEach((option) => { option.hidden = query !== '' && !option.dataset.searchValue.includes(query); });
+    };
+    search?.addEventListener('input', filter);
+    options.forEach((option) => option.querySelector('input').addEventListener('change', refreshCount));
+    picker.querySelector('[data-recipient-select-all]')?.addEventListener('click', () => {
+        options.filter((option) => !option.hidden).forEach((option) => { option.querySelector('input').checked = true; });
+        refreshCount();
+    });
+    picker.querySelector('[data-recipient-clear]')?.addEventListener('click', () => {
+        options.forEach((option) => { option.querySelector('input').checked = false; });
+        refreshCount();
+    });
+    refreshCount();
+});
+
 const calibrationForm = document.querySelector('#calibration-form');
 if (calibrationForm) {
     const type = calibrationForm.elements.anchor_type;
