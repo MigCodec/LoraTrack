@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Models\OrganizationInvitation;
 use App\Models\OrganizationMembership;
 use App\Models\User;
 use App\Tenancy\OrganizationContext;
@@ -19,8 +20,21 @@ class UserController extends Controller
     public function index(): View
     {
         $organization = app(OrganizationContext::class)->organization();
+        $invitations = OrganizationInvitation::query()
+            ->where('organization_id', $organization->id)
+            ->whereNull('accepted_at')
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->get();
+        $pendingEmails = $invitations->pluck('email')->map(static fn (string $email): string => mb_strtolower($email));
+        $users = $organization->users()->orderBy('name')->get()
+            ->reject(static fn (User $user): bool => $pendingEmails->contains(mb_strtolower($user->email)));
 
-        return view('users.index', ['users' => $organization->users()->orderBy('name')->get(), 'roles' => UserRole::cases()]);
+        return view('users.index', [
+            'users' => $users,
+            'roles' => UserRole::cases(),
+            'invitations' => $invitations,
+        ]);
     }
 
     public function store(Request $request): RedirectResponse

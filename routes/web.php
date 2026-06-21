@@ -22,6 +22,7 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PayloadDecoderProfileController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ZoneAlertRuleController;
 use App\Http\Controllers\ZoneController;
 use Illuminate\Support\Facades\Route;
@@ -111,6 +112,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/connectors/{connector}/csv', [ConnectorController::class, 'importCsv'])->name('connectors.csv');
         Route::delete('/connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::post('/users/invitations', [UserInvitationController::class, 'store'])->middleware('throttle:10,1')->name('user-invitations.store');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
