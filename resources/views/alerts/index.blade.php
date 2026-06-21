@@ -1,50 +1,24 @@
 @extends('layouts.app')
 
 @section('title', 'Alertas')
-@section('heading', 'Alertas y notificaciones')
+@section('heading', 'Alertas y reglas')
+
+@push('styles')<link rel="stylesheet" href="{{ asset('css/alerts.css') }}?v={{ filemtime(public_path('css/alerts.css')) }}">@endpush
 
 @section('content')
-    <div class="grid gap-6 xl:grid-cols-[22rem_1fr]">
-        <form class="panel space-y-4 p-5" method="POST" action="{{ route('alerts.update') }}">
-            @csrf
-            @method('PUT')
-            <label class="flex gap-2"><input type="checkbox" name="enabled" value="1" @checked($settings->enabled)> Alertas habilitadas</label>
-
-            <fieldset class="alert-recipient-picker" data-recipient-picker>
-                <legend>Destinatarios</legend>
-                <div class="alert-recipient-toolbar">
-                    <input type="search" placeholder="Buscar usuario…" aria-label="Buscar destinatario" data-recipient-search>
-                    <span data-recipient-count>0 seleccionados</span>
-                </div>
-                <div class="alert-recipient-actions"><button type="button" data-recipient-select-all>Seleccionar visibles</button><button type="button" data-recipient-clear>Limpiar</button></div>
-                <div class="alert-recipient-list" role="listbox" aria-label="Usuarios de la empresa" aria-multiselectable="true">
-                    @php($selectedIds = array_map('strval', (array) old('recipient_user_ids', $selectedRecipientIds)))
-                    @forelse($recipientMemberships as $membership)
-                        <label data-recipient-option data-search-value="{{ mb_strtolower($membership->user->name.' '.$membership->user->email.' '.$membership->role->label()) }}">
-                            <input type="checkbox" name="recipient_user_ids[]" value="{{ $membership->user_id }}" @checked(in_array((string) $membership->user_id, $selectedIds, true))>
-                            <span><strong>{{ $membership->user->name }}</strong><small>{{ $membership->user->email }} · {{ $membership->role->label() }}</small></span>
-                        </label>
-                    @empty
-                        <p class="alert-recipient-empty">No hay miembros activos disponibles.</p>
-                    @endforelse
-                </div>
-                <p class="alert-recipient-help">Sólo aparecen usuarios con acceso vigente a esta empresa.</p>
-                @error('recipient_user_ids')<p class="mt-2 text-xs text-red-700">{{ $message }}</p>@enderror
-            </fieldset>
-
-            <label class="field-label">Minutos sin señal<input class="field-input" type="number" name="offline_minutes" min="5" max="10080" value="{{ old('offline_minutes', $settings->offline_minutes) }}" required></label>
-            <label class="field-label">Confianza mínima<input class="field-input" type="number" step="0.01" min="0" max="1" name="minimum_confidence" value="{{ old('minimum_confidence', $settings->minimum_confidence) }}" required></label>
-            @foreach(['device_offline' => 'Dispositivo offline', 'connector_error' => 'Error de conector', 'low_confidence' => 'Baja confianza'] as $value => $label)
-                <label class="flex gap-2"><input type="checkbox" name="enabled_types[]" value="{{ $value }}" @checked(in_array($value, old('enabled_types', $settings->enabled_types ?? []), true))>{{ $label }}</label>
-            @endforeach
-            <button class="btn-primary w-full">Guardar</button>
-        </form>
+    <div class="space-y-6">
+        <section class="panel p-5">
+            <div class="mb-5"><h2 class="panel-title">Nueva regla</h2><p class="panel-subtitle">Define el sujeto, la condición y una o varias acciones. Los destinatarios se resuelven según la empresa activa al ejecutarse.</p></div>
+            <form method="POST" action="{{ route('alert-rules.store') }}" class="space-y-5">@csrf @include('alerts._rule_fields', ['rule' => null])<div class="flex justify-end"><button class="btn-primary">Crear regla</button></div></form>
+        </section>
 
         <section class="panel">
-            <div class="panel-header"><h2 class="panel-title">Historial</h2></div>
-            <div class="table-wrap"><table class="data-table"><thead><tr><th>Estado</th><th>Alerta</th><th>Detectada</th><th>Notificada</th></tr></thead><tbody>
-                @foreach($alerts as $alert)<tr><td><span class="status-badge {{ $alert->resolved_at ? '' : 'status-error' }}">{{ $alert->resolved_at ? 'Resuelta' : 'Abierta' }}</span></td><td><strong>{{ $alert->title }}</strong><br><small>{{ $alert->message }}</small></td><td>{{ $alert->detected_at->diffForHumans() }}</td><td>{{ $alert->notified_at?->diffForHumans() ?? 'Pendiente' }}</td></tr>@endforeach
-            </tbody></table></div>
+            <div class="panel-header"><h2 class="panel-title">Reglas configuradas</h2><span class="status-badge status-active">{{ $rules->count() }}</span></div>
+            <div class="alert-rule-list">@forelse($rules as $rule)<details class="alert-rule-card"><summary><span><strong>{{ $rule->name }}</strong><small>{{ $rule->subject_type === 'asset' ? $rule->subject?->name : 'Todos los activos' }} · {{ ['zone_entry'=>'entra en','zone_exit'=>'sale de','zone_inside'=>'permanece en','zone_outside'=>'permanece fuera de','speed_above'=>'velocidad mayor que','speed_below'=>'velocidad menor que'][$rule->trigger_type] }} {{ $rule->zone?->name ?? ($rule->threshold !== null ? $rule->threshold.' km/h' : '') }}</small></span><span class="status-badge {{ $rule->enabled ? 'status-active' : '' }}">{{ $rule->enabled ? 'Activa' : 'Pausada' }}</span></summary><div class="alert-rule-edit"><form method="POST" action="{{ route('alert-rules.update', $rule) }}" class="space-y-5">@csrf @method('PUT') @include('alerts._rule_fields', ['rule' => $rule])<button class="btn-primary">Guardar cambios</button></form><form method="POST" action="{{ route('alert-rules.destroy', $rule) }}" onsubmit="return confirm('¿Eliminar esta regla?')">@csrf @method('DELETE')<button class="text-sm text-red-600">Eliminar regla</button></form></div></details>@empty<p class="p-5 text-sm text-slate-500">Todavía no hay reglas.</p>@endforelse</div>
         </section>
+
+        <details class="panel p-5"><summary class="cursor-pointer font-semibold">Alertas técnicas globales</summary><form class="mt-5 grid gap-4 md:grid-cols-2" method="POST" action="{{ route('alerts.update') }}">@csrf @method('PUT')<label class="flex gap-2 md:col-span-2"><input type="checkbox" name="enabled" value="1" @checked($settings->enabled)> Evaluación habilitada</label><div class="alert-recipient-field md:col-span-2" data-recipient-picker><div class="alert-recipient-heading"><label>Destinatarios técnicos</label><span data-recipient-count></span></div><div class="alert-recipient-picker"><div class="alert-recipient-search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Buscar por nombre, correo o rol" data-recipient-search></div><div class="alert-recipient-actions"><button type="button" data-recipient-select-all>Seleccionar visibles</button><button type="button" data-recipient-clear>Limpiar selección</button></div><div class="alert-recipient-list">@foreach($recipientMemberships as $membership)<label data-recipient-option data-search-value="{{ mb_strtolower($membership->user->name.' '.$membership->user->email.' '.$membership->role->label()) }}"><input type="checkbox" name="recipient_user_ids[]" value="{{ $membership->user_id }}" @checked(in_array((string) $membership->user_id, $selectedRecipientIds, true))><span class="alert-recipient-avatar">{{ mb_strtoupper(mb_substr($membership->user->name,0,1)) }}</span><span class="alert-recipient-identity"><strong>{{ $membership->user->name }}</strong><small>{{ $membership->user->email }}</small></span><span class="alert-recipient-role">{{ $membership->role->label() }}</span></label>@endforeach</div></div></div><label class="field-label">Minutos sin señal<input class="field-input" type="number" name="offline_minutes" min="5" max="10080" value="{{ $settings->offline_minutes }}" required></label><label class="field-label">Confianza mínima<input class="field-input" type="number" step="0.01" min="0" max="1" name="minimum_confidence" value="{{ $settings->minimum_confidence }}" required></label>@foreach(['device_offline'=>'Dispositivo offline','connector_error'=>'Error de conector','low_confidence'=>'Baja confianza'] as $value=>$label)<label class="flex gap-2"><input type="checkbox" name="enabled_types[]" value="{{ $value }}" @checked(in_array($value, $settings->enabled_types ?? [], true))>{{ $label }}</label>@endforeach<div class="md:col-span-2"><button class="btn-secondary">Guardar configuración técnica</button></div></form></details>
+
+        <section class="panel"><div class="panel-header"><h2 class="panel-title">Historial</h2></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Estado</th><th>Alerta</th><th>Detectada</th><th>Notificada</th></tr></thead><tbody>@forelse($alerts as $alert)<tr><td><span class="status-badge {{ $alert->resolved_at ? '' : 'status-error' }}">{{ $alert->resolved_at ? 'Resuelta' : 'Abierta' }}</span></td><td><strong>{{ $alert->title }}</strong><br><small>{{ $alert->message }}</small></td><td>{{ $alert->detected_at->diffForHumans() }}</td><td>{{ $alert->notified_at?->diffForHumans() ?? 'Pendiente' }}</td></tr>@empty<tr><td colspan="4">Sin alertas.</td></tr>@endforelse</tbody></table></div></section>
     </div>
 @endsection

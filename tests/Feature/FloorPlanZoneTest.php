@@ -106,9 +106,11 @@ class FloorPlanZoneTest extends TestCase
         $zone = $plan->zones()->firstOrFail();
         $this->actingAs($admin)->put(route('zones.update', $zone), [
             'name' => 'Bodega Norte', 'code' => 'NORTH', 'color' => '#005B82',
+            'x_min' => .2, 'y_min' => .25, 'x_max' => .6, 'y_max' => .75,
         ])->assertRedirect();
         $this->assertDatabaseHas('zones', ['id' => $zone->id, 'name' => 'Bodega Norte', 'code' => 'NORTH', 'color' => '#005B82']);
-        $this->assertEquals(.1, $zone->fresh()->x_min);
+        $this->assertEquals(.2, $zone->fresh()->x_min);
+        $this->assertSame([[.2, .25], [.6, .75]], $zone->fresh()->geometry['coordinates']);
 
         $device = Device::query()->create([
             'identifier' => 'AABBCCDDEEFF',

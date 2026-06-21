@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Alert;
+use App\Models\AlertRule;
 use App\Models\AlertSetting;
 use App\Models\Asset;
 use App\Models\Connector;
 use App\Models\Device;
 use App\Models\Organization;
+use App\Models\OrganizationMembership;
 use App\Models\PositionEstimate;
 use App\Models\Zone;
 use App\Models\ZonePresenceState;
@@ -63,6 +65,7 @@ class EvaluateAlerts extends Command
                 $active[] = $this->open('confidence:'.$position->asset_id, 'low_confidence', 'Posición con baja confianza', "{$position->asset->name}: ".round((float) $position->confidence * 100).'%', ['asset_id' => $position->asset_id]);
             }
         }
+        $active = [...$active, ...$this->evaluateFlexibleRules()];
         $active = [...$active, ...$this->evaluateZoneRules()];
 
         Alert::query()->whereNull('resolved_at')->whereNotIn('fingerprint', $active)->update(['resolved_at' => now()]);
@@ -132,6 +135,95 @@ class EvaluateAlerts extends Command
         }
 
         return $active;
+    }
+
+    /** @return list<string> */
+    private function evaluateFlexibleRules(): array
+    {
+        $active = [];
+        $rules = AlertRule::query()->where('enabled', true)->get();
+        $assets = Asset::query()->with('latestPosition')->get();
+
+        foreach ($rules->whereIn('trigger_type', ['speed_above', 'speed_below']) as $rule) {
+            foreach ($this->subjects($assets, $rule) as $asset) {
+                $position = $asset->latestPosition;
+                $state = $position?->filter_state ?? [];
+                $speed = hypot((float) ($state['vx'] ?? 0), (float) ($state['vy'] ?? 0)) * 3.6;
+                $triggered = $position && ($rule->trigger_type === 'speed_above' ? $speed > $rule->threshold : $speed < $rule->threshold);
+                if ($triggered) {
+                    $active[] = $this->openRule($rule, $asset, 'Velocidad: '.round($speed, 1).' km/h', $position->id);
+                }
+            }
+        }
+
+        foreach ($rules->whereIn('trigger_type', ['zone_entry', 'zone_exit', 'zone_inside', 'zone_outside'])->groupBy('zone_id') as $zoneId => $zoneRules) {
+            $zone = Zone::query()->find($zoneId);
+            if (! $zone) {
+                continue;
+            }
+            foreach ($assets as $asset) {
+                $position = $asset->latestPosition;
+                if (! $position) {
+                    continue;
+                }
+                $state = ZonePresenceState::query()->firstOrNew(['zone_id' => $zone->id, 'asset_id' => $asset->id]);
+                $wasInside = $state->exists && $state->is_inside;
+                $isInside = $position->floor_plan_id === $zone->floor_plan_id && $position->zone_id === $zone->id;
+                $isNewPosition = $state->last_position_estimate_id !== $position->id;
+                foreach ($zoneRules as $rule) {
+                    if ($rule->subject_type === 'asset' && $rule->subject_id !== $asset->id) {
+                        continue;
+                    }
+                    $triggered = match ($rule->trigger_type) {
+                        'zone_entry' => $isNewPosition && ! $wasInside && $isInside,
+                        'zone_exit' => $isNewPosition && $wasInside && ! $isInside,
+                        'zone_inside' => $isInside && $state->entered_at?->lte(now()->subMinutes($rule->duration_minutes)),
+                        'zone_outside' => ! $isInside && $state->exited_at?->lte(now()->subMinutes($rule->duration_minutes)),
+                        default => false,
+                    };
+                    if ($triggered) {
+                        $active[] = $this->openRule($rule, $asset, $zone->name, $position->id);
+                    }
+                }
+                if (! $wasInside && $isInside) {
+                    $state->entered_at = $position->calculated_at ?? now();
+                    $state->exited_at = null;
+                } elseif ($wasInside && ! $isInside) {
+                    $state->entered_at = null;
+                    $state->exited_at = $position->calculated_at ?? now();
+                } elseif (! $state->exists && ! $isInside) {
+                    $state->exited_at = $position->calculated_at ?? now();
+                }
+                $state->fill(['is_inside' => $isInside, 'last_evaluated_at' => now(), 'last_position_estimate_id' => $position->id])->save();
+            }
+        }
+
+        return $active;
+    }
+
+    private function subjects($assets, AlertRule $rule)
+    {
+        return $rule->subject_type === 'asset' ? $assets->where('id', $rule->subject_id) : $assets;
+    }
+
+    private function openRule(AlertRule $rule, Asset $asset, string $detail, string $evidenceId): string
+    {
+        $bucket = now()->timestamp - (now()->timestamp % max(60, $rule->cooldown_minutes * 60));
+        $fingerprint = "rule:{$rule->id}:{$asset->id}:{$bucket}";
+        $recipients = OrganizationMembership::query()
+            ->with('user')
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->where(function ($query) use ($rule): void {
+                $query->whereIn('role', $rule->recipient_roles ?? [])
+                    ->orWhereIn('user_id', $rule->recipient_user_ids ?? []);
+            })->get()->pluck('user.email')->filter()->unique()->values()->all();
+        $context = ['rule_id' => $rule->id, 'asset_id' => $asset->id, 'evidence_id' => $evidenceId];
+        if (in_array('send_email', $rule->actions ?? [], true)) {
+            $context['recipients'] = $recipients;
+        }
+        $rule->update(['last_triggered_at' => now()]);
+
+        return $this->open($fingerprint, 'custom_rule', $rule->name, "{$asset->name} · {$detail}", $context);
     }
 
     private function open(string $fingerprint, string $type, string $title, string $message, array $context): string

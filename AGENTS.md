@@ -150,6 +150,7 @@ No borrar productos locales porque desaparezcan de una respuesta parcial. Las po
 ## Interfaz y marca
 
 - Construir todas las pantallas con Blade, CSS estático reutilizable y JavaScript nativo progresivo sólo cuando sea necesario.
+- Antes de entregar un control visual nuevo o modificado, verificar su presentación real en escritorio y móvil y sus estados normal, foco, seleccionado, vacío, error y deshabilitado. No considerar terminado un formulario sólo porque el HTML o la prueba feature rendericen; evitar controles comprimidos, estilos del navegador sin normalizar y reglas CSS añadidas sin revisar su interacción con el layout existente.
 - La navegación debe incluir al menos Dashboard, Productos, Activos, Dispositivos, Ubicaciones, Conectores y Usuarios/Configuración según permisos.
 - En Conectores, separar visualmente “Telemetría” de “Catálogo”; mostrar tarjetas de proveedores disponibles y una lista de instancias configuradas.
 - LoraTrack usa una identidad neutral predeterminada y permite que cada organización configure logo, color principal, secundario y de acento. Centralizarla como variables CSS (`brand-primary`, `brand-secondary`, `brand-accent`, neutrales y colores semánticos); no dispersar colores de marca en vistas.

@@ -152,7 +152,7 @@
                         </div>
                         <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>
                     </div>
-                    <script id="zone-data" type="application/json">{!! Illuminate\Support\Js::encode($selectedPlan->zones->map(fn($zone) => ['name' => $zone->name, 'color' => $zone->color, 'x_min' => (float) $zone->x_min, 'y_min' => (float) $zone->y_min, 'x_max' => (float) $zone->x_max, 'y_max' => (float) $zone->y_max])->values()) !!}</script>
+                    <script id="zone-data" type="application/json">{!! Illuminate\Support\Js::encode($selectedPlan->zones->map(fn($zone) => ['id' => $zone->id, 'name' => $zone->name, 'color' => $zone->color, 'x_min' => (float) $zone->x_min, 'y_min' => (float) $zone->y_min, 'x_max' => (float) $zone->x_max, 'y_max' => (float) $zone->y_max])->values()) !!}</script>
                     <script id="installation-data" type="application/json">{!! Illuminate\Support\Js::encode($installations->map(fn($installation) => ['id' => $installation->id, 'name' => $installation->device->name, 'type' => $installation->device->type, 'x' => (float) $installation->x / (float) $selectedPlan->width_meters, 'y' => (float) $installation->y / (float) $selectedPlan->height_meters])->values()) !!}</script>
                         </div>
                     </div>

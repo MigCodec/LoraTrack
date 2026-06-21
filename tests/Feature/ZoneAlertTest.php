@@ -21,7 +21,7 @@ class ZoneAlertTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_zone_and_notification_rules_are_persisted_together(): void
+    public function test_zone_creation_no_longer_embeds_notification_rules(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         [$location, $plan] = $this->plan();
@@ -29,14 +29,12 @@ class ZoneAlertTest extends TestCase
         $this->actingAs($admin)->post(route('zones.store', $plan), [
             'name' => 'Área segura', 'code' => 'SAFE', 'color' => '#78A22F',
             'x_min' => .1, 'y_min' => .1, 'x_max' => .8, 'y_max' => .8,
-            'alert_types' => ['entry', 'exit', 'dwell'], 'dwell_minutes' => 30,
         ])->assertRedirect();
 
         $zone = Zone::query()->firstOrFail();
-        $this->assertSame(3, $zone->alertRules()->count());
-        $this->assertSame([], $zone->alertRules()->firstOrFail()->recipients);
+        $this->assertSame(0, $zone->alertRules()->count());
         $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
-            ->assertOk()->assertSee('Área segura')->assertSee('3 reglas');
+            ->assertOk()->assertSee('Área segura')->assertDontSee('Notificaciones opcionales');
     }
 
     public function test_entry_and_exit_generate_alerts_for_rule_recipients(): void

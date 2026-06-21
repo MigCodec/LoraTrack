@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AlertController;
+use App\Http\Controllers\AlertRuleController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetDeviceAssignmentController;
 use App\Http\Controllers\AssetPhotoController;
@@ -24,7 +25,6 @@ use App\Http\Controllers\PayloadDecoderProfileController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserInvitationController;
-use App\Http\Controllers\ZoneAlertRuleController;
 use App\Http\Controllers\ZoneController;
 use Illuminate\Support\Facades\Route;
 
@@ -75,8 +75,6 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('/floor-plans/{floorPlan}', [FloorPlanController::class, 'destroy'])->name('floor-plans.destroy');
         Route::post('/floor-plans/{floorPlan}/zones', [ZoneController::class, 'store'])->name('zones.store');
         Route::put('/zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
-        Route::post('/zones/{zone}/alert-rules', [ZoneAlertRuleController::class, 'store'])->name('zone-alert-rules.store');
-        Route::delete('/zone-alert-rules/{zoneAlertRule}', [ZoneAlertRuleController::class, 'destroy'])->name('zone-alert-rules.destroy');
         Route::post('/floor-plans/{floorPlan}/installations', [DeviceController::class, 'install'])->name('installations.store');
         Route::put('/installations/{deviceInstallation}', [DeviceController::class, 'updateInstallation'])->name('installations.update');
         Route::get('/floor-plans/{floorPlan}/calibration', [CalibrationController::class, 'index'])->name('calibration.index');
@@ -97,6 +95,9 @@ Route::middleware('auth')->group(function (): void {
     Route::middleware('permission:alerts.manage')->group(function (): void {
         Route::get('/alerts', [AlertController::class, 'index'])->name('alerts.index');
         Route::put('/alerts', [AlertController::class, 'update'])->name('alerts.update');
+        Route::post('/alerts/rules', [AlertRuleController::class, 'store'])->name('alert-rules.store');
+        Route::put('/alerts/rules/{alertRule}', [AlertRuleController::class, 'update'])->name('alert-rules.update');
+        Route::delete('/alerts/rules/{alertRule}', [AlertRuleController::class, 'destroy'])->name('alert-rules.destroy');
     });
     Route::get('/operations/health', OperationalHealthController::class)->middleware('permission:operations.view')->name('operations.health');
 

@@ -35,7 +35,9 @@ class AlertRecipientSelectionTest extends TestCase
             ->assertSee('activo@example.test')
             ->assertDontSee('Cuenta Vencida')
             ->assertDontSee('Usuario Externo')
-            ->assertSee('data-recipient-picker', false);
+            ->assertSee('data-recipient-picker', false)
+            ->assertSee('css/alerts.css', false)
+            ->assertSee('Buscar por nombre, correo o rol');
 
         $this->put(route('alerts.update'), [
             'enabled' => '1',

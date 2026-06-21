@@ -8,7 +8,6 @@ use App\Models\FloorPlan;
 use App\Models\Zone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -16,53 +15,21 @@ class ZoneController extends Controller
 {
     public function store(Request $request, FloorPlan $floorPlan): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:64'],
-            'color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'x_min' => ['required', 'numeric', 'between:0,1'],
-            'y_min' => ['required', 'numeric', 'between:0,1'],
-            'x_max' => ['required', 'numeric', 'between:0,1'],
-            'y_max' => ['required', 'numeric', 'between:0,1'],
-            'alert_types' => ['nullable', 'array'],
-            'alert_types.*' => ['in:entry,exit,dwell'],
-            'alert_recipients' => ['nullable', 'string', 'max:4000'],
-            'dwell_minutes' => ['nullable', 'integer', 'between:10,10080'],
-        ]);
-
-        if ((float) $validated['x_min'] >= (float) $validated['x_max']
-            || (float) $validated['y_min'] >= (float) $validated['y_max']) {
-            throw ValidationException::withMessages(['zone' => 'Dibuja un rectángulo con ancho y alto mayores que cero.']);
-        }
-
-        $alertTypes = $validated['alert_types'] ?? [];
-        if (in_array('dwell', $alertTypes, true) && empty($validated['dwell_minutes'])) {
-            throw ValidationException::withMessages(['dwell_minutes' => 'Indica el tiempo máximo de permanencia.']);
-        }
-        $recipients = empty($alertTypes) ? [] : ZoneAlertRuleController::recipients($validated['alert_recipients'] ?? '');
-
-        DB::transaction(function () use ($floorPlan, $validated, $alertTypes, $recipients): void {
-            $zone = $floorPlan->zones()->create([
-                ...collect($validated)->only(['name', 'code', 'color', 'x_min', 'y_min', 'x_max', 'y_max'])->all(),
-                'shape' => 'rectangle',
-                'geometry' => [
-                    'type' => 'Rectangle',
-                    'coordinates' => [
-                        [(float) $validated['x_min'], (float) $validated['y_min']],
-                        [(float) $validated['x_max'], (float) $validated['y_max']],
-                    ],
-                ],
-            ]);
-            foreach ($alertTypes as $eventType) {
-                $zone->alertRules()->create([
-                    'event_type' => $eventType,
-                    'dwell_minutes' => $eventType === 'dwell' ? $validated['dwell_minutes'] : null,
-                    'recipients' => $recipients,
-                ]);
-            }
-        });
+        $validated = $this->validateZone($request, $floorPlan->id);
+        $floorPlan->zones()->create($this->attributes($validated));
 
         return redirect()->route('floor-plans.index', ['plan' => $floorPlan])->with('status', 'Zona creada.');
+    }
+
+    public function update(Request $request, Zone $zone): RedirectResponse
+    {
+        $validated = $this->validateZone($request, $zone->floor_plan_id, $zone);
+        foreach (['x_min', 'y_min', 'x_max', 'y_max'] as $coordinate) {
+            $validated[$coordinate] ??= $zone->{$coordinate};
+        }
+        $zone->update($this->attributes($validated));
+
+        return back()->with('status', 'Área actualizada.');
     }
 
     public function destroy(Zone $zone): RedirectResponse
@@ -73,21 +40,44 @@ class ZoneController extends Controller
         return redirect()->route('floor-plans.index', ['plan' => $plan])->with('status', 'Zona eliminada.');
     }
 
-    public function update(Request $request, Zone $zone): RedirectResponse
+    /** @return array<string, mixed> */
+    private function validateZone(Request $request, string $floorPlanId, ?Zone $zone = null): array
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('zones')->where('floor_plan_id', $zone->floor_plan_id)->ignore($zone)],
+            'name' => ['required', 'string', 'max:255', Rule::unique('zones')->where('floor_plan_id', $floorPlanId)->ignore($zone)],
             'code' => ['nullable', 'string', 'max:64'],
             'color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-        ], [
-            'name.required' => 'Indica un nombre para el área.',
-            'name.unique' => 'Ya existe un área con ese nombre en el plano.',
-            'color.required' => 'Selecciona un color.',
-            'color.regex' => 'El color seleccionado no es válido.',
+            'x_min' => [$zone ? 'sometimes' : 'required', 'numeric', 'between:0,1'],
+            'y_min' => [$zone ? 'sometimes' : 'required', 'numeric', 'between:0,1'],
+            'x_max' => [$zone ? 'sometimes' : 'required', 'numeric', 'between:0,1'],
+            'y_max' => [$zone ? 'sometimes' : 'required', 'numeric', 'between:0,1'],
         ]);
 
-        $zone->update($validated);
+        $coordinates = $zone ? [
+            'x_min' => $validated['x_min'] ?? $zone->x_min, 'y_min' => $validated['y_min'] ?? $zone->y_min,
+            'x_max' => $validated['x_max'] ?? $zone->x_max, 'y_max' => $validated['y_max'] ?? $zone->y_max,
+        ] : $validated;
+        if ((float) $coordinates['x_min'] >= (float) $coordinates['x_max']
+            || (float) $coordinates['y_min'] >= (float) $coordinates['y_max']) {
+            throw ValidationException::withMessages(['zone' => 'Dibuja un rectángulo con ancho y alto mayores que cero.']);
+        }
 
-        return back()->with('status', 'Área actualizada.');
+        return $validated;
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function attributes(array $validated): array
+    {
+        return [
+            ...collect($validated)->only(['name', 'code', 'color', 'x_min', 'y_min', 'x_max', 'y_max'])->all(),
+            'shape' => 'rectangle',
+            'geometry' => [
+                'type' => 'Rectangle',
+                'coordinates' => [
+                    [(float) $validated['x_min'], (float) $validated['y_min']],
+                    [(float) $validated['x_max'], (float) $validated['y_max']],
+                ],
+            ],
+        ];
     }
 }

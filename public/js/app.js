@@ -162,19 +162,20 @@ if (editor && !editor.dataset.editorInitialized) {
     let draft = null;
     let draftAnchor = null;
     let relocationForm = null;
+    let zoneEditForm = null;
     let activeMode = null;
 
     const setMode = (mode) => {
         activeMode = mode;
         zoneModeButton?.classList.toggle('is-active', mode === 'zone');
         ribbonAnchorModeButton?.classList.toggle('is-active', mode === 'anchor');
-        editor.classList.toggle('is-selecting-geometry', ['zone', 'anchor', 'relocate-anchor'].includes(mode));
-        if (mode === 'zone') editor.dataset.selectionInstruction = 'Arrastra para definir el área';
+        editor.classList.toggle('is-selecting-geometry', ['zone', 'edit-zone', 'anchor', 'relocate-anchor'].includes(mode));
+        if (['zone', 'edit-zone'].includes(mode)) editor.dataset.selectionInstruction = 'Arrastra para definir el área';
         else if (['anchor', 'relocate-anchor'].includes(mode)) editor.dataset.selectionInstruction = 'Haz clic para definir la posición';
         else delete editor.dataset.selectionInstruction;
-        canvas.style.pointerEvents = ['zone', 'anchor', 'relocate-anchor'].includes(mode) ? 'auto' : 'none';
-        canvas.style.cursor = mode === 'zone' ? 'crosshair' : ['anchor', 'relocate-anchor'].includes(mode) ? 'copy' : 'default';
-        if (modeStatus) modeStatus.textContent = mode === 'zone' ? 'Modo área activo: arrastra sobre el plano.' : mode === 'anchor' ? 'Modo ancla activo: haz clic en una ubicación conocida.' : mode === 'relocate-anchor' ? 'Reubicando beacon: haz clic en su nueva posición.' : 'Selecciona una herramienta para editar el plano.';
+        canvas.style.pointerEvents = ['zone', 'edit-zone', 'anchor', 'relocate-anchor'].includes(mode) ? 'auto' : 'none';
+        canvas.style.cursor = ['zone', 'edit-zone'].includes(mode) ? 'crosshair' : ['anchor', 'relocate-anchor'].includes(mode) ? 'copy' : 'default';
+        if (modeStatus) modeStatus.textContent = ['zone', 'edit-zone'].includes(mode) ? 'Modo área activo: arrastra sobre el plano.' : mode === 'anchor' ? 'Modo ancla activo: haz clic en una ubicación conocida.' : mode === 'relocate-anchor' ? 'Reubicando beacon: haz clic en su nueva posición.' : 'Selecciona una herramienta para editar el plano.';
     };
 
     const pointer = (event) => {
@@ -221,7 +222,7 @@ if (editor && !editor.dataset.editorInitialized) {
         context.clearRect(0, 0, width, height);
         zoneData.forEach((zone) => drawRectangle(zone, zone.color, zone.name));
         const brand = getComputedStyle(document.body);
-        if (draft) drawRectangle(draft, form?.elements.color?.value || brand.getPropertyValue('--color-brand-accent').trim() || '#14B8A6', 'Nueva zona');
+        if (draft) drawRectangle(draft, (zoneEditForm || form)?.elements.color?.value || brand.getPropertyValue('--color-brand-accent').trim() || '#14B8A6', zoneEditForm?.elements.name?.value || 'Nueva zona');
         [...installationData, ...(draftAnchor ? [{...draftAnchor, name: 'Nueva ancla'}] : [])].forEach((installation) => {
             const x = installation.x * width;
             const y = installation.y * height;
@@ -271,7 +272,7 @@ if (editor && !editor.dataset.editorInitialized) {
             window.setTimeout(() => { if (anchorCommand) anchorCommand.open = true; }, 0);
             return;
         }
-        if (!form || activeMode !== 'zone') return;
+        if (!form || !['zone', 'edit-zone'].includes(activeMode)) return;
         start = pointer(event);
         draft = rectangle(start, start);
         canvas.setPointerCapture(event.pointerId);
@@ -285,14 +286,15 @@ if (editor && !editor.dataset.editorInitialized) {
     });
 
     canvas.addEventListener('pointerup', (event) => {
-        if (!start || !form) return;
+        const targetForm = zoneEditForm || form;
+        if (!start || !targetForm) return;
         draft = rectangle(start, pointer(event));
         start = null;
         const valid = draft.x_max - draft.x_min > 0.005 && draft.y_max - draft.y_min > 0.005;
         ['x_min', 'y_min', 'x_max', 'y_max'].forEach((key) => {
-            form.elements[key].value = valid ? draft[key].toFixed(7) : '';
+            targetForm.elements[key].value = valid ? draft[key].toFixed(7) : '';
         });
-        submit.disabled = !valid;
+        if (!zoneEditForm) submit.disabled = !valid;
         if (geometryMetrics) {
             geometryMetrics.hidden = !valid;
             if (valid) {
@@ -302,17 +304,24 @@ if (editor && !editor.dataset.editorInitialized) {
                 zonePerimeter.textContent = `${(2 * (widthMeters + heightMeters)).toLocaleString(undefined, {maximumFractionDigits: 2})} m`;
             }
         }
-        status.textContent = valid ? 'Área seleccionada. Asigna un nombre y guarda la zona.' : 'El rectángulo es demasiado pequeño.';
-        status.className = valid ? 'rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800' : 'rounded-lg bg-amber-50 p-3 text-xs text-amber-800';
-        zoneDrawButton.textContent = valid ? 'Volver a definir el área' : 'Definir área en el plano';
+        const targetStatus = zoneEditForm?.querySelector('[data-zone-edit-status]') || status;
+        targetStatus.textContent = valid ? 'Área definida. Guarda los cambios para aplicarla.' : 'El rectángulo es demasiado pequeño.';
+        if (!zoneEditForm) zoneDrawButton.textContent = valid ? 'Volver a definir el área' : 'Definir área en el plano';
         setMode(null);
         redraw();
-        window.setTimeout(() => { if (zoneCommand) zoneCommand.open = true; }, 0);
+        if (!zoneEditForm) window.setTimeout(() => { if (zoneCommand) zoneCommand.open = true; }, 0);
+        else window.setTimeout(() => {
+            targetForm.closest('details')?.setAttribute('open', '');
+            targetForm.closest('details.ribbon-layers')?.setAttribute('open', '');
+        }, 0);
+        zoneEditForm = null;
     });
 
     form?.elements.color?.addEventListener('input', redraw);
+    document.querySelectorAll('[data-zone-edit-form] input[type="color"]').forEach((input) => input.addEventListener('input', redraw));
     const activateZoneMode = () => {
         relocationForm = null;
+        zoneEditForm = null;
         draftAnchor = null;
         draft = null;
         ['x_min', 'y_min', 'x_max', 'y_max'].forEach((key) => { form.elements[key].value = ''; });
@@ -337,6 +346,19 @@ if (editor && !editor.dataset.editorInitialized) {
         if (zoneCommand) zoneCommand.removeAttribute('open');
         editor.scrollIntoView({block: 'nearest'});
     });
+    document.querySelectorAll('[data-zone-redefine]').forEach((button) => button.addEventListener('click', () => {
+        relocationForm = null;
+        draftAnchor = null;
+        zoneEditForm = button.closest('[data-zone-edit-form]');
+        const zone = zoneData.find((item) => String(item.id) === String(zoneEditForm?.dataset.zoneId));
+        draft = zone ? {...zone} : null;
+        setMode('edit-zone');
+        zoneEditForm?.closest('details.ribbon-layers')?.removeAttribute('open');
+        const editStatus = zoneEditForm?.querySelector('[data-zone-edit-status]');
+        if (editStatus) editStatus.textContent = 'Arrastra sobre el plano para redefinir el área.';
+        redraw();
+        editor.scrollIntoView({block: 'nearest'});
+    }));
     anchorModeButton?.addEventListener('click', () => {
         relocationForm = null;
         activateAnchorMode();
@@ -544,6 +566,7 @@ document.querySelectorAll('[data-recipient-picker]').forEach((picker) => {
     const refreshCount = () => {
         const selected = options.filter((option) => option.querySelector('input').checked).length;
         count.textContent = `${selected} seleccionado${selected === 1 ? '' : 's'}`;
+        options.forEach((option) => option.setAttribute('aria-selected', option.querySelector('input').checked ? 'true' : 'false'));
     };
     const filter = () => {
         const query = search.value.trim().toLocaleLowerCase();
@@ -563,6 +586,29 @@ document.querySelectorAll('[data-recipient-picker]').forEach((picker) => {
 });
 
 const calibrationForm = document.querySelector('#calibration-form');
+
+document.querySelectorAll('[data-rule-builder]').forEach((builder) => {
+    const subject = builder.querySelector('[data-rule-subject]');
+    const trigger = builder.querySelector('[data-rule-trigger]');
+    const subjectValue = builder.querySelector('[data-rule-subject-value]');
+    const zone = builder.querySelector('[data-rule-zone]');
+    const threshold = builder.querySelector('[data-rule-threshold]');
+    const duration = builder.querySelector('[data-rule-duration]');
+    const refresh = () => {
+        subjectValue.hidden = subject.value !== 'asset';
+        zone.hidden = !trigger.value.startsWith('zone_');
+        threshold.hidden = !trigger.value.startsWith('speed_');
+        duration.hidden = !['zone_inside', 'zone_outside'].includes(trigger.value);
+        subjectValue.querySelector('select').disabled = subjectValue.hidden;
+        zone.querySelector('select').disabled = zone.hidden;
+        threshold.querySelector('input').disabled = threshold.hidden;
+        duration.querySelector('input').disabled = duration.hidden;
+    };
+    subject.addEventListener('change', refresh);
+    trigger.addEventListener('change', refresh);
+    refresh();
+});
+
 if (calibrationForm) {
     const type = calibrationForm.elements.anchor_type;
     const rows = [...calibrationForm.querySelectorAll('[data-anchor-type]')];

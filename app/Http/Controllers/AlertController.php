@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Alert;
+use App\Models\AlertRule;
 use App\Models\AlertSetting;
+use App\Models\Asset;
 use App\Models\OrganizationMembership;
+use App\Models\Zone;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +31,10 @@ class AlertController extends Controller
         return view('alerts.index', [
             'settings' => $settings,
             'alerts' => Alert::query()->latest('detected_at')->limit(100)->get(),
+            'rules' => AlertRule::query()->with(['zone', 'subject'])->latest()->get(),
+            'assets' => Asset::query()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'asset_tag']),
+            'zones' => Zone::query()->with('floorPlan:id,name')->orderBy('name')->get(),
+            'roles' => UserRole::cases(),
             'recipientMemberships' => $memberships,
             'selectedRecipientIds' => $memberships
                 ->filter(fn (OrganizationMembership $membership): bool => $selectedEmails->contains(mb_strtolower($membership->user->email)))
