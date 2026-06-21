@@ -1,20 +1,22 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    @php($tenant = app(App\Tenancy\OrganizationContext::class)->organization())
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'LoraTrack') · {{ config('app.name') }}</title>
+    @php($faviconVersion = $tenant?->logo_path ? sha1($tenant->logo_path.'|'.$tenant->updated_at?->timestamp) : 'default-v1')
+    <link rel="icon" href="{{ route('favicon', ['v' => $faviconVersion]) }}">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     @stack('styles')
     <script defer src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
 </head>
-@php($tenant = app(App\Tenancy\OrganizationContext::class)->organization())
 <body class="min-h-screen bg-slate-50 text-slate-900" @if($tenant) style="--color-brand-primary: {{ $tenant->primary_color }}; --color-brand-secondary: {{ $tenant->secondary_color }}; --color-brand-accent: {{ $tenant->accent_color }}; --color-brand-energy: {{ $tenant->accent_color }}" @endif>
     <div class="min-h-screen lg:flex">
         <aside class="brand-sidebar sidebar-shell px-5 py-6 text-white lg:fixed lg:inset-y-0 lg:w-64">
             <a href="{{ route('dashboard') }}" class="flex items-center gap-3" aria-label="LoraTrack, inicio">
-                @if($tenant?->logo_path)<img src="{{ route('organizations.logo') }}" alt="Logo de {{ $tenant->name }}" class="h-11 w-11 rounded bg-white object-contain p-1">@else<span class="brand-mark">{{ $tenant ? mb_strtoupper(mb_substr($tenant->name, 0, 2)) : 'LT' }}</span>@endif
+                @if($tenant?->logo_path)<img src="{{ route('organizations.logo') }}" alt="Logo de {{ $tenant->name }}" class="h-11 w-11 rounded bg-white object-contain p-1">@else<img src="{{ asset('images/loratrack-default-logo.png') }}" alt="Logo de LoraTrack" class="h-11 w-11 rounded object-contain">@endif
                 <span><strong class="block max-w-36 truncate text-lg tracking-wide">{{ $tenant?->name ?? 'LoraTrack' }}</strong><span class="text-xs text-white/65">Asset intelligence</span></span>
             </a>
 
@@ -68,7 +70,7 @@
 
         <main class="min-w-0 flex-1 lg:ml-64">
             <header class="border-b border-slate-200 bg-white px-6 py-5 lg:px-10">
-                <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-xs font-semibold uppercase tracking-[0.18em] text-brand-accent">LoraTrack · {{ $tenant?->name }}</p>@if(auth()->user()->isAdmin())<a class="text-xs text-brand-primary" href="{{ route('organizations.index') }}">Personalizar empresa</a>@endif</div>
+                <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-xs font-semibold uppercase tracking-[0.18em] text-brand-accent">LoraTrack · {{ $tenant?->name }}</p>@if(auth()->user()->isAdmin())@endif</div>
                 <h1 class="mt-1 text-2xl font-semibold text-slate-950">@yield('heading', 'Dashboard')</h1>
             </header>
             <div class="p-6 lg:p-10">

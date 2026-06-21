@@ -16,13 +16,13 @@ class PositionEstimate extends Model
 
     protected $fillable = [
         'asset_id', 'location_id', 'floor_plan_id', 'zone_id', 'telemetry_event_id', 'algorithm',
-        'algorithm_version', 'x', 'y', 'z',
-        'latitude', 'longitude', 'confidence', 'accuracy_meters', 'calculated_at', 'evidence',
+        'algorithm_version', 'x', 'y', 'raw_x', 'raw_y', 'z',
+        'latitude', 'longitude', 'confidence', 'accuracy_meters', 'calculated_at', 'evidence', 'filter_state',
     ];
 
     protected function casts(): array
     {
-        return ['calculated_at' => 'datetime', 'evidence' => 'array'];
+        return ['calculated_at' => 'datetime', 'evidence' => 'array', 'filter_state' => 'array'];
     }
 
     public function asset(): BelongsTo

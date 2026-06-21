@@ -104,6 +104,9 @@ class TtiPositioningTest extends TestCase
         $position = PositionEstimate::query()->firstOrFail();
         $this->assertSame($zone->id, $position->zone_id);
         $this->assertEqualsWithDelta(5.0, (float) $position->x, 0.01);
+        $this->assertEqualsWithDelta(5.0, (float) $position->raw_x, 0.01);
+        $this->assertSame('rssi_multilateration_kalman', $position->algorithm);
+        $this->assertNotNull($position->filter_state);
         $this->assertCount(3, $position->evidence);
         $this->assertSame($location->id, $asset->fresh()->location_id);
         $this->assertTrue($asset->fresh()->last_seen_at->equalTo($event->observed_at));
@@ -115,7 +118,7 @@ class TtiPositioningTest extends TestCase
                 'id', 'name', 'identifier', 'type', 'x', 'y',
             ]], 'positions' => [[
                 'accuracy_meters', 'relative_error', 'error_radius_x', 'error_radius_y',
-                'x_meters', 'y_meters', 'algorithm', 'algorithm_version', 'calculated_at', 'last_seen_at', 'observed_at', 'received_at',
+                'x_meters', 'y_meters', 'raw_x_meters', 'raw_y_meters', 'algorithm', 'algorithm_version', 'calculated_at', 'last_seen_at', 'observed_at', 'received_at',
                 'evidence' => [[
                     'identifier', 'name', 'type', 'rssi', 'estimated_distance_meters',
                     'geometric_distance_meters', 'residual_meters', 'reference_rssi',

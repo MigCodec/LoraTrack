@@ -90,4 +90,35 @@ class MultiTenancyTest extends TestCase
         $this->assertSame('#0F172A', $organization->secondary_color);
         $this->assertSame('#14B8A6', $organization->accent_color);
     }
+
+    public function test_favicon_uses_the_default_logo_without_tenant_branding(): void
+    {
+        $this->get(route('favicon'))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/png');
+    }
+
+    public function test_favicon_uses_the_active_tenant_private_logo(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $organization = Organization::query()->create(['name' => 'Empresa Marca', 'slug' => 'empresa-marca']);
+        $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
+        $logo = UploadedFile::fake()->image('tenant-logo.png', 128, 128);
+        $path = $logo->store("organizations/{$organization->id}/branding", 'local');
+        $organization->update(['logo_path' => $path]);
+
+        $faviconResponse = $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->get(route('favicon'))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/png');
+        $this->assertTrue($faviconResponse->baseResponse->headers->hasCacheControlDirective('private'));
+        $this->assertTrue($faviconResponse->baseResponse->headers->hasCacheControlDirective('no-cache'));
+        $this->assertTrue($faviconResponse->baseResponse->headers->hasCacheControlDirective('must-revalidate'));
+
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee(route('favicon', ['v' => sha1($path.'|'.$organization->updated_at->timestamp)]), false);
+    }
 }

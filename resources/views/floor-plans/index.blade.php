@@ -172,7 +172,7 @@
 
         </div>
         @if(auth()->user()->hasPermission('plans.manage'))
-            <div id="plan-sheet-context-menu" class="plan-sheet-context-menu" role="menu" hidden>
+            <div id="plan-sheet-context-menu" class="plan-sheet-context-menu" role="menu" popover="manual" hidden>
                 <button type="button" role="menuitem" data-sheet-action="open">Abrir hoja</button>
                 <button type="button" role="menuitem" data-sheet-action="rename">Cambiar nombre…</button>
                 <button type="button" role="menuitem" data-sheet-action="color">Color de pestaña…</button>
@@ -180,21 +180,21 @@
                 <hr>
                 <button class="is-danger" type="button" role="menuitem" data-sheet-action="delete">Eliminar hoja…</button>
             </div>
-            <dialog id="plan-rename-dialog" class="plan-rename-dialog" aria-labelledby="plan-rename-title">
-                <form id="plan-rename-form" method="POST">
+            <dialog id="plan-rename-dialog" class="plan-rename-dialog plan-sheet-dialog" aria-labelledby="plan-rename-title">
+                <form id="plan-rename-form" method="POST" class="plan-sheet-dialog-form">
                     @csrf @method('PUT')
-                    <h2 id="plan-rename-title">Cambiar nombre de la hoja</h2>
-                    <label class="field-label mt-4">Nombre<input id="plan-rename-input" class="field-input" name="name" maxlength="255" required></label>
-                    <div class="mt-5 flex justify-end gap-2"><button class="btn-secondary" type="button" data-close-rename>Cancelar</button><button class="btn-primary">Guardar</button></div>
+                    <header class="plan-sheet-dialog-header"><div><p>Propiedades de la hoja</p><h2 id="plan-rename-title">Cambiar nombre</h2></div><button type="button" class="plan-sheet-dialog-close" data-close-rename aria-label="Cerrar">&times;</button></header>
+                    <div class="plan-sheet-dialog-body"><label class="field-label">Nombre de la hoja<input id="plan-rename-input" class="field-input" name="name" maxlength="255" autocomplete="off" required></label><p class="plan-sheet-dialog-help">El nombre aparecerá en la pestaña inferior del plano.</p></div>
+                    <footer class="plan-sheet-dialog-footer"><button class="btn-secondary" type="button" data-close-rename>Cancelar</button><button class="btn-primary">Guardar</button></footer>
                 </form>
             </dialog>
-            <dialog id="plan-color-dialog" class="plan-rename-dialog" aria-labelledby="plan-color-title">
-                <form id="plan-color-form" method="POST">
+            <dialog id="plan-color-dialog" class="plan-rename-dialog plan-sheet-dialog" aria-labelledby="plan-color-title">
+                <form id="plan-color-form" method="POST" class="plan-sheet-dialog-form">
                     @csrf @method('PUT')
-                    <h2 id="plan-color-title">Color de la pestaña</h2>
+                    <header class="plan-sheet-dialog-header"><div><p>Propiedades de la hoja</p><h2 id="plan-color-title">Color de pestaña</h2></div><button type="button" class="plan-sheet-dialog-close" data-close-color aria-label="Cerrar">&times;</button></header>
                     <input id="plan-color-value" type="hidden" name="tab_color">
-                    <label class="field-label mt-4">Color<input id="plan-color-input" class="mt-2 h-11 w-full rounded border border-slate-200 p-1" type="color" value="#14b8a6"></label>
-                    <div class="mt-5 flex flex-wrap justify-end gap-2"><button class="btn-secondary" type="button" data-reset-tab-color>Sin color</button><button class="btn-secondary" type="button" data-close-color>Cancelar</button><button class="btn-primary">Guardar</button></div>
+                    <div class="plan-sheet-dialog-body"><label class="field-label">Color<input id="plan-color-input" class="plan-sheet-color-input" type="color" value="#14b8a6"></label><p class="plan-sheet-dialog-help">Se aplicará como indicador visual en la pestaña inferior.</p></div>
+                    <footer class="plan-sheet-dialog-footer"><button class="btn-secondary plan-sheet-dialog-reset" type="button" data-reset-tab-color>Sin color</button><button class="btn-secondary" type="button" data-close-color>Cancelar</button><button class="btn-primary">Guardar</button></footer>
                 </form>
             </dialog>
             <form id="plan-sheet-delete-form" method="POST" hidden>@csrf @method('DELETE')</form>

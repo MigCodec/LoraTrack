@@ -13,6 +13,7 @@ use App\Http\Controllers\CalibrationController;
 use App\Http\Controllers\ConnectorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\FloorPlanController;
 use App\Http\Controllers\FloorPlanFileController;
 use App\Http\Controllers\InvitationController;
@@ -26,6 +27,8 @@ use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ZoneAlertRuleController;
 use App\Http\Controllers\ZoneController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/favicon.ico', FaviconController::class)->name('favicon');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');

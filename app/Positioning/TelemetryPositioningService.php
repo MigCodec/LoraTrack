@@ -24,6 +24,7 @@ class TelemetryPositioningService
 
     public function __construct(
         private readonly RssiMultilateration $multilateration,
+        private readonly KalmanPositionFilter $kalman,
         private readonly ZoneClassifier $zones,
     ) {}
 
@@ -241,7 +242,20 @@ class TelemetryPositioningService
         }
 
         $floorPlan = FloorPlan::query()->with('zones')->find($planGroup->first()->floor_plan_id);
-        $zone = $floorPlan ? $this->zones->classify($floorPlan, $result->x, $result->y) : null;
+        $previousEstimate = PositionEstimate::query()
+            ->where('asset_id', $asset->id)
+            ->where('floor_plan_id', $floorPlan?->id)
+            ->where('telemetry_event_id', '!=', $event->id)
+            ->latest('calculated_at')
+            ->first();
+        $filtered = $this->kalman->filter(
+            $result->x,
+            $result->y,
+            $result->accuracyMeters,
+            $event->observed_at ?? $event->received_at,
+            $previousEstimate?->filter_state,
+        );
+        $zone = $floorPlan ? $this->zones->classify($floorPlan, $filtered->x, $filtered->y) : null;
 
         PositionEstimate::query()->updateOrCreate(
             ['asset_id' => $asset->id, 'telemetry_event_id' => $event->id],
@@ -249,14 +263,17 @@ class TelemetryPositioningService
                 'location_id' => $planGroup->first()->location_id,
                 'floor_plan_id' => $floorPlan?->id,
                 'zone_id' => $zone?->id,
-                'algorithm' => 'rssi_multilateration',
+                'algorithm' => 'rssi_multilateration_kalman',
                 'algorithm_version' => '1.0',
-                'x' => $result->x,
-                'y' => $result->y,
+                'x' => $filtered->x,
+                'y' => $filtered->y,
+                'raw_x' => $result->x,
+                'raw_y' => $result->y,
                 'confidence' => $result->confidence,
-                'accuracy_meters' => $result->accuracyMeters,
+                'accuracy_meters' => $filtered->accuracyMeters,
                 'calculated_at' => now(),
                 'evidence' => $result->evidence,
+                'filter_state' => $filtered->state,
             ],
         );
 

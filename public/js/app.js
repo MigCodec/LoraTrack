@@ -32,15 +32,27 @@ if (sheetContextMenu) {
     const colorValue = document.querySelector('#plan-color-value');
     const deleteForm = document.querySelector('#plan-sheet-delete-form');
     let selectedSheet = null;
+    const supportsPopover = typeof sheetContextMenu.showPopover === 'function';
+    const sheetMenuIsOpen = () => supportsPopover
+        ? sheetContextMenu.matches(':popover-open')
+        : !sheetContextMenu.hidden;
 
-    const closeSheetMenu = () => { sheetContextMenu.hidden = true; };
+    const closeSheetMenu = () => {
+        if (supportsPopover && sheetContextMenu.matches(':popover-open')) sheetContextMenu.hidePopover();
+        sheetContextMenu.hidden = true;
+    };
     const openSheetMenu = (tab, clientX, clientY) => {
+        closeSheetMenu();
         selectedSheet = tab;
         sheetContextMenu.hidden = false;
+        if (supportsPopover) sheetContextMenu.showPopover();
         const width = sheetContextMenu.offsetWidth;
         const height = sheetContextMenu.offsetHeight;
-        sheetContextMenu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - width - 8))}px`;
-        sheetContextMenu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - height - 8))}px`;
+        const viewportPadding = 8;
+        const left = Math.max(viewportPadding, Math.min(clientX, window.innerWidth - width - viewportPadding));
+        const top = Math.max(viewportPadding, Math.min(clientY, window.innerHeight - height - viewportPadding));
+        sheetContextMenu.style.left = `${left}px`;
+        sheetContextMenu.style.top = `${top}px`;
         sheetContextMenu.querySelector('[role="menuitem"]')?.focus();
     };
 
@@ -83,15 +95,21 @@ if (sheetContextMenu) {
             deleteForm.submit();
         }
     });
-    document.querySelector('[data-close-rename]')?.addEventListener('click', () => renameDialog.close());
+    document.querySelectorAll('[data-close-rename]').forEach((button) => button.addEventListener('click', () => renameDialog.close()));
     colorInput?.addEventListener('input', () => { colorValue.value = colorInput.value; });
-    document.querySelector('[data-close-color]')?.addEventListener('click', () => colorDialog.close());
+    document.querySelectorAll('[data-close-color]').forEach((button) => button.addEventListener('click', () => colorDialog.close()));
     document.querySelector('[data-reset-tab-color]')?.addEventListener('click', () => {
         colorValue.value = '';
         colorForm.requestSubmit();
     });
     document.addEventListener('pointerdown', (event) => {
-        if (!sheetContextMenu.hidden && !sheetContextMenu.contains(event.target)) closeSheetMenu();
+        if (sheetMenuIsOpen() && !sheetContextMenu.contains(event.target)) closeSheetMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && sheetMenuIsOpen()) {
+            closeSheetMenu();
+            selectedSheet?.focus();
+        }
     });
     window.addEventListener('blur', closeSheetMenu);
     window.addEventListener('resize', closeSheetMenu);
@@ -444,6 +462,7 @@ if (realtimeMap) {
         setDetail('#asset-technical-title', position.name);
         setDetail('#asset-technical-subtitle', [position.product, position.sku].filter(Boolean).join(' · ') || 'Sin producto asociado');
         setDetail('#asset-detail-position', `X ${position.x_meters.toFixed(2)} m · Y ${position.y_meters.toFixed(2)} m`);
+        setDetail('#asset-detail-raw-position', position.raw_x_meters === null ? '—' : `X ${position.raw_x_meters.toFixed(2)} m · Y ${position.raw_y_meters.toFixed(2)} m`);
         setDetail('#asset-detail-zone', position.zone || 'Sin zona');
         setDetail('#asset-detail-confidence', `${Math.round(position.confidence * 100)}%`);
         setDetail('#asset-detail-error', `±${position.accuracy_meters.toFixed(2)} m`);

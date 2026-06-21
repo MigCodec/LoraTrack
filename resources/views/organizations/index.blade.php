@@ -44,7 +44,7 @@
                 @if($current->logo_path)
                     <img src="{{ route('organizations.logo') }}" alt="Logo de {{ $current->name }}" class="mb-4 max-h-20 max-w-full rounded bg-white p-2">
                 @else
-                    <span class="brand-mark mb-4">{{ mb_strtoupper(mb_substr($current->name, 0, 2)) }}</span>
+                    <img src="{{ asset('images/loratrack-default-logo.png') }}" alt="Logo predeterminado de LoraTrack" class="mb-4 h-20 w-20 rounded object-contain">
                 @endif
                 <strong class="block text-lg">{{ $current->name }}</strong>
                 <span class="text-xs text-white/70">Vista previa</span>

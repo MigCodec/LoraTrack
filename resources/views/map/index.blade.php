@@ -57,6 +57,7 @@
             <div class="asset-technical-body">
                 <dl class="asset-technical-metrics">
                     <div><dt>Posición</dt><dd id="asset-detail-position"></dd></div>
+                    <div><dt>Medición RSSI sin filtrar</dt><dd id="asset-detail-raw-position"></dd></div>
                     <div><dt>Zona</dt><dd id="asset-detail-zone"></dd></div>
                     <div><dt>Confianza</dt><dd id="asset-detail-confidence"></dd></div>
                     <div><dt>Error estimado</dt><dd id="asset-detail-error"></dd></div>
