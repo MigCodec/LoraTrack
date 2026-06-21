@@ -375,11 +375,26 @@ if (realtimeMap) {
     });
     const setDetail = (id, value) => { const element = document.querySelector(id); if (element) element.textContent = value; };
     const formatDate = (value) => value ? new Date(value).toLocaleString() : '—';
+    const positionAssetDialog = (trigger) => {
+        if (!technicalDialog || !trigger) return;
+        ['top', 'right', 'bottom', 'left'].forEach((property) => technicalDialog.style.removeProperty(property));
+        if (window.matchMedia('(max-width: 48rem)').matches) return;
+        const gap = 12;
+        const viewportPadding = 12;
+        const triggerRect = trigger.getBoundingClientRect();
+        const dialogRect = technicalDialog.getBoundingClientRect();
+        let left = triggerRect.right + gap;
+        if (left + dialogRect.width > window.innerWidth - viewportPadding) left = triggerRect.left - dialogRect.width - gap;
+        left = Math.max(viewportPadding, Math.min(left, window.innerWidth - dialogRect.width - viewportPadding));
+        const top = Math.max(viewportPadding, Math.min(triggerRect.top - gap, window.innerHeight - dialogRect.height - viewportPadding));
+        technicalDialog.style.left = `${left}px`;
+        technicalDialog.style.top = `${top}px`;
+    };
     const clearAssetDetails = () => {
         markers.querySelectorAll('.asset-detection-circle').forEach((node) => node.remove());
         markers.querySelectorAll('.asset-marker.is-selected').forEach((node) => node.classList.remove('is-selected'));
     };
-    const showAssetDetails = (position, openDialog = true) => {
+    const showAssetDetails = (position, trigger = null, openDialog = true) => {
         clearAssetDetails();
         selectedAssetId = position.asset_id;
         markers.querySelector(`[data-asset-id="${CSS.escape(position.asset_id)}"]`)?.classList.add('is-selected');
@@ -419,8 +434,12 @@ if (realtimeMap) {
             row.append(name, rssi, distance, residual, calibration); return row;
         }));
         if (openDialog && technicalDialog && !technicalDialog.open) technicalDialog.show();
+        if (technicalDialog?.open) positionAssetDialog(trigger || markers.querySelector(`[data-asset-id="${CSS.escape(position.asset_id)}"]`));
     };
     technicalDialog?.addEventListener('close', () => { selectedAssetId = null; clearAssetDetails(); });
+    document.addEventListener('pointerdown', (event) => {
+        if (technicalDialog?.open && !technicalDialog.contains(event.target) && !event.target.closest('.asset-marker')) technicalDialog.close();
+    });
     const refresh = async () => {
         try {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
@@ -431,10 +450,10 @@ if (realtimeMap) {
             data.positions.forEach((position) => {
                 const uncertaintyDiameter = Math.max(1.5, Math.min(200, position.relative_error * 200));
                 const uncertainty=document.createElement('div'); uncertainty.className=`asset-uncertainty${position.stale?' stale':''}`; uncertainty.style.left=`${position.x*100}%`; uncertainty.style.top=`${position.y*100}%`; uncertainty.style.width=`${uncertaintyDiameter}%`; uncertainty.style.height=`${uncertaintyDiameter}%`; uncertainty.title=`Error estimado: ${position.accuracy_meters.toFixed(2)} m · relativo ${(position.relative_error*100).toFixed(2)}%`; markers.appendChild(uncertainty);
-                const node=document.createElement('button'); node.type='button'; node.dataset.assetId=position.asset_id; node.setAttribute('aria-haspopup','dialog'); node.setAttribute('aria-label', `Ver detalles de ${position.name}`); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; node.appendChild(spatialMarkerIcon('asset')); node.addEventListener('click',()=>showAssetDetails(position)); markers.appendChild(node);
+                const node=document.createElement('button'); node.type='button'; node.dataset.assetId=position.asset_id; node.setAttribute('aria-haspopup','dialog'); node.setAttribute('aria-label', `Ver detalles de ${position.name}`); node.className=`asset-marker${position.stale?' stale':''}${position.out_of_bounds?' out-of-bounds':''}`; node.style.left=`${position.x*100}%`; node.style.top=`${position.y*100}%`; node.title=`${position.name} · ${position.product||''} · ${position.zone||'Sin zona'} · confianza ${Math.round(position.confidence*100)}% · error ±${position.accuracy_meters.toFixed(2)} m${position.out_of_bounds?' · fuera del plano':''}`; node.appendChild(spatialMarkerIcon('asset')); node.addEventListener('click',()=>showAssetDetails(position,node)); markers.appendChild(node);
             });
             const selectedPosition = data.positions.find((position) => position.asset_id === selectedAssetId);
-            if (selectedPosition && technicalDialog?.open) showAssetDetails(selectedPosition, false);
+            if (selectedPosition && technicalDialog?.open) showAssetDetails(selectedPosition, markers.querySelector(`[data-asset-id="${CSS.escape(selectedPosition.asset_id)}"]`), false);
             applyMapLayers();
             if (positionStatus) positionStatus.textContent = data.positions.length
                 ? `${data.positions.length} activo(s) triangulado(s) en este plano.`
