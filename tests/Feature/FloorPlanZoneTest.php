@@ -119,10 +119,13 @@ class FloorPlanZoneTest extends TestCase
             'x' => 30,
             'y' => 10,
         ]);
+        $installation = DeviceInstallation::query()->where('device_id', $device->id)->firstOrFail();
         $this->get(route('floor-plans.index', ['plan' => $plan]))
             ->assertOk()
             ->assertSee('id="saved-anchor-overlay"', false)
             ->assertSee('class="plan-anchor"', false)
+            ->assertSee('data-anchor-details', false)
+            ->assertSee('action="'.route('installations.update', $installation).'"', false)
             ->assertSee('data-editor-layer="beacons"', false)
             ->assertSee('Beacon fijo 1');
         $this->get(route('map.index', ['plan' => $plan]))
@@ -133,6 +136,18 @@ class FloorPlanZoneTest extends TestCase
             ->assertJsonPath('anchors.0.name', 'Beacon fijo 1')
             ->assertJsonPath('anchors.0.x', 0.5)
             ->assertJsonPath('anchors.0.y', 0.25);
+
+        $this->put(route('installations.update', $installation), [
+            'name' => 'Beacon calibrado',
+            'reference_rssi' => -63,
+            'path_loss_exponent' => 2.4,
+        ])->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
+        $this->assertSame('Beacon calibrado', $device->fresh()->name);
+        $this->assertSame(-63, $installation->fresh()->reference_rssi);
+        $this->assertSame(2.4, $installation->fresh()->path_loss_exponent);
+
+        $this->delete(route('installations.destroy', $installation))->assertRedirect();
+        $this->assertNotNull($installation->fresh()->ended_at);
     }
 
     public function test_reported_sensecap_macs_can_be_selected_or_entered_when_placing_beacon(): void

@@ -74,6 +74,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/zones/{zone}/alert-rules', [ZoneAlertRuleController::class, 'store'])->name('zone-alert-rules.store');
         Route::delete('/zone-alert-rules/{zoneAlertRule}', [ZoneAlertRuleController::class, 'destroy'])->name('zone-alert-rules.destroy');
         Route::post('/floor-plans/{floorPlan}/installations', [DeviceController::class, 'install'])->name('installations.store');
+        Route::put('/installations/{deviceInstallation}', [DeviceController::class, 'updateInstallation'])->name('installations.update');
         Route::get('/floor-plans/{floorPlan}/calibration', [CalibrationController::class, 'index'])->name('calibration.index');
         Route::post('/floor-plans/{floorPlan}/calibration/preview', [CalibrationController::class, 'preview'])->name('calibration.preview');
         Route::post('/calibration-runs/{calibrationRun}/apply', [CalibrationController::class, 'apply'])->name('calibration.apply');

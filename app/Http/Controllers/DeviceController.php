@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateDeviceInstallationRequest;
 use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
@@ -107,5 +108,21 @@ class DeviceController extends Controller
             ?? FloorPlan::query()->where('location_id', $locationId)->where('is_active', true)->first();
 
         return redirect()->route('floor-plans.index', ['plan' => $plan?->id])->with('status', 'Instalación cerrada.');
+    }
+
+    public function updateInstallation(UpdateDeviceInstallationRequest $request, DeviceInstallation $deviceInstallation): RedirectResponse
+    {
+        $validated = $request->validated();
+
+        DB::transaction(function () use ($deviceInstallation, $validated): void {
+            $deviceInstallation->device()->update(['name' => $validated['name']]);
+            $deviceInstallation->update([
+                'reference_rssi' => $validated['reference_rssi'],
+                'path_loss_exponent' => $validated['path_loss_exponent'],
+            ]);
+        });
+
+        return redirect()->route('floor-plans.index', ['plan' => $deviceInstallation->floor_plan_id])
+            ->with('status', 'Parámetros del beacon actualizados.');
     }
 }

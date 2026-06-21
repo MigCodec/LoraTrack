@@ -284,6 +284,22 @@ if (editor && !editor.dataset.editorInitialized) {
     };
     layerControls.forEach((control) => control.addEventListener('change', applyEditorLayers));
     applyEditorLayers();
+
+    const anchorDetails = [...document.querySelectorAll('[data-anchor-details]')];
+    anchorDetails.forEach((details) => details.addEventListener('toggle', () => {
+        if (details.open) anchorDetails.forEach((other) => { if (other !== details) other.removeAttribute('open'); });
+    }));
+    editor.addEventListener('pointerdown', (event) => {
+        if (!event.target.closest('[data-anchor-details]')) {
+            anchorDetails.forEach((details) => details.removeAttribute('open'));
+        }
+    }, {capture: true});
+    document.addEventListener('pointerdown', (event) => {
+        anchorDetails.forEach((details) => {
+            if (details.open && !details.contains(event.target)) details.removeAttribute('open');
+        });
+    });
+
     image.addEventListener('load', redraw);
     new ResizeObserver(redraw).observe(image);
     if (image.complete) redraw();
@@ -378,7 +394,7 @@ if (realtimeMap) {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
             markers.querySelectorAll('.map-anchor,.asset-marker,.asset-uncertainty,.asset-detection-circle').forEach((node) => node.remove());
             data.anchors.forEach((anchor) => {
-                const node=document.createElement('span'); node.className=`map-anchor ${anchor.type}`; node.style.left=`${anchor.x*100}%`; node.style.top=`${anchor.y*100}%`; node.title=`${anchor.name} · ${anchor.identifier}`; node.setAttribute('aria-label', anchor.name); node.appendChild(spatialMarkerIcon(anchor.type === 'scanner' ? 'scanner' : 'anchor')); markers.appendChild(node);
+                const node=document.createElement('span'); node.className=`map-anchor ${anchor.type}`; node.style.left=`${anchor.x*100}%`; node.style.top=`${anchor.y*100}%`; node.title=`${anchor.name} · ${anchor.identifier}`; node.setAttribute('aria-label', anchor.name); const marker=document.createElement('i'); marker.setAttribute('aria-hidden', 'true'); node.appendChild(marker); markers.appendChild(node);
             });
             data.positions.forEach((position) => {
                 const uncertaintyDiameter = Math.max(1.5, Math.min(200, position.relative_error * 200));

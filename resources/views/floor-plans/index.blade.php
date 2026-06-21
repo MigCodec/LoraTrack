@@ -119,7 +119,29 @@
                         </div>
                         <div id="saved-anchor-overlay" class="absolute inset-0 pointer-events-none" aria-label="Beacons instalados">
                             @foreach($installations as $installation)
-                                <span class="plan-anchor" style="left: {{ min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $installation->device->name }} · {{ $installation->device->identifier }}"><x-spatial-marker-icon :type="$installation->device->type === 'scanner' ? 'scanner' : 'anchor'"/><small class="sr-only">{{ $installation->device->name }}</small></span>
+                                @if(auth()->user()->hasPermission('plans.manage'))
+                                    @php($anchorXPercent = min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)))
+                                    @php($anchorYPercent = min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)))
+                                    <details class="plan-anchor" style="left: {{ $anchorXPercent }}%; top: {{ $anchorYPercent }}%" data-anchor-details data-popup-horizontal="{{ $anchorXPercent > 62 ? 'left' : 'right' }}" data-popup-vertical="{{ $anchorYPercent > 55 ? 'up' : 'down' }}">
+                                        <summary title="Editar {{ $installation->device->name }}" aria-label="Editar {{ $installation->device->name }}"><i aria-hidden="true"></i></summary>
+                                        <div class="anchor-inline-popup" role="dialog" aria-label="Parámetros de {{ $installation->device->name }}">
+                                            <div class="anchor-context-header"><div><p class="anchor-context-kicker">Beacon instalado</p><h2>{{ $installation->device->name }}</h2><p>{{ $installation->device->type }} · {{ $installation->device->identifier }}</p></div></div>
+                                            <form method="POST" action="{{ route('installations.update', $installation) }}" class="anchor-context-body">
+                                                @csrf @method('PUT')
+                                                <label class="field-label">Nombre<input class="field-input" name="name" value="{{ $installation->device->name }}" maxlength="255" required></label>
+                                                <div class="anchor-context-coordinates"><span>Posición X <strong>{{ number_format((float) $installation->x, 2) }} m</strong></span><span>Posición Y <strong>{{ number_format((float) $installation->y, 2) }} m</strong></span></div>
+                                                <div class="grid grid-cols-2 gap-3"><label class="field-label">RSSI a 1 m<input class="field-input" type="number" name="reference_rssi" value="{{ $installation->reference_rssi }}" min="-127" max="-1" required></label><label class="field-label">Factor ambiental<input class="field-input" type="number" name="path_loss_exponent" value="{{ $installation->path_loss_exponent }}" min="0.5" max="8" step="0.01" required></label></div>
+                                                <div class="anchor-context-actions"><button class="btn-primary" type="submit">Guardar cambios</button></div>
+                                            </form>
+                                            <form method="POST" action="{{ route('installations.destroy', $installation) }}" class="anchor-context-danger" onsubmit="return confirm('¿Quitar este beacon del plano? Se conservará su historial de instalación.')">
+                                                @csrf @method('DELETE')
+                                                <p>Quitar cierra esta instalación sin borrar el dispositivo ni su historial.</p><button type="submit">Quitar del plano</button>
+                                            </form>
+                                        </div>
+                                    </details>
+                                @else
+                                    <span class="plan-anchor" style="left: {{ min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $installation->device->name }} · {{ $installation->device->identifier }}"><i aria-hidden="true"></i><small class="sr-only">{{ $installation->device->name }}</small></span>
+                                @endif
                             @endforeach
                         </div>
                         <div id="saved-asset-overlay" class="absolute inset-0 pointer-events-none" aria-label="Assets posicionados">
