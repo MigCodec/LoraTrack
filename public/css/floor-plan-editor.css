@@ -35,11 +35,21 @@
 .plan-editor-stats strong { color: #0f172a; font-size: 1rem; line-height: 1; }
 
 .plan-editor-layout { margin-top: .75rem; }
+.floor-plans-primary-ribbon { position: relative; z-index: 1000; }
+.floor-plans-primary-ribbon .ribbon-command[open] { z-index: 1001; }
+.floor-plans-primary-ribbon .ribbon-command-panel { z-index: 1100; pointer-events: auto; }
+.floor-plans-primary-ribbon .ribbon-command-panel form,
+.floor-plans-primary-ribbon .ribbon-command-panel button,
+.floor-plans-primary-ribbon .ribbon-command-panel input,
+.floor-plans-primary-ribbon .ribbon-command-panel select,
+.floor-plans-primary-ribbon .ribbon-command-panel textarea { position: relative; z-index: 1101; pointer-events: auto; }
 .plan-editor-stage { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: flex-start; border: 1px solid #dbe2e8; border-radius: .35rem; background: #f8fafc; padding: .75rem; }
 .plan-editor-stage #zone-editor { box-shadow: 0 1px 4px #0f172a1f; }
 #zone-editor { overflow: visible; }
+#zone-editor.is-selecting-geometry { outline: 3px solid color-mix(in srgb, var(--color-brand-accent) 70%, #fff); outline-offset: 3px; }
+#zone-editor.is-selecting-geometry::after { content: attr(data-selection-instruction); position: absolute; z-index: 30; top: .6rem; left: 50%; transform: translateX(-50%); border-radius: 999px; background: #0f172ae8; padding: .4rem .75rem; color: #fff; font-size: .7rem; font-weight: 700; line-height: 1; pointer-events: none; white-space: nowrap; }
 #saved-zone-overlay { z-index: 2; }
-#zone-canvas { z-index: 10; }
+#zone-canvas { z-index: 10; pointer-events: none; }
 #saved-anchor-overlay { z-index: 20; pointer-events: none; }
 #saved-asset-overlay { z-index: 18; pointer-events: none; }
 #saved-anchor-overlay > .plan-anchor { pointer-events: auto; }

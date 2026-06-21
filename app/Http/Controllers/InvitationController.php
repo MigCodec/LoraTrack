@@ -25,7 +25,10 @@ class InvitationController extends Controller
         $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'password' => ['required', 'confirmed', Password::min(12)]]);
         $user = User::query()->whereRaw('LOWER(email) = ?', [mb_strtolower($invitation->email)])->firstOrFail();
         $user->update(['name' => $data['name'], 'password' => $data['password'], 'email_verified_at' => now()]);
-        $invitation->organization->memberships()->updateOrCreate(['user_id' => $user->id], ['role' => $invitation->role]);
+        $invitation->organization->memberships()->updateOrCreate(['user_id' => $user->id], [
+            'role' => $invitation->role,
+            'expires_at' => $invitation->membership_expires_at,
+        ]);
         $invitation->update(['accepted_at' => now()]);
         Auth::login($user);
         $request->session()->regenerate();
@@ -36,6 +39,11 @@ class InvitationController extends Controller
 
     private function invitation(string $token): OrganizationInvitation
     {
-        return OrganizationInvitation::query()->with('organization')->where('token_hash', hash('sha256', $token))->whereNull('accepted_at')->where('expires_at', '>', now())->firstOrFail();
+        return OrganizationInvitation::query()->with('organization')
+            ->where('token_hash', hash('sha256', $token))
+            ->whereNull('accepted_at')
+            ->where('expires_at', '>', now())
+            ->where(fn ($query) => $query->whereNull('membership_expires_at')->orWhere('membership_expires_at', '>', now()))
+            ->firstOrFail();
     }
 }

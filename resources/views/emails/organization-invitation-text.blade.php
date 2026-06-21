@@ -5,6 +5,7 @@ Has sido invitado a acceder a la plataforma de búsqueda, localización y gesti�
 Empresa: {{ $organizationName }}
 Administrador que invita: {{ $administratorName }}
 Grupo asignado: {{ $roleLabel }}
+Vigencia del acceso: {{ $accessDuration }}
 
 Completa tu registro y establece una contraseña segura aquí:
 {{ $invitationUrl }}

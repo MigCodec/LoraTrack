@@ -110,7 +110,8 @@ class OrganizationController extends Controller
 
     public function switch(Request $request, Organization $organization): RedirectResponse
     {
-        abort_unless($request->user()->memberships()->where('organization_id', $organization->id)->exists(), 403);
+        abort_unless($request->user()->memberships()->where('organization_id', $organization->id)
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))->exists(), 403);
         $request->session()->put('organization_id', $organization->id);
 
         return redirect()->route('dashboard')->with('status', "Organización activa: {$organization->name}.");

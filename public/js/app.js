@@ -1,3 +1,11 @@
+document.addEventListener('click', (event) => {
+    const defineAreaButton = event.target.closest('#zone-draw-mode');
+    if (!defineAreaButton) return;
+    event.preventDefault();
+    event.stopPropagation();
+    document.querySelector('#zone-editor')?.dispatchEvent(new CustomEvent('loratrack:define-area'));
+}, {capture: true});
+
 document.querySelectorAll('.plan-ribbon').forEach((ribbon) => {
     const dropdowns = [...ribbon.querySelectorAll('details.ribbon-command, details.ribbon-layers')];
     const closeDropdowns = (except = null) => dropdowns.forEach((dropdown) => {
@@ -116,12 +124,15 @@ if (editor && !editor.dataset.editorInitialized) {
     const form = document.querySelector('#zone-form');
     const status = document.querySelector('#zone-selection-status');
     const submit = document.querySelector('#zone-submit');
+    const zoneDrawButton = document.querySelector('#zone-draw-mode');
     const anchorForm = document.querySelector('#anchor-form');
     const anchorModeButton = document.querySelector('#anchor-mode');
     const anchorStatus = document.querySelector('#anchor-selection-status');
     const anchorSubmit = document.querySelector('#anchor-submit');
     const zoneModeButton = document.querySelector('#zone-mode');
     const ribbonAnchorModeButton = document.querySelector('#ribbon-anchor-mode');
+    const zoneCommand = document.querySelector('#zone-command');
+    const anchorCommand = document.querySelector('#anchor-command');
     const modeStatus = document.querySelector('#editor-mode-status');
     const geometryMetrics = document.querySelector('#zone-geometry-metrics');
     const zoneArea = document.querySelector('[data-zone-area]');
@@ -137,10 +148,13 @@ if (editor && !editor.dataset.editorInitialized) {
 
     const setMode = (mode) => {
         activeMode = mode;
-        if (form) form.hidden = mode !== 'zone';
-        if (anchorForm) anchorForm.hidden = mode !== 'anchor';
         zoneModeButton?.classList.toggle('is-active', mode === 'zone');
         ribbonAnchorModeButton?.classList.toggle('is-active', mode === 'anchor');
+        editor.classList.toggle('is-selecting-geometry', ['zone', 'anchor', 'relocate-anchor'].includes(mode));
+        if (mode === 'zone') editor.dataset.selectionInstruction = 'Arrastra para definir el área';
+        else if (['anchor', 'relocate-anchor'].includes(mode)) editor.dataset.selectionInstruction = 'Haz clic para definir la posición';
+        else delete editor.dataset.selectionInstruction;
+        canvas.style.pointerEvents = ['zone', 'anchor', 'relocate-anchor'].includes(mode) ? 'auto' : 'none';
         canvas.style.cursor = mode === 'zone' ? 'crosshair' : ['anchor', 'relocate-anchor'].includes(mode) ? 'copy' : 'default';
         if (modeStatus) modeStatus.textContent = mode === 'zone' ? 'Modo área activo: arrastra sobre el plano.' : mode === 'anchor' ? 'Modo ancla activo: haz clic en una ubicación conocida.' : mode === 'relocate-anchor' ? 'Reubicando beacon: haz clic en su nueva posición.' : 'Selecciona una herramienta para editar el plano.';
     };
@@ -233,11 +247,10 @@ if (editor && !editor.dataset.editorInitialized) {
             anchorSubmit.disabled = false;
             anchorStatus.textContent = 'Punto seleccionado. Guarda la instalación.';
             anchorStatus.className = 'rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800';
-            activeMode = null;
+            setMode(null);
             anchorModeButton.textContent = 'Cambiar punto en plano';
-            ribbonAnchorModeButton?.classList.remove('is-active');
-            canvas.style.cursor = 'default';
             redraw();
+            window.setTimeout(() => { if (anchorCommand) anchorCommand.open = true; }, 0);
             return;
         }
         if (!form || activeMode !== 'zone') return;
@@ -273,31 +286,46 @@ if (editor && !editor.dataset.editorInitialized) {
         }
         status.textContent = valid ? 'Área seleccionada. Asigna un nombre y guarda la zona.' : 'El rectángulo es demasiado pequeño.';
         status.className = valid ? 'rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800' : 'rounded-lg bg-amber-50 p-3 text-xs text-amber-800';
+        zoneDrawButton.textContent = valid ? 'Volver a definir el área' : 'Definir área en el plano';
+        setMode(null);
         redraw();
+        window.setTimeout(() => { if (zoneCommand) zoneCommand.open = true; }, 0);
     });
 
     form?.elements.color?.addEventListener('input', redraw);
-    zoneModeButton?.addEventListener('click', () => {
+    const activateZoneMode = () => {
         relocationForm = null;
         draftAnchor = null;
+        draft = null;
+        ['x_min', 'y_min', 'x_max', 'y_max'].forEach((key) => { form.elements[key].value = ''; });
+        submit.disabled = true;
+        if (geometryMetrics) geometryMetrics.hidden = true;
         setMode('zone');
         status.textContent = 'Arrastra sobre el plano para definir el área.';
         redraw();
-        form?.querySelector('input[name="name"]')?.focus();
-    });
-    ribbonAnchorModeButton?.addEventListener('click', () => {
+    };
+    const activateAnchorMode = () => {
         relocationForm = null;
         draft = null;
         setMode('anchor');
         anchorStatus.textContent = 'Haz clic en la posición conocida del dispositivo.';
         redraw();
-        anchorForm?.querySelector('select[name="device_id"]')?.focus();
+    };
+    [zoneCommand, anchorCommand].forEach((command) => command?.addEventListener('toggle', () => {
+        if (command.open && ['zone', 'anchor'].includes(activeMode)) setMode(null);
+    }));
+    editor.addEventListener('loratrack:define-area', () => {
+        activateZoneMode();
+        if (zoneCommand) zoneCommand.removeAttribute('open');
+        editor.scrollIntoView({block: 'nearest'});
     });
     anchorModeButton?.addEventListener('click', () => {
         relocationForm = null;
-        setMode('anchor');
+        activateAnchorMode();
+        if (anchorCommand) anchorCommand.removeAttribute('open');
         anchorModeButton.textContent = 'Haz clic sobre el plano…';
         anchorStatus.textContent = 'Modo ancla activo: haz clic en la posición conocida.';
+        editor.scrollIntoView({block: 'nearest'});
     });
     const applyEditorLayers = () => {
         const visible = (name) => document.querySelector(`[data-editor-layer="${name}"]`)?.checked ?? true;
@@ -334,6 +362,7 @@ if (editor && !editor.dataset.editorInitialized) {
 
     image.addEventListener('load', redraw);
     new ResizeObserver(redraw).observe(image);
+    setMode(null);
     if (image.complete) redraw();
 }
 
@@ -463,6 +492,30 @@ if (realtimeMap) {
     };
     refresh(); setInterval(refresh, 10000);
 }
+
+document.querySelectorAll('[data-access-form]').forEach((form) => {
+    const accessType = form.querySelector('[data-access-type]');
+    const expirationField = form.querySelector('[data-expiration-field]');
+    const expirationDate = form.querySelector('[data-expiration-date]');
+    if (!accessType || !expirationField || !expirationDate) return;
+    const synchronizeExpiration = () => {
+        const temporary = accessType.value === 'until';
+        expirationField.hidden = !temporary;
+        expirationDate.disabled = !temporary;
+        expirationDate.required = temporary;
+    };
+    accessType.addEventListener('change', synchronizeExpiration);
+    synchronizeExpiration();
+});
+
+const selectAllUsers = document.querySelector('[data-select-all-users]');
+const userSelections = [...document.querySelectorAll('[data-user-selection]')];
+selectAllUsers?.addEventListener('change', () => userSelections.forEach((selection) => { selection.checked = selectAllUsers.checked; }));
+userSelections.forEach((selection) => selection.addEventListener('change', () => {
+    if (!selectAllUsers) return;
+    selectAllUsers.checked = userSelections.length > 0 && userSelections.every((item) => item.checked);
+    selectAllUsers.indeterminate = !selectAllUsers.checked && userSelections.some((item) => item.checked);
+}));
 
 const calibrationForm = document.querySelector('#calibration-form');
 if (calibrationForm) {

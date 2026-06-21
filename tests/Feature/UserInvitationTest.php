@@ -34,6 +34,8 @@ class UserInvitationTest extends TestCase
             ->post(route('user-invitations.store'), [
                 'email' => 'Invitado@Example.test',
                 'role' => UserRole::Operator->value,
+                'access_type' => 'until',
+                'membership_expires_at' => '2030-12-31',
             ])
             ->assertRedirect()
             ->assertSessionHas('status');
@@ -47,6 +49,7 @@ class UserInvitationTest extends TestCase
             'user_id' => $invitedUser->id,
             'role' => UserRole::Operator->value,
         ]);
+        $this->assertSame('2030-12-31', $invitedUser->memberships()->firstOrFail()->expires_at?->toDateString());
 
         Mail::assertQueued(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use ($invitation): bool {
             $this->assertTrue($mail->hasTo('invitado@example.test'));
@@ -55,6 +58,7 @@ class UserInvitationTest extends TestCase
             $this->assertSame('Operador', $mail->roleLabel);
             $this->assertSame('#112233', $mail->primaryColor);
             $this->assertSame('#AABBCC', $mail->accentColor);
+            $this->assertStringContainsString('31 de diciembre de 2030', $mail->accessDuration);
             $html = $mail->render();
             $this->assertStringContainsString('Empresa Búsqueda', $html);
             $this->assertStringContainsString('Administradora Principal', $html);
@@ -74,7 +78,7 @@ class UserInvitationTest extends TestCase
         $organization = Organization::query()->create(['name' => 'Empresa Uno', 'slug' => 'empresa-uno']);
         $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
         $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
-            ->post(route('user-invitations.store'), ['email' => 'persona@example.test', 'role' => UserRole::Viewer->value]);
+            ->post(route('user-invitations.store'), ['email' => 'persona@example.test', 'role' => UserRole::Viewer->value, 'access_type' => 'permanent']);
         $mail = Mail::queued(OrganizationInvitationMail::class)->first();
         $token = basename((string) parse_url($mail->invitationUrl, PHP_URL_PATH));
         $this->post(route('logout'));
@@ -107,7 +111,7 @@ class UserInvitationTest extends TestCase
         ]);
 
         $this->actingAs($viewer)->withSession(['organization_id' => $first->id])
-            ->post(route('user-invitations.store'), ['email' => 'nuevo@example.test', 'role' => UserRole::Viewer->value])
+            ->post(route('user-invitations.store'), ['email' => 'nuevo@example.test', 'role' => UserRole::Viewer->value, 'access_type' => 'permanent'])
             ->assertForbidden();
 
         $admin = User::factory()->create();
@@ -116,5 +120,37 @@ class UserInvitationTest extends TestCase
             ->get(route('users.index'))
             ->assertOk()
             ->assertDontSee('oculto@example.test');
+    }
+
+    public function test_admin_can_resend_an_expired_invitation_and_the_previous_token_is_invalidated(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['name' => 'Administradora']);
+        $invited = User::factory()->create(['email' => 'pendiente@example.test', 'email_verified_at' => null]);
+        $organization = Organization::query()->create(['name' => 'Empresa Uno', 'slug' => 'empresa-uno']);
+        $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
+        $organization->memberships()->create(['user_id' => $invited->id, 'role' => UserRole::Viewer]);
+        $oldToken = 'token-anterior';
+        $invitation = OrganizationInvitation::query()->create([
+            'organization_id' => $organization->id,
+            'email' => $invited->email,
+            'role' => UserRole::Viewer,
+            'token_hash' => hash('sha256', $oldToken),
+            'expires_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->get(route('users.index'))->assertOk()->assertSee('enlace vencido')->assertSee('Reenviar invitación');
+        $this->post(route('user-invitations.resend', $invitation))->assertRedirect()->assertSessionHas('status');
+
+        $invitation->refresh();
+        $this->assertNotSame(hash('sha256', $oldToken), $invitation->token_hash);
+        $this->assertTrue($invitation->expires_at->isFuture());
+        $this->get(route('invitations.accept', $oldToken))->assertNotFound();
+        Mail::assertQueued(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use ($invitation): bool {
+            $token = basename((string) parse_url($mail->invitationUrl, PHP_URL_PATH));
+
+            return $mail->hasTo('pendiente@example.test') && hash('sha256', $token) === $invitation->token_hash;
+        });
     }
 }

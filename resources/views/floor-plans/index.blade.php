@@ -49,8 +49,8 @@
             @endif
             @if($selectedPlan?->drawablePath())
                 @if(auth()->user()->hasPermission('plans.manage'))
-                <div class="ribbon-group"><span class="ribbon-label">Dibujar</span><button id="zone-mode" class="ribbon-button" type="button"><x-nav-icon name="plans"/><span>Crear área</span></button></div>
-                <div class="ribbon-group"><span class="ribbon-label">Dispositivos</span><button id="ribbon-anchor-mode" class="ribbon-button" type="button"><x-nav-icon name="map"/><span>Colocar ancla</span></button></div>
+                <div class="ribbon-group"><span class="ribbon-label">Dibujar</span><details id="zone-command" class="ribbon-command"><summary id="zone-mode"><x-nav-icon name="plans"/><span>Crear área</span></summary><div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Crear área</h2>@include('floor-plans.partials.zone-creation-form')</div></details></div>
+                <div class="ribbon-group"><span class="ribbon-label">Dispositivos</span><details id="anchor-command" class="ribbon-command"><summary id="ribbon-anchor-mode"><x-nav-icon name="map"/><span>Colocar ancla</span></summary><div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Colocar ancla</h2>@include('floor-plans.partials.anchor-placement-form')</div></details></div>
                 <div class="ribbon-group"><span class="ribbon-label">Medición</span><a class="ribbon-button" href="{{ route('calibration.index', $selectedPlan) }}"><x-nav-icon name="calibration"/><span>Calibrar RSSI</span></a></div>
                 @endif
                 <div class="ribbon-group">
@@ -96,7 +96,7 @@
     @if(!$selectedPlan)
         <div class="panel mt-8 empty-state">Carga un plano para comenzar a definir zonas.</div>
     @else
-        <div class="floor-plan-workspace mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div class="floor-plan-workspace mt-6">
             <section class="panel p-4">
                 <div class="plan-editor-overview">
                     <div class="plan-editor-current"><span>Plano actual</span><strong>{{ $selectedPlan->name }}</strong><small>{{ $selectedPlan->location->name }} · {{ $selectedPlan->width_meters }} × {{ $selectedPlan->height_meters }} m</small></div>
@@ -152,8 +152,8 @@
                         </div>
                         <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>
                     </div>
-                    <script id="zone-data" type="application/json">{{ Illuminate\Support\Js::encode($selectedPlan->zones->map(fn($zone) => ['name' => $zone->name, 'color' => $zone->color, 'x_min' => (float) $zone->x_min, 'y_min' => (float) $zone->y_min, 'x_max' => (float) $zone->x_max, 'y_max' => (float) $zone->y_max])->values()) }}</script>
-                    <script id="installation-data" type="application/json">{{ Illuminate\Support\Js::encode($installations->map(fn($installation) => ['id' => $installation->id, 'name' => $installation->device->name, 'type' => $installation->device->type, 'x' => (float) $installation->x / (float) $selectedPlan->width_meters, 'y' => (float) $installation->y / (float) $selectedPlan->height_meters])->values()) }}</script>
+                    <script id="zone-data" type="application/json">{!! Illuminate\Support\Js::encode($selectedPlan->zones->map(fn($zone) => ['name' => $zone->name, 'color' => $zone->color, 'x_min' => (float) $zone->x_min, 'y_min' => (float) $zone->y_min, 'x_max' => (float) $zone->x_max, 'y_max' => (float) $zone->y_max])->values()) !!}</script>
+                    <script id="installation-data" type="application/json">{!! Illuminate\Support\Js::encode($installations->map(fn($installation) => ['id' => $installation->id, 'name' => $installation->device->name, 'type' => $installation->device->type, 'x' => (float) $installation->x / (float) $selectedPlan->width_meters, 'y' => (float) $installation->y / (float) $selectedPlan->height_meters])->values()) !!}</script>
                         </div>
                     </div>
                 @else
@@ -170,45 +170,6 @@
                 @endif
             </section>
 
-            <aside class="editor-sidebar space-y-6">
-                @if(auth()->user()->hasPermission('plans.manage') && $selectedPlan->drawablePath())
-                    <form id="zone-form" method="POST" action="{{ route('zones.store', $selectedPlan) }}" class="panel editor-properties-panel p-5" hidden>
-                        @csrf
-                        <p class="editor-properties-label">Propiedades</p>
-                        <h2 class="font-semibold text-slate-950">Nueva zona rectangular</h2>
-                        <p class="mt-1 text-xs leading-relaxed text-slate-500">Arrastra sobre el plano como en una selección CAD, asigna un nombre y guarda.</p>
-                        <div class="mt-5 space-y-4">
-                            <label class="field-label">Nombre<input class="field-input" name="name" required placeholder="Bodega Z"></label>
-                            <label class="field-label">Código<input class="field-input" name="code" placeholder="ZONE-Z"></label>
-                            <label class="field-label">Color<input class="mt-2 h-11 w-full rounded-xl border border-slate-200 p-1" type="color" name="color" value="#14B8A6"></label>
-                            <fieldset class="rounded-xl border border-slate-200 p-3"><legend class="px-1 text-xs font-semibold text-slate-600">Notificaciones opcionales</legend><div class="space-y-2 text-sm"><label class="flex gap-2"><input type="checkbox" name="alert_types[]" value="entry"> Cuando ingresa</label><label class="flex gap-2"><input type="checkbox" name="alert_types[]" value="exit"> Cuando sale</label><label class="flex gap-2"><input type="checkbox" name="alert_types[]" value="dwell"> Cuando permanece demasiado</label></div><label class="field-label mt-3">Tiempo de permanencia (minutos)<input class="field-input" type="number" name="dwell_minutes" min="10" max="10080" value="30"></label><label class="field-label mt-3">Correos destinatarios<textarea class="field-input" name="alert_recipients" rows="2" placeholder="operaciones@empresa.com, seguridad@empresa.com"></textarea><span class="mt-1 block text-xs font-normal text-slate-400">Opcional. Si queda vacío se usarán los destinatarios globales de Alertas.</span></label></fieldset>
-                            @foreach(['x_min', 'y_min', 'x_max', 'y_max'] as $coordinate)<input id="zone-{{ str_replace('_', '-', $coordinate) }}" type="hidden" name="{{ $coordinate }}" required>@endforeach
-                            <dl id="zone-geometry-metrics" class="zone-geometry-metrics" hidden><div><dt>Área</dt><dd data-zone-area></dd></div><div><dt>Perímetro</dt><dd data-zone-perimeter></dd></div></dl>
-                            <p id="zone-selection-status" class="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Dibuja el rectángulo en el plano.</p>
-                            <button id="zone-submit" class="btn-primary w-full" disabled>Guardar zona</button>
-                        </div>
-                    </form>
-
-                    <form id="anchor-form" method="POST" action="{{ route('installations.store', $selectedPlan) }}" class="panel editor-properties-panel p-5" hidden>
-                        @csrf
-                        <p class="editor-properties-label">Propiedades</p>
-                        <h2 class="font-semibold text-slate-950">Colocar ancla</h2>
-                        <p class="mt-1 text-xs leading-relaxed text-slate-500">Activos móviles: coloca beacons fijos. Activos estáticos con beacon: coloca scanners fijos.</p>
-                        <div class="mt-5 space-y-4">
-                            <label class="field-label">Dispositivo registrado<select class="field-input" name="device_id"><option value="">Crear o seleccionar beacon por MAC</option>@foreach($devices->whereIn('type', ['beacon', 'scanner']) as $device)<option value="{{ $device->id }}">{{ $device->name }} · {{ $device->identifier }}</option>@endforeach</select></label>
-                            <label class="field-label">MAC del beacon<input class="field-input font-mono" name="device_identifier" list="reported-beacon-macs" placeholder="58:BE:6F:65:9D:9D"><span class="mt-1 block text-xs font-normal text-slate-400">Escríbela manualmente o selecciónala entre las MAC observadas por trackers TTI.</span></label>
-                            <datalist id="reported-beacon-macs">@foreach($reportedBeaconMacs as $reported)<option value="{{ $reported['identifier'] }}">{{ $reported['tracker_name'] }} · RSSI {{ $reported['rssi'] }} dBm{{ $reported['connector_name'] ? ' · '.$reported['connector_name'] : '' }}</option>@endforeach</datalist>
-                            <label class="field-label">Nombre del nuevo beacon<input class="field-input" name="device_name" placeholder="Opcional; por ejemplo Beacon acceso norte"></label>
-                            <div class="grid grid-cols-2 gap-3"><label class="field-label">RSSI a 1 m<input class="field-input" type="number" name="reference_rssi" value="-59" min="-127" max="-1" required></label><label class="field-label">Factor ambiental<input class="field-input" type="number" name="path_loss_exponent" value="2.0" min="0.5" max="8" step="0.1" required></label></div>
-                            <input id="anchor-x" type="hidden" name="x_normalized" required><input id="anchor-y" type="hidden" name="y_normalized" required>
-                            <button id="anchor-mode" class="btn-secondary w-full" type="button">Seleccionar otro punto</button>
-                            <p id="anchor-selection-status" class="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Primero activa “Seleccionar punto”.</p>
-                            <button id="anchor-submit" class="btn-primary w-full" disabled>Guardar instalación</button>
-                        </div>
-                    </form>
-                @endif
-
-            </aside>
         </div>
         @if(auth()->user()->hasPermission('plans.manage'))
             <div id="plan-sheet-context-menu" class="plan-sheet-context-menu" role="menu" hidden>

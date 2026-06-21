@@ -22,8 +22,13 @@ class SetOrganizationContext
             return $next($request);
         }
 
-        $memberships = $user->memberships()->with('organization')->get();
+        $hasMemberships = $user->memberships()->exists();
+        $memberships = $user->memberships()
+            ->with('organization')
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->get();
         if ($memberships->isEmpty()) {
+            abort_if($hasMemberships, 403, 'Tu acceso a la organización ha vencido. Contacta a un administrador.');
             $organization = Organization::query()->create(['name' => $user->name, 'slug' => Str::slug($user->name).'-'.Str::lower(Str::random(6))]);
             $membership = OrganizationMembership::query()->create(['organization_id' => $organization->id, 'user_id' => $user->id, 'role' => $user->role]);
             $membership->setRelation('organization', $organization);

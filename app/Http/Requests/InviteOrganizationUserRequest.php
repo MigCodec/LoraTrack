@@ -21,6 +21,8 @@ class InviteOrganizationUserRequest extends FormRequest
         return [
             'email' => ['required', 'email:rfc', 'max:255'],
             'role' => ['required', Rule::enum(UserRole::class)],
+            'access_type' => ['required', Rule::in(['permanent', 'until'])],
+            'membership_expires_at' => ['nullable', 'required_if:access_type,until', 'date', 'after_or_equal:today'],
         ];
     }
 }

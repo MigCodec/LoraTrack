@@ -10,11 +10,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrganizationMembership extends Model
 {
-    protected $fillable = ['organization_id', 'user_id', 'role'];
+    protected $fillable = ['organization_id', 'user_id', 'role', 'expires_at'];
 
     protected function casts(): array
     {
-        return ['role' => UserRole::class];
+        return ['role' => UserRole::class, 'expires_at' => 'datetime'];
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at?->isPast() ?? false;
     }
 
     public function organization(): BelongsTo

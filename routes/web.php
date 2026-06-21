@@ -113,7 +113,9 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('/connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::post('/users/invitations', [UserInvitationController::class, 'store'])->middleware('throttle:10,1')->name('user-invitations.store');
+        Route::post('/users/invitations/{organizationInvitation}/resend', [UserInvitationController::class, 'resend'])->middleware('throttle:10,1')->name('user-invitations.resend');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::patch('/users/memberships', [UserController::class, 'bulkUpdate'])->name('users.memberships.bulk-update');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });

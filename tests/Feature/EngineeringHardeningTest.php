@@ -72,7 +72,7 @@ class EngineeringHardeningTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
         $this->actingAs($admin)->put(route('users.update', $admin), [
-            'name' => $admin->name, 'email' => $admin->email, 'role' => UserRole::Operator->value,
+            'role' => UserRole::Operator->value, 'access_type' => 'permanent',
         ])->assertStatus(422);
 
         $this->assertTrue($admin->fresh()->isAdmin());

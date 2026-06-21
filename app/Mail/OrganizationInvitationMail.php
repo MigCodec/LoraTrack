@@ -21,6 +21,7 @@ class OrganizationInvitationMail extends Mailable implements ShouldQueue
         public readonly string $roleLabel,
         public readonly string $invitationUrl,
         public readonly string $expiresAt,
+        public readonly string $accessDuration,
         public readonly string $primaryColor,
         public readonly string $secondaryColor,
         public readonly string $accentColor,

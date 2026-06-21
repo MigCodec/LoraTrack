@@ -13,11 +13,11 @@ class OrganizationInvitation extends Model
 {
     use HasUlids;
 
-    protected $fillable = ['organization_id', 'email', 'role', 'token_hash', 'expires_at', 'accepted_at'];
+    protected $fillable = ['organization_id', 'email', 'role', 'token_hash', 'expires_at', 'membership_expires_at', 'accepted_at'];
 
     protected function casts(): array
     {
-        return ['role' => UserRole::class, 'expires_at' => 'datetime', 'accepted_at' => 'datetime'];
+        return ['role' => UserRole::class, 'expires_at' => 'datetime', 'membership_expires_at' => 'datetime', 'accepted_at' => 'datetime'];
     }
 
     public function organization(): BelongsTo

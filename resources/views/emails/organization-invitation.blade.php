@@ -19,6 +19,7 @@
                         <tr><td style="padding:14px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px">Empresa</td><td style="padding:14px 16px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:14px;font-weight:700">{{ $organizationName }}</td></tr>
                         <tr><td style="padding:14px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px">Administrador que invita</td><td style="padding:14px 16px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:14px;font-weight:700">{{ $administratorName }}</td></tr>
                         <tr><td style="padding:14px 16px;color:#64748b;font-size:13px">Grupo asignado</td><td style="padding:14px 16px;text-align:right;font-size:14px;font-weight:700">{{ $roleLabel }}</td></tr>
+                        <tr><td style="padding:14px 16px;border-top:1px solid #e2e8f0;color:#64748b;font-size:13px">Vigencia del acceso</td><td style="padding:14px 16px;border-top:1px solid #e2e8f0;text-align:right;font-size:14px;font-weight:700">{{ $accessDuration }}</td></tr>
                     </table>
                     <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569">Para completar tu registro y establecer una contraseña segura, utiliza el siguiente botón:</p>
                     <p style="margin:0 0 24px;text-align:center"><a href="{{ $invitationUrl }}" style="display:inline-block;border-radius:9px;background:{{ $accentColor }};padding:14px 24px;color:{{ $accentForeground }};font-size:15px;font-weight:700;text-decoration:none">Aceptar invitación</a></p>
