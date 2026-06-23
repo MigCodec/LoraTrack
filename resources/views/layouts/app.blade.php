@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     @stack('styles')
     <script defer src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
+    @stack('scripts')
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900" @if($tenant) style="--color-brand-primary: {{ $tenant->primary_color }}; --color-brand-secondary: {{ $tenant->secondary_color }}; --color-brand-accent: {{ $tenant->accent_color }}; --color-brand-energy: {{ $tenant->accent_color }}" @endif>
     <div class="min-h-screen lg:flex">

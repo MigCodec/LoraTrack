@@ -120,14 +120,21 @@ const assetForm = document.querySelector('#asset-form');
 if (assetForm) {
     const mobility = assetForm.elements.mobility;
     const trackerField = assetForm.querySelector('[data-mobile-tracker-field]');
-    const syncTrackerField = () => {
-        if (!trackerField || !mobility) return;
+    const staticBeaconField = assetForm.querySelector('[data-static-beacon-field]');
+    const syncAssetDeviceFields = () => {
+        if (!mobility) return;
         const mobile = mobility.value === 'mobile';
-        trackerField.hidden = !mobile;
-        trackerField.querySelectorAll('select,input').forEach((control) => { control.disabled = !mobile; });
+        if (trackerField) {
+            trackerField.hidden = !mobile;
+            trackerField.querySelectorAll('select,input').forEach((control) => { control.disabled = !mobile; });
+        }
+        if (staticBeaconField) {
+            staticBeaconField.hidden = mobile;
+            staticBeaconField.querySelectorAll('select,input').forEach((control) => { control.disabled = mobile; });
+        }
     };
-    mobility?.addEventListener('change', syncTrackerField);
-    syncTrackerField();
+    mobility?.addEventListener('change', syncAssetDeviceFields);
+    syncAssetDeviceFields();
 }
 
 const editor = document.querySelector('#zone-editor');
@@ -493,6 +500,8 @@ if (realtimeMap) {
         setDetail('#asset-detail-calculated', formatDate(position.calculated_at));
         setDetail('#asset-detail-observed', formatDate(position.observed_at));
         setDetail('#asset-detail-received', formatDate(position.received_at));
+        const trackLink = document.querySelector('#asset-detail-track-link');
+        if (trackLink) trackLink.href = position.track_url || '#';
         evidenceBody.replaceChildren(...position.evidence.map((anchor, index) => {
             const row = document.createElement('tr');
             const name = document.createElement('td');

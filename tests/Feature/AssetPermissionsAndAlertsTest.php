@@ -41,6 +41,53 @@ class AssetPermissionsAndAlertsTest extends TestCase
         $this->actingAs($operator)->get(route('assets.photo', $asset))->assertOk();
     }
 
+    public function test_operator_can_create_static_asset_with_initial_beacon(): void
+    {
+        $operator = User::factory()->create(['role' => UserRole::Operator]);
+        $beacon = Device::query()->create(['identifier' => 'AA:BB:CC:DD:EE:11', 'name' => 'Beacon vitrina', 'type' => 'beacon']);
+
+        $this->actingAs($operator)->get(route('assets.create', ['mobility' => 'static']))
+            ->assertOk()
+            ->assertSee('Beacon BLE inicial')
+            ->assertSee('Beacon vitrina');
+
+        $this->actingAs($operator)->post(route('assets.store'), [
+            'asset_tag' => 'STA-001',
+            'name' => 'Vitrina 1',
+            'mobility' => 'static',
+            'status' => 'active',
+            'static_beacon_device_id' => $beacon->id,
+        ])->assertRedirect();
+
+        $asset = Asset::query()->where('asset_tag', 'STA-001')->firstOrFail();
+        $this->assertDatabaseHas('asset_device_assignments', [
+            'asset_id' => $asset->id,
+            'device_id' => $beacon->id,
+            'tracking_strategy' => 'mobile_beacon_fixed_scanners',
+            'ended_at' => null,
+        ]);
+    }
+
+    public function test_static_initial_beacon_cannot_reuse_assigned_beacon(): void
+    {
+        $operator = User::factory()->create(['role' => UserRole::Operator]);
+        $beacon = Device::query()->create(['identifier' => 'AA:BB:CC:DD:EE:12', 'name' => 'Beacon ocupado', 'type' => 'beacon']);
+        $assigned = Asset::query()->create(['asset_tag' => 'STA-OLD', 'name' => 'Estático previo', 'mobility' => 'static', 'status' => 'active']);
+        $assigned->deviceAssignments()->create([
+            'device_id' => $beacon->id,
+            'tracking_strategy' => 'mobile_beacon_fixed_scanners',
+            'started_at' => now(),
+        ]);
+
+        $this->actingAs($operator)->post(route('assets.store'), [
+            'asset_tag' => 'STA-002',
+            'name' => 'Vitrina 2',
+            'mobility' => 'static',
+            'status' => 'active',
+            'static_beacon_device_id' => $beacon->id,
+        ])->assertSessionHasErrors('static_beacon_device_id');
+    }
+
     public function test_mobile_asset_offers_reported_trackers_by_readable_name_and_identifier(): void
     {
         $operator = User::factory()->create(['role' => UserRole::Operator]);

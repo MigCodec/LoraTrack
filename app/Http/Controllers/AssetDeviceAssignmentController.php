@@ -45,7 +45,7 @@ class AssetDeviceAssignmentController extends Controller
 
             $valid = $device->status === 'active' && match ($validated['tracking_strategy']) {
                 'fixed_beacons_mobile_tracker' => $asset->mobility === 'mobile' && $device->type === 'lorawan_tracker',
-                'mobile_beacon_fixed_scanners' => $asset->mobility === 'mobile' && $device->type === 'beacon',
+                'mobile_beacon_fixed_scanners' => in_array($asset->mobility, ['mobile', 'static'], true) && $device->type === 'beacon',
                 'assigned_static' => $asset->mobility === 'static' && $device->type === 'beacon',
                 default => false,
             };

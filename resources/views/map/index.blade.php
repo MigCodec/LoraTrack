@@ -69,6 +69,7 @@
                 </dl>
                 <h3 class="mt-4 text-sm font-semibold">Anclas usadas por la estimación</h3>
                 <p class="mb-2 text-xs text-slate-500">Las circunferencias del plano representan la distancia inferida desde cada RSSI. El residual compara esa distancia con la solución calculada.</p>
+                <p class="mb-3"><a id="asset-detail-track-link" class="btn-secondary text-xs" href="#">Ver recorrido del activo</a></p>
                 <div class="table-wrap">
                     <table class="data-table asset-evidence-table">
                         <thead><tr><th>Ancla</th><th>RSSI</th><th>Distancia</th><th>Residual</th><th>Calibración</th></tr></thead>

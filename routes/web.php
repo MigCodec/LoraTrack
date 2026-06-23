@@ -7,6 +7,7 @@ use App\Http\Controllers\AlertRuleController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetDeviceAssignmentController;
 use App\Http\Controllers\AssetPhotoController;
+use App\Http\Controllers\AssetTrackController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\Auth\RegisteredOrganizationController;
@@ -48,6 +49,8 @@ Route::middleware('auth')->group(function (): void {
     Route::view('/help/devices', 'help.devices')->name('help.devices');
     Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
     Route::get('/assets/{asset}/photo', AssetPhotoController::class)->name('assets.photo');
+    Route::get('/assets/{asset}/track', [AssetTrackController::class, 'show'])->name('assets.track');
+    Route::get('/assets/{asset}/track/data', [AssetTrackController::class, 'data'])->name('assets.track.data');
     Route::middleware('permission:assets.manage')->group(function (): void {
         Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
         Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');

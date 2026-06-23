@@ -52,6 +52,7 @@ class AssetController extends Controller
         $asset = DB::transaction(function () use ($request, $validated): Asset {
             $asset = Asset::query()->create($this->assetData($validated));
             $this->assignInitialTracker($asset, $validated['tracker_device_id'] ?? null);
+            $this->assignInitialStaticBeacon($asset, $validated['static_beacon_device_id'] ?? null);
             $this->storePhoto($request, $asset);
 
             return $asset;
@@ -94,6 +95,12 @@ class AssetController extends Controller
             'skus' => Sku::query()->with('product')->orderBy('code')->get(),
             'locations' => Location::query()->orderBy('name')->get(),
             'devices' => Device::query()->where('status', 'active')->orderBy('name')->get(),
+            'availableBeacons' => Device::query()
+                ->where('status', 'active')
+                ->where('type', 'beacon')
+                ->whereDoesntHave('assignments', fn ($query) => $query->whereNull('ended_at'))
+                ->orderBy('name')
+                ->get(),
             'reportedTrackers' => Device::query()
                 ->where('status', 'active')
                 ->where('type', 'lorawan_tracker')
@@ -115,6 +122,7 @@ class AssetController extends Controller
             'mobility' => ['required', 'in:mobile,static'],
             'status' => ['required', 'in:active,inactive,maintenance'],
             'tracker_device_id' => ['nullable', TenantRule::exists('devices')],
+            'static_beacon_device_id' => ['nullable', TenantRule::exists('devices')],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             'remove_photo' => ['nullable', 'boolean'],
         ]);
@@ -123,7 +131,7 @@ class AssetController extends Controller
     /** @param array<string, mixed> $validated */
     private function assetData(array $validated): array
     {
-        unset($validated['tracker_device_id'], $validated['photo'], $validated['remove_photo']);
+        unset($validated['tracker_device_id'], $validated['static_beacon_device_id'], $validated['photo'], $validated['remove_photo']);
 
         return $validated;
     }
@@ -162,6 +170,26 @@ class AssetController extends Controller
             'asset_id' => $asset->id,
             'device_id' => $device->id,
             'tracking_strategy' => 'fixed_beacons_mobile_tracker',
+            'started_at' => now(),
+        ]);
+    }
+
+    private function assignInitialStaticBeacon(Asset $asset, ?string $deviceId): void
+    {
+        if (! $deviceId) {
+            return;
+        }
+        $device = Device::query()->whereKey($deviceId)->lockForUpdate()->firstOrFail();
+        if ($asset->mobility !== 'static' || $device->type !== 'beacon' || $device->status !== 'active') {
+            throw ValidationException::withMessages(['static_beacon_device_id' => 'Selecciona un beacon BLE activo para un activo estático.']);
+        }
+        if ($device->assignments()->whereNull('ended_at')->exists()) {
+            throw ValidationException::withMessages(['static_beacon_device_id' => 'El beacon ya está asignado a otro activo.']);
+        }
+        AssetDeviceAssignment::query()->create([
+            'asset_id' => $asset->id,
+            'device_id' => $device->id,
+            'tracking_strategy' => 'mobile_beacon_fixed_scanners',
             'started_at' => now(),
         ]);
     }

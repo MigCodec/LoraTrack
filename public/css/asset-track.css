@@ -1,0 +1,249 @@
+.asset-track-page {
+    overflow: hidden;
+}
+
+.asset-track-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1.25rem;
+}
+
+.asset-track-kicker {
+    color: var(--color-brand-accent);
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.asset-track-header h2 {
+    margin-top: .15rem;
+    color: #0f172a;
+    font-size: 1.35rem;
+    font-weight: 750;
+}
+
+.asset-track-header p:last-child {
+    margin-top: .2rem;
+    color: #64748b;
+    font-size: .82rem;
+}
+
+.asset-track-actions,
+.asset-track-controls,
+.asset-track-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+}
+
+.asset-track-controls {
+    align-items: end;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1rem 1.25rem;
+    background: #f8fafc;
+}
+
+.asset-track-controls label {
+    display: grid;
+    min-width: 12rem;
+    gap: .35rem;
+    color: #334155;
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+.asset-track-live-toggle {
+    display: flex !important;
+    min-height: 2.55rem;
+    align-items: center;
+    grid-template-columns: none;
+    color: #475569;
+    font-weight: 650;
+}
+
+.asset-track-live-toggle input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--color-brand-primary);
+}
+
+.asset-track-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+    padding: 1rem 1.25rem;
+}
+
+.asset-track-summary div {
+    border: 1px solid #e2e8f0;
+    border-radius: .7rem;
+    background: #fff;
+    padding: .75rem;
+}
+
+.asset-track-summary span {
+    display: block;
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.asset-track-summary strong {
+    display: block;
+    margin-top: .2rem;
+    overflow: hidden;
+    color: #0f172a;
+    font-size: .9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.asset-track-stage {
+    padding: 0 1.25rem 1.25rem;
+}
+
+.asset-track-map {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    border-radius: .9rem;
+    background: #fff;
+}
+
+.asset-track-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.asset-track-segment {
+    fill: none;
+    stroke: var(--color-brand-primary);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 5;
+    vector-effect: non-scaling-stroke;
+}
+
+.asset-track-segment.is-low-confidence {
+    stroke: #f59e0b;
+    stroke-dasharray: 10 8;
+}
+
+.asset-track-point {
+    cursor: pointer;
+    fill: #fff;
+    pointer-events: auto;
+    stroke: var(--color-brand-primary);
+    stroke-width: 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.asset-track-point.is-low-confidence {
+    stroke: #f59e0b;
+}
+
+.asset-track-point.is-start {
+    fill: #22c55e;
+    stroke: #fff;
+}
+
+.asset-track-point.is-current {
+    fill: var(--color-brand-accent);
+    stroke: #fff;
+}
+
+.asset-track-accuracy {
+    fill: color-mix(in srgb, var(--color-brand-accent) 16%, transparent);
+    pointer-events: none;
+    stroke: color-mix(in srgb, var(--color-brand-accent) 55%, transparent);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.asset-track-tooltip {
+    position: absolute;
+    z-index: 5;
+    width: min(18rem, calc(100vw - 2rem));
+    transform: translate(.75rem, .75rem);
+    border: 1px solid #cbd5e1;
+    border-radius: .7rem;
+    background: #fff;
+    padding: .75rem;
+    color: #0f172a;
+    font-size: .75rem;
+    line-height: 1.45;
+    box-shadow: 0 16px 38px rgb(15 23 42 / 28%);
+    pointer-events: none;
+}
+
+.asset-track-tooltip strong {
+    display: block;
+    margin-bottom: .25rem;
+    font-size: .82rem;
+}
+
+.asset-track-tooltip span {
+    display: block;
+    color: #475569;
+}
+
+.asset-track-legend {
+    border-top: 1px solid #e2e8f0;
+    padding: .85rem 1.25rem 1.25rem;
+    color: #475569;
+    font-size: .75rem;
+}
+
+.asset-track-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+
+.asset-track-dot {
+    width: .8rem;
+    height: .8rem;
+    border-radius: 999px;
+}
+
+.asset-track-dot.start {
+    background: #22c55e;
+}
+
+.asset-track-dot.current {
+    background: var(--color-brand-accent);
+}
+
+.asset-track-line {
+    width: 1.8rem;
+    height: 0;
+    border-top: 3px solid var(--color-brand-primary);
+}
+
+.asset-track-line.sample-low {
+    border-color: #f59e0b;
+    border-top-style: dashed;
+}
+
+@media (max-width: 48rem) {
+    .asset-track-header,
+    .asset-track-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .asset-track-summary {
+        grid-template-columns: 1fr;
+    }
+}
