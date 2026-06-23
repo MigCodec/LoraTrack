@@ -16,6 +16,7 @@ class ConnectorConnectionTester
     {
         return match ($connector->provider) {
             ConnectorProvider::TtiWebhook => 'Configuración válida. El endpoint está listo para recibir eventos.',
+            ConnectorProvider::MerakiLocation => 'Configuración válida. El endpoint Meraki está listo para validar el receptor y recibir observaciones.',
             ConnectorProvider::SapS4Hana => $this->testSap($connector),
             ConnectorProvider::Mqtt => 'Configuración guardada. La conexión MQTT se validará al iniciar el consumidor.',
             default => 'Configuración válida. La prueba remota se habilitará con el sincronizador del proveedor.',

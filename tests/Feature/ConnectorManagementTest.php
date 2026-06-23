@@ -38,6 +38,18 @@ class ConnectorManagementTest extends TestCase
             ->assertDontSee('Perfil de decoder');
     }
 
+    public function test_meraki_form_offers_selectable_v2_and_v3_contracts(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->get(route('connectors.create', 'meraki_location'))
+            ->assertOk()
+            ->assertSee('v3.x (recomendada)')
+            ->assertSee('v2.1 (compatibilidad)')
+            ->assertSee('Validator de Meraki')
+            ->assertSee('Shared secret');
+    }
+
     public function test_admin_can_create_sap_connector_and_credentials_are_encrypted(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

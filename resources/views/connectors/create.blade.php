@@ -54,6 +54,12 @@
                                         <span class="text-xs text-slate-500" id="webhook-token-status">Mínimo 24 caracteres.</span>
                                     </span>
                                 @endif
+                                @if($definition['provider']->value === 'meraki_location')
+                                    <span class="mt-2 flex flex-wrap items-center gap-2">
+                                        <button class="btn-secondary" type="button" data-generate-secret="credential-{{ $key }}">Generar valor seguro</button>
+                                        <button class="text-xs font-semibold text-brand-primary" type="button" data-copy-secret="credential-{{ $key }}">Copiar</button>
+                                    </span>
+                                @endif
                             </label>
                         @endforeach
                     </div>
@@ -97,6 +103,35 @@
                     }
                     await navigator.clipboard.writeText(input.value);
                     status.textContent = 'Token copiado.';
+                });
+            })();
+        </script>
+    @endif
+    @if($definition['provider']->value === 'meraki_location')
+        <script>
+            (() => {
+                const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+                const generate = length => {
+                    const bytes = crypto.getRandomValues(new Uint8Array(length));
+                    return Array.from(bytes, byte => alphabet[byte & 63]).join('');
+                };
+
+                document.querySelectorAll('[data-generate-secret]').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const input = document.getElementById(button.dataset.generateSecret);
+                        input.value = generate(32);
+                        input.type = 'text';
+                        input.focus();
+                        input.select();
+                    });
+                });
+                document.querySelectorAll('[data-copy-secret]').forEach(button => {
+                    button.addEventListener('click', async () => {
+                        const input = document.getElementById(button.dataset.copySecret);
+                        if (input.value) {
+                            await navigator.clipboard.writeText(input.value);
+                        }
+                    });
                 });
             })();
         </script>

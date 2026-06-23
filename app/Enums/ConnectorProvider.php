@@ -7,6 +7,7 @@ namespace App\Enums;
 enum ConnectorProvider: string
 {
     case TtiWebhook = 'tti_webhook';
+    case MerakiLocation = 'meraki_location';
     case Mqtt = 'mqtt';
     case SapS4Hana = 'sap_s4hana';
     case BusinessCentral = 'business_central';

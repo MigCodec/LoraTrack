@@ -20,6 +20,7 @@ use App\Http\Controllers\FloorPlanController;
 use App\Http\Controllers\FloorPlanFileController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MapController;
+use App\Http\Controllers\MerakiFloorPlanMappingController;
 use App\Http\Controllers\OperationalHealthController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PayloadDecoderProfileController;
@@ -117,6 +118,8 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/connectors/{connector}/rotate-webhook-token', [ConnectorController::class, 'rotateWebhookToken'])->name('connectors.rotate-webhook-token');
         Route::post('/connectors/{connector}/sync', [ConnectorController::class, 'sync'])->name('connectors.sync');
         Route::post('/connectors/{connector}/csv', [ConnectorController::class, 'importCsv'])->name('connectors.csv');
+        Route::post('/connectors/{connector}/meraki-floor-plans', [MerakiFloorPlanMappingController::class, 'store'])->name('connectors.meraki-floor-plans.store');
+        Route::delete('/connectors/{connector}/meraki-floor-plans/{mapping}', [MerakiFloorPlanMappingController::class, 'destroy'])->name('connectors.meraki-floor-plans.destroy');
         Route::delete('/connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::post('/users/invitations', [UserInvitationController::class, 'store'])->middleware('throttle:10,1')->name('user-invitations.store');

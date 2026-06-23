@@ -12,6 +12,7 @@ use App\Enums\ConnectorStatus;
 use App\Http\Requests\StoreConnectorRequest;
 use App\Jobs\SyncCatalogConnector;
 use App\Models\Connector;
+use App\Models\FloorPlan;
 use App\Models\TelemetryEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,6 +48,12 @@ class ConnectorController extends Controller
             'definition' => $registry->get($connector->provider),
             'events' => $connector->telemetryEvents()->with('device')->latest('received_at')->limit(100)->get(),
             'logs' => $connector->activityLogs()->latest()->limit(100)->get(),
+            'merakiMappings' => $connector->provider === ConnectorProvider::MerakiLocation
+                ? $connector->merakiFloorPlanMappings()->with('floorPlan.location')->get()
+                : collect(),
+            'floorPlans' => $connector->provider === ConnectorProvider::MerakiLocation
+                ? FloorPlan::query()->with('location')->where('is_active', true)->orderBy('name')->get()
+                : collect(),
         ]);
     }
 
@@ -80,6 +87,9 @@ class ConnectorController extends Controller
             'status' => ConnectorStatus::Draft,
             'configuration' => $validated['configuration'] ?? [],
             'credentials' => $validated['credentials'] ?? [],
+            'contract_version' => $provider === ConnectorProvider::MerakiLocation
+                ? (string) ($validated['configuration']['api_version'] ?? '3')
+                : '1',
         ]);
         $connector->logActivity('created', 'Conector creado como borrador. Debe probarse y activarse antes de operar.');
 

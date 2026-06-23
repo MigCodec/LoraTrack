@@ -26,6 +26,26 @@ class ConnectorRegistry
                     'webhook_token' => ['label' => 'Token del webhook', 'type' => 'password', 'required' => true, 'min' => 24],
                 ],
             ],
+            ConnectorProvider::MerakiLocation->value => [
+                'provider' => ConnectorProvider::MerakiLocation,
+                'kind' => ConnectorKind::Telemetry,
+                'name' => 'Cisco Meraki Location API',
+                'description' => 'Recibe posiciones y observaciones WiFi/BLE desde Meraki Scanning API v2.1 o v3.x.',
+                'configuration' => [
+                    'api_version' => [
+                        'label' => 'Versión de Scanning API',
+                        'type' => 'select',
+                        'required' => true,
+                        'default' => '3',
+                        'options' => ['3' => 'v3.x (recomendada)', '2' => 'v2.1 (compatibilidad)'],
+                    ],
+                    'network_id' => ['label' => 'Network ID permitido (opcional)', 'type' => 'text', 'required' => false],
+                ],
+                'credentials' => [
+                    'validator' => ['label' => 'Validator de Meraki', 'type' => 'password', 'required' => true, 'min' => 8],
+                    'shared_secret' => ['label' => 'Shared secret', 'type' => 'password', 'required' => true, 'min' => 16],
+                ],
+            ],
             ConnectorProvider::Mqtt->value => [
                 'provider' => ConnectorProvider::Mqtt,
                 'kind' => ConnectorKind::Telemetry,
