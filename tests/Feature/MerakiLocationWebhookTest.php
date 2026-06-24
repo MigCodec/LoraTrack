@@ -356,12 +356,49 @@ class MerakiLocationWebhookTest extends TestCase
         }
 
         $this->artisan('loratrack:prune-meraki-history')
+            ->expectsOutput('Eventos Meraki que exceden la retención: 4.')
             ->expectsOutput('Eventos Meraki antiguos eliminados: 4.')
+            ->expectsOutput('Pendientes aproximados: 0.')
             ->assertSuccessful();
         $this->assertSame(10, TelemetryEvent::query()
             ->where('connector_id', $connector->id)
             ->where('device_id', $device->id)
             ->count());
+    }
+
+    public function test_meraki_pruner_supports_dry_run_and_delete_limits(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'limited-pruner']);
+        $connector = $this->connector($organization, '3');
+        $device = Device::query()->create([
+            'organization_id' => $organization->id,
+            'identifier' => '665544332211',
+            'name' => 'Beacon',
+            'type' => 'beacon',
+        ]);
+        for ($index = 0; $index < 15; $index++) {
+            TelemetryEvent::query()->create([
+                'organization_id' => $organization->id,
+                'connector_id' => $connector->id,
+                'device_id' => $device->id,
+                'external_event_id' => hash('sha256', 'limited-history-'.$index),
+                'event_type' => 'meraki_location',
+                'observed_at' => now()->subMinutes(15 - $index),
+                'received_at' => now()->subMinutes(15 - $index),
+                'raw_payload' => ['client_mac' => $device->identifier],
+            ]);
+        }
+
+        $this->artisan('loratrack:prune-meraki-history', ['--dry-run' => true])
+            ->expectsOutput('Eventos Meraki que exceden la retención: 5.')
+            ->assertSuccessful();
+        $this->assertSame(15, TelemetryEvent::query()->where('device_id', $device->id)->count());
+
+        $this->artisan('loratrack:prune-meraki-history', ['--max-delete' => 2])
+            ->expectsOutput('Eventos Meraki antiguos eliminados: 2.')
+            ->expectsOutput('Pendientes aproximados: 3.')
+            ->assertSuccessful();
+        $this->assertSame(13, TelemetryEvent::query()->where('device_id', $device->id)->count());
     }
 
     private function connector(Organization $organization, string $version): Connector

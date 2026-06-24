@@ -11,7 +11,7 @@ class MerakiEventRetention
 {
     public const HISTORY_LIMIT = 10;
 
-    public function prune(TelemetryEvent $event): int
+    public function prune(TelemetryEvent $event, int $limit = 1000): int
     {
         if (! $event->device_id || $event->event_type !== 'meraki_location') {
             return 0;
@@ -26,7 +26,7 @@ class MerakiEventRetention
             ->orderByDesc('received_at')
             ->orderByDesc('id')
             ->skip(self::HISTORY_LIMIT)
-            ->take(1000)
+            ->take(max(1, min(1000, $limit)))
             ->pluck('id');
 
         if ($obsoleteIds->isEmpty()) {
@@ -39,18 +39,13 @@ class MerakiEventRetention
             ->delete();
     }
 
-    public function pruneAll(): int
+    public function pruneAll(int $maxDeletes = 10000): int
     {
         $deleted = 0;
-        $groups = DB::table('telemetry_events')
-            ->select(['organization_id', 'connector_id', 'device_id'])
-            ->where('event_type', 'meraki_location')
-            ->whereNotNull('device_id')
-            ->groupBy(['organization_id', 'connector_id', 'device_id'])
-            ->havingRaw('COUNT(*) > ?', [self::HISTORY_LIMIT])
-            ->get();
-
-        foreach ($groups as $group) {
+        foreach ($this->oversizedGroups() as $group) {
+            if ($deleted >= $maxDeletes) {
+                break;
+            }
             $latest = TelemetryEvent::query()
                 ->withoutGlobalScopes()
                 ->where('organization_id', $group->organization_id)
@@ -60,14 +55,35 @@ class MerakiEventRetention
                 ->latest('observed_at')
                 ->latest('received_at')
                 ->first();
-            if ($latest) {
-                do {
-                    $batchDeleted = $this->prune($latest);
-                    $deleted += $batchDeleted;
-                } while ($batchDeleted === 1000);
+            if (! $latest) {
+                continue;
             }
+
+            do {
+                $remaining = $maxDeletes - $deleted;
+                $batchDeleted = $this->prune($latest, min(1000, $remaining));
+                $deleted += $batchDeleted;
+            } while ($batchDeleted > 0 && $deleted < $maxDeletes);
         }
 
         return $deleted;
+    }
+
+    public function excessCount(): int
+    {
+        return $this->oversizedGroups()
+            ->sum(fn (object $group): int => max(0, (int) $group->event_count - self::HISTORY_LIMIT));
+    }
+
+    private function oversizedGroups()
+    {
+        return DB::table('telemetry_events')
+            ->select(['organization_id', 'connector_id', 'device_id'])
+            ->selectRaw('COUNT(*) AS event_count')
+            ->where('event_type', 'meraki_location')
+            ->whereNotNull('device_id')
+            ->groupBy(['organization_id', 'connector_id', 'device_id'])
+            ->havingRaw('COUNT(*) > ?', [self::HISTORY_LIMIT])
+            ->get();
     }
 }
