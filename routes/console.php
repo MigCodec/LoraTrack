@@ -9,3 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('loratrack:evaluate-alerts')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('loratrack:manage-telemetry-storage')->hourly()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:prune-meraki-history')->hourly()->onOneServer()->withoutOverlapping();

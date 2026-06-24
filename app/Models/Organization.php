@@ -20,11 +20,23 @@ class Organization extends Model
         'accent_color' => '#14B8A6',
     ];
 
-    protected $fillable = ['name', 'slug', 'active', 'logo_path', 'primary_color', 'secondary_color', 'accent_color'];
+    protected $fillable = [
+        'name', 'slug', 'active', 'logo_path', 'primary_color', 'secondary_color', 'accent_color',
+        'storage_cleanup_enabled', 'telemetry_retention_days', 'last_storage_utilization_percent',
+        'storage_checked_at', 'storage_cleanup_at', 'storage_cleanup_deleted_events',
+    ];
 
     protected function casts(): array
     {
-        return ['active' => 'boolean'];
+        return [
+            'active' => 'boolean',
+            'storage_cleanup_enabled' => 'boolean',
+            'telemetry_retention_days' => 'integer',
+            'last_storage_utilization_percent' => 'float',
+            'storage_checked_at' => 'datetime',
+            'storage_cleanup_at' => 'datetime',
+            'storage_cleanup_deleted_events' => 'integer',
+        ];
     }
 
     public function memberships(): HasMany

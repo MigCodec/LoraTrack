@@ -1,0 +1,253 @@
+/*
+ * Tenant branding layer.
+ * Loaded after app.css so product components consume semantic brand tokens
+ * without coupling tenant colors to generated utility CSS.
+ */
+
+:root {
+    --color-brand-primary: #2563eb;
+    --color-brand-secondary: #0f172a;
+    --color-brand-accent: #14b8a6;
+    --color-brand-energy: #14b8a6;
+    --color-brand-on-primary: #ffffff;
+    --color-brand-on-secondary: #ffffff;
+    --color-brand-on-accent: #0f172a;
+    --color-brand-primary-ink: #1d4ed8;
+    --color-brand-accent-ink: #0f766e;
+    --brand-surface-primary: color-mix(in srgb, var(--color-brand-primary) 7%, #fff);
+    --brand-surface-accent: color-mix(in srgb, var(--color-brand-accent) 9%, #fff);
+    --brand-border: color-mix(in srgb, var(--color-brand-primary) 20%, #cbd5e1);
+    --brand-focus: var(--color-brand-accent);
+}
+
+/* Structural identity */
+.brand-sidebar {
+    background:
+        radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--color-brand-primary) 38%, transparent), transparent 30%),
+        linear-gradient(180deg, var(--color-brand-secondary), color-mix(in srgb, var(--color-brand-secondary) 76%, #000));
+    color: var(--color-brand-on-secondary);
+}
+
+.brand-sidebar .nav-section-label {
+    color: color-mix(in srgb, var(--color-brand-on-secondary) 68%, var(--color-brand-accent));
+}
+
+.brand-sidebar .nav-link {
+    color: color-mix(in srgb, var(--color-brand-on-secondary) 78%, transparent);
+}
+
+.brand-sidebar .nav-link:hover {
+    background: color-mix(in srgb, var(--color-brand-primary) 18%, transparent);
+    color: var(--color-brand-on-secondary);
+}
+
+.brand-sidebar .nav-link-active {
+    background: var(--color-brand-primary);
+    color: var(--color-brand-on-primary);
+    box-shadow: inset 3px 0 0 var(--color-brand-accent);
+}
+
+.brand-sidebar .sidebar-user {
+    border-color: color-mix(in srgb, var(--color-brand-on-secondary) 18%, transparent);
+}
+
+main > header {
+    border-bottom-color: var(--brand-border);
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--color-brand-accent) 36%, transparent);
+}
+
+/* Actions and interactive controls */
+.btn-primary {
+    border-color: var(--color-brand-primary);
+    background: var(--color-brand-primary);
+    color: var(--color-brand-on-primary);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--color-brand-secondary) 22%, transparent);
+}
+
+.btn-primary:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-brand-primary) 84%, #000);
+    background: color-mix(in srgb, var(--color-brand-primary) 84%, #000);
+}
+
+.btn-secondary {
+    border-color: var(--brand-border);
+    background: #fff;
+    color: var(--color-brand-primary-ink);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-brand-primary) 45%, #cbd5e1);
+    background: var(--brand-surface-primary);
+}
+
+.action-link,
+.text-brand-primary {
+    color: var(--color-brand-primary-ink);
+}
+
+.text-brand-accent {
+    color: var(--color-brand-accent-ink);
+}
+
+.action-link:hover,
+a.text-brand-primary:hover {
+    color: color-mix(in srgb, var(--color-brand-primary-ink) 78%, #000);
+    text-decoration-color: var(--color-brand-accent);
+}
+
+:is(button, a, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--brand-focus);
+    outline-offset: 2px;
+}
+
+:is(input[type="checkbox"], input[type="radio"], progress) {
+    accent-color: var(--color-brand-primary);
+}
+
+/* Forms */
+.field-input {
+    border-color: color-mix(in srgb, var(--color-brand-secondary) 18%, #cbd5e1);
+    background: #fff;
+}
+
+.field-input:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-brand-primary) 38%, #cbd5e1);
+}
+
+.field-input:focus {
+    border-color: var(--color-brand-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 16%, transparent);
+}
+
+.field-input:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled {
+    cursor: not-allowed;
+    filter: grayscale(.35);
+    opacity: .58;
+}
+
+/* Panels, cards and data */
+.panel {
+    border-color: color-mix(in srgb, var(--color-brand-secondary) 12%, #e2e8f0);
+}
+
+.panel-title {
+    color: color-mix(in srgb, var(--color-brand-secondary) 90%, #000);
+}
+
+.panel-header {
+    border-bottom-color: var(--brand-border);
+    background: linear-gradient(90deg, var(--brand-surface-primary), #fff 48%);
+}
+
+.connector-card:hover,
+.connector-card:focus-within {
+    border-color: color-mix(in srgb, var(--color-brand-primary) 48%, #cbd5e1);
+    background: var(--brand-surface-primary);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--color-brand-secondary) 10%, transparent);
+}
+
+.connector-card:hover .connector-icon {
+    border-color: color-mix(in srgb, var(--color-brand-accent) 42%, #cbd5e1);
+    background: var(--brand-surface-accent);
+}
+
+.table-wrap,
+.data-table {
+    border-color: var(--brand-border);
+}
+
+:is(.table-wrap, .data-table) thead {
+    background: linear-gradient(90deg, var(--brand-surface-primary), color-mix(in srgb, var(--color-brand-secondary) 3%, #fff));
+}
+
+:is(.table-wrap, .data-table) tbody tr:hover {
+    background: color-mix(in srgb, var(--color-brand-primary) 4%, #fff);
+}
+
+.empty-state {
+    border-color: color-mix(in srgb, var(--color-brand-primary) 20%, #e2e8f0);
+    background: linear-gradient(135deg, var(--brand-surface-primary), #fff);
+}
+
+/* Branding settings preview */
+.brand-preview-header {
+    background:
+        radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--color-brand-primary) 36%, transparent), transparent 34%),
+        var(--color-brand-secondary);
+    color: var(--color-brand-on-secondary);
+}
+
+.brand-preview-accent {
+    border: 1px solid color-mix(in srgb, var(--color-brand-accent) 45%, #cbd5e1);
+    background: var(--brand-surface-accent);
+    color: var(--color-brand-accent-ink);
+}
+
+.brand-preview-swatch {
+    height: .75rem;
+    border: 1px solid color-mix(in srgb, var(--color-brand-secondary) 15%, #e2e8f0);
+    border-radius: .25rem;
+}
+
+.brand-preview-primary {
+    background: var(--color-brand-primary);
+}
+
+.brand-preview-secondary {
+    background: var(--color-brand-secondary);
+}
+
+.brand-preview-accent-swatch {
+    background: var(--color-brand-accent);
+}
+
+/* Editors and command surfaces */
+.plan-ribbon {
+    border-top-color: var(--color-brand-accent);
+}
+
+.ribbon-button:hover,
+.ribbon-button.is-active,
+.ribbon-command[open] > summary,
+.ribbon-layers[open] > summary {
+    border-color: color-mix(in srgb, var(--color-brand-primary) 38%, #cbd5e1);
+    background: var(--brand-surface-primary);
+}
+
+.ribbon-button.is-active {
+    box-shadow: inset 0 -3px 0 var(--color-brand-primary);
+}
+
+.ribbon-command-panel,
+.plan-rename-dialog {
+    border-top-color: var(--color-brand-accent);
+}
+
+.plan-editor-section-tab,
+.plan-sheet-tab.is-active {
+    color: var(--color-brand-primary-ink);
+}
+
+/* Preserve semantic status colors: success, warning, danger and errors are not tenant branding. */
+
+@media (max-width: 48rem) {
+    main > header {
+        box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-brand-accent) 38%, transparent);
+    }
+
+    .brand-sidebar .nav-link-active {
+        box-shadow: inset 3px 0 0 var(--color-brand-accent);
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .btn-primary,
+    .btn-secondary,
+    .nav-link,
+    .connector-card,
+    .field-input {
+        transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+}

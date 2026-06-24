@@ -9,11 +9,12 @@
     @php($faviconVersion = $tenant?->logo_path ? sha1($tenant->logo_path.'|'.$tenant->updated_at?->timestamp) : 'default-v1')
     <link rel="icon" href="{{ route('favicon', ['v' => $faviconVersion]) }}">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/tenant-brand.css') }}?v={{ filemtime(public_path('css/tenant-brand.css')) }}">
     @stack('styles')
     <script defer src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
     @stack('scripts')
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900" @if($tenant) style="--color-brand-primary: {{ $tenant->primary_color }}; --color-brand-secondary: {{ $tenant->secondary_color }}; --color-brand-accent: {{ $tenant->accent_color }}; --color-brand-energy: {{ $tenant->accent_color }}" @endif>
+<body class="min-h-screen bg-slate-50 text-slate-900" style="{{ App\Support\BrandPalette::cssVariables($tenant) }}">
     <div class="min-h-screen lg:flex">
         <aside class="brand-sidebar sidebar-shell px-5 py-6 text-white lg:fixed lg:inset-y-0 lg:w-64">
             <a href="{{ route('dashboard') }}" class="flex items-center gap-3" aria-label="LoraTrack, inicio">

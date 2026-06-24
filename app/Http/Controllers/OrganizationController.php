@@ -38,6 +38,8 @@ class OrganizationController extends Controller
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'accent_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'storage_cleanup_enabled' => ['nullable', 'boolean'],
+            'telemetry_retention_days' => ['nullable', 'integer', 'between:7,3650'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'remove_logo' => ['nullable', 'boolean'],
         ], [
@@ -55,6 +57,8 @@ class OrganizationController extends Controller
             $data['logo_path'] = $request->file('logo')->store("organizations/{$organization->id}/branding", 'local');
         }
 
+        $data['storage_cleanup_enabled'] = $request->boolean('storage_cleanup_enabled');
+        $data['telemetry_retention_days'] = $data['telemetry_retention_days'] ?? $organization->telemetry_retention_days ?? 30;
         unset($data['logo'], $data['remove_logo']);
         $organization->update($data);
 

@@ -12,6 +12,10 @@ class MerakiPayloadNormalizer
     /** @return list<array<string, mixed>> */
     public function records(array $payload, int $majorVersion): array
     {
+        if ($majorVersion === 3 && $this->isExpandedRecord($payload)) {
+            return [$this->compactExpandedRecord($payload)];
+        }
+
         return $majorVersion === 3
             ? $this->versionThree($payload)
             : $this->versionTwo($payload);
@@ -54,6 +58,17 @@ class MerakiPayloadNormalizer
     {
         $floorPlan = is_array($location['floorPlan'] ?? null) ? $location['floorPlan'] : [];
         $latest = is_array($observation['latestRecord'] ?? null) ? $observation['latestRecord'] : [];
+        $rssiRecords = $this->compactRssiRecords(
+            is_array($location['rssiRecords'] ?? null)
+                ? $location['rssiRecords']
+                : [[
+                    'apMac' => $location['nearestApMac'] ?? $latest['nearestApMac'] ?? null,
+                    'rssi' => $latest['nearestApRssi'] ?? null,
+                ]],
+            is_array(Arr::get($payload, 'data.reportingAps'))
+                ? Arr::get($payload, 'data.reportingAps')
+                : [],
+        );
 
         return [
             'version' => (string) $payload['version'],
@@ -69,24 +84,113 @@ class MerakiPayloadNormalizer
             'latitude' => $location['lat'] ?? null,
             'longitude' => $location['lng'] ?? null,
             'accuracy_meters' => $location['variance'] ?? null,
-            'rssi_records' => is_array($location['rssiRecords'] ?? null)
-                ? $location['rssiRecords']
-                : [[
-                    'apMac' => $location['nearestApMac'] ?? $latest['nearestApMac'] ?? null,
-                    'rssi' => $latest['nearestApRssi'] ?? null,
-                ]],
-            'metadata' => Arr::except($observation, ['locations']),
-            'raw' => [
-                'version' => $payload['version'],
-                'type' => $payload['type'],
-                'data' => [
-                    'networkId' => Arr::get($payload, 'data.networkId'),
-                    'reportingAps' => Arr::get($payload, 'data.reportingAps'),
-                    'observation' => $observation,
-                    'location' => $location,
-                ],
+            'rssi_records' => $rssiRecords,
+            'metadata' => $this->compactMetadata($observation, $latest),
+            'source_summary' => [
+                'payload_checksum' => hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES) ?: ''),
+                'reporting_ap_count' => count(Arr::get($payload, 'data.reportingAps', [])),
+                'location_count' => count($observation['locations'] ?? []),
+                'rssi_record_count' => count($rssiRecords),
+                'nearest_ap_mac' => $location['nearestApMac'] ?? $latest['nearestApMac'] ?? null,
             ],
         ];
+    }
+
+    private function isExpandedRecord(array $payload): bool
+    {
+        return isset($payload['client_mac'], $payload['observed_at'])
+            && array_key_exists('rssi_records', $payload);
+    }
+
+    /** @return array<string, mixed> */
+    private function compactExpandedRecord(array $payload): array
+    {
+        $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $raw = is_array($payload['raw'] ?? null) ? $payload['raw'] : [];
+        $rawData = is_array($raw['data'] ?? null) ? $raw['data'] : [];
+        $observation = is_array($rawData['observation'] ?? null) ? $rawData['observation'] : [];
+        $latest = is_array($metadata['latestRecord'] ?? null) ? $metadata['latestRecord'] : [];
+        $rssiRecords = $this->compactRssiRecords(
+            is_array($payload['rssi_records'] ?? null) ? $payload['rssi_records'] : [],
+            is_array($rawData['reportingAps'] ?? null) ? $rawData['reportingAps'] : [],
+        );
+
+        return [
+            'version' => (string) ($payload['version'] ?? '3.0'),
+            'type' => (string) ($payload['type'] ?? 'Bluetooth'),
+            'network_id' => (string) ($payload['network_id'] ?? $rawData['networkId'] ?? ''),
+            'client_mac' => (string) $payload['client_mac'],
+            'client_name' => (string) ($payload['client_name'] ?? $metadata['name'] ?? $payload['client_mac']),
+            'observed_at' => $payload['observed_at'],
+            'external_floor_plan_id' => (string) ($payload['external_floor_plan_id'] ?? ''),
+            'external_floor_plan_name' => (string) ($payload['external_floor_plan_name'] ?? ''),
+            'x' => $payload['x'] ?? null,
+            'y' => $payload['y'] ?? null,
+            'latitude' => $payload['latitude'] ?? null,
+            'longitude' => $payload['longitude'] ?? null,
+            'accuracy_meters' => $payload['accuracy_meters'] ?? null,
+            'rssi_records' => $rssiRecords,
+            'metadata' => $this->compactMetadata($metadata + $observation, $latest),
+            'source_summary' => [
+                'payload_checksum' => hash('sha256', json_encode($raw ?: $payload, JSON_UNESCAPED_SLASHES) ?: ''),
+                'reporting_ap_count' => count($rawData['reportingAps'] ?? []),
+                'location_count' => count($observation['locations'] ?? []),
+                'rssi_record_count' => count($rssiRecords),
+                'nearest_ap_mac' => $latest['nearestApMac'] ?? null,
+                'compacted_from_expanded_record' => true,
+            ],
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function compactRssiRecords(array $records, array $reportingAps = []): array
+    {
+        $accessPoints = collect($reportingAps)
+            ->filter(fn (mixed $accessPoint): bool => is_array($accessPoint) && is_string($accessPoint['mac'] ?? null))
+            ->keyBy(fn (array $accessPoint): string => mb_strtoupper(str_replace(':', '', $accessPoint['mac'])));
+
+        return collect($records)
+            ->filter(fn (mixed $record): bool => is_array($record)
+                && is_string($record['apMac'] ?? null)
+                && is_numeric($record['rssi'] ?? null))
+            ->map(function (array $record) use ($accessPoints): array {
+                $accessPoint = $accessPoints->get(mb_strtoupper(str_replace(':', '', (string) $record['apMac'])), []);
+
+                return array_filter([
+                    'apMac' => (string) $record['apMac'],
+                    'rssi' => (int) $record['rssi'],
+                    'apName' => $record['apName'] ?? $accessPoint['name'] ?? null,
+                    'apSerial' => $record['apSerial'] ?? $accessPoint['serial'] ?? null,
+                    'lat' => $record['lat'] ?? $accessPoint['lat'] ?? null,
+                    'lng' => $record['lng'] ?? $accessPoint['lng'] ?? null,
+                ], fn (mixed $value): bool => $value !== null);
+            })
+            ->unique('apMac')
+            ->values()
+            ->all();
+    }
+
+    /** @return array<string, mixed> */
+    private function compactMetadata(array $observation, array $latest): array
+    {
+        $beacons = collect(is_array($observation['bleBeacons'] ?? null) ? $observation['bleBeacons'] : [])
+            ->filter(fn (mixed $beacon): bool => is_array($beacon))
+            ->map(fn (array $beacon): array => Arr::only($beacon, [
+                'uuid', 'major', 'minor', 'txPower', 'bleType',
+            ]))
+            ->values()
+            ->all();
+
+        return array_filter([
+            'name' => $observation['name'] ?? null,
+            'user_id' => $observation['userId'] ?? null,
+            'ble_beacons' => $beacons,
+            'latest_record' => array_filter([
+                'time' => $latest['time'] ?? null,
+                'nearest_ap_mac' => $latest['nearestApMac'] ?? null,
+                'nearest_ap_rssi' => $latest['nearestApRssi'] ?? null,
+            ], fn (mixed $value): bool => $value !== null),
+        ], fn (mixed $value): bool => $value !== null && $value !== []);
     }
 
     /** @return list<array<string, mixed>> */

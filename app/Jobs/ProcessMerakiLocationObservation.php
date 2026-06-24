@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Connectors\Meraki\MerakiEventRetention;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
 use App\Models\MerakiFloorPlanMapping;
@@ -41,7 +42,7 @@ class ProcessMerakiLocationObservation implements ShouldQueue
 
     public function __construct(public readonly string $telemetryEventId) {}
 
-    public function handle(ZoneClassifier $zones): void
+    public function handle(ZoneClassifier $zones, MerakiEventRetention $retention): void
     {
         $event = TelemetryEvent::query()->findOrFail($this->telemetryEventId);
         if (! $event->organization?->active) {
@@ -84,6 +85,14 @@ class ProcessMerakiLocationObservation implements ShouldQueue
             $event->forceFill([
                 'device_id' => $device->id,
                 'normalized_payload' => Arr::except($record, ['raw']),
+                'raw_payload' => [
+                    'version' => $record['version'] ?? null,
+                    'type' => $record['type'] ?? null,
+                    'network_id' => $record['network_id'] ?? null,
+                    'client_mac' => $clientMac,
+                    'observed_at' => $record['observed_at'] ?? null,
+                    'source_summary' => $record['source_summary'] ?? [],
+                ],
             ])->save();
 
             foreach (($record['rssi_records'] ?? []) as $reading) {
@@ -99,7 +108,14 @@ class ProcessMerakiLocationObservation implements ShouldQueue
                     [
                         'rssi' => (int) $reading['rssi'],
                         'observed_at' => $event->observed_at ?? $event->received_at,
-                        'metadata' => ['source' => 'meraki', 'version' => $record['version'] ?? null],
+                        'metadata' => array_filter([
+                            'source' => 'meraki',
+                            'version' => $record['version'] ?? null,
+                            'ap_name' => $reading['apName'] ?? null,
+                            'ap_serial' => $reading['apSerial'] ?? null,
+                            'latitude' => $reading['lat'] ?? null,
+                            'longitude' => $reading['lng'] ?? null,
+                        ], fn (mixed $value): bool => $value !== null),
                     ],
                 );
             }
@@ -115,6 +131,7 @@ class ProcessMerakiLocationObservation implements ShouldQueue
                 'processing_error' => null,
             ])->save();
             $event->connector()->update(['last_success_at' => now(), 'last_error' => null]);
+            $retention->prune($event);
         } catch (Throwable $exception) {
             $event->forceFill([
                 'processing_status' => 'failed',

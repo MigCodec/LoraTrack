@@ -14,6 +14,7 @@
 
         @case('meraki_location')
             <p class="mt-2 text-sm text-slate-600">Configura Cisco Meraki Scanning/Location API con la misma URL para validación GET y recepción POST.</p>
+            <p class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">LoraTrack compacta los payloads v3 para evitar duplicar listas completas de AP y ubicaciones. Conserva los últimos 10 eventos por dispositivo y conector; las posiciones históricas derivadas permanecen disponibles.</p>
             <div class="mt-4 grid gap-4 lg:grid-cols-2">
                 <div class="rounded-xl border border-slate-200 p-4 text-sm">
                     <dl class="space-y-3">

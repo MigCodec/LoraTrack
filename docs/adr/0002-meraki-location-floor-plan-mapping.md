@@ -14,6 +14,8 @@ Meraki Scanning/Location API v2.1 y v3.x entregan observaciones WiFi/BLE, RSSI y
 - Mantener una tabla de mapeo por conector entre el identificador de plano Meraki y el plano LoraTrack.
 - Convertir por defecto el eje Y de origen inferior de Meraki al origen superior del editor web.
 - Conservar `variance`/`unc` como precisión reportada por el proveedor, sin presentarla como precisión calculada por LoraTrack.
+- Compactar payloads v3 después de procesarlos: conservar checksum, conteos, identidad BLE, última lectura y AP que aportaron RSSI, sin duplicar `reportingAps` ni todas las ubicaciones originales.
+- Retener los últimos diez eventos Meraki por organización, conector y dispositivo. Las posiciones derivadas permanecen como historial independiente.
 
 ## Alternativas consideradas
 

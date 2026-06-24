@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Connectors\Meraki\MerakiEventRetention;
+use App\Connectors\Meraki\MerakiPayloadNormalizer;
 use App\Enums\ConnectorKind;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
@@ -115,7 +117,7 @@ class MerakiLocationWebhookTest extends TestCase
 
         Queue::assertPushed(ProcessMerakiLocationObservation::class, 1);
         $event = TelemetryEvent::query()->firstOrFail();
-        (new ProcessMerakiLocationObservation($event->id))->handle(app(ZoneClassifier::class));
+        $this->process($event);
 
         $this->assertSame(1, Device::query()->where('identifier', 'AABBCCDDEEFF')->count());
         $this->assertCount(3, $event->fresh()->signalObservations);
@@ -127,6 +129,8 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertEqualsWithDelta(8, (float) $position->raw_y, 0.001);
         $this->assertEqualsWithDelta(2.5, (float) $position->accuracy_meters, 0.001);
         $this->assertTrue($asset->fresh()->last_seen_at->equalTo($event->observed_at));
+        $this->assertArrayNotHasKey('rssi_records', $event->fresh()->raw_payload);
+        $this->assertCount(3, $event->fresh()->normalized_payload['rssi_records']);
     }
 
     public function test_meraki_v2_registers_unassigned_ble_device_and_validator_is_available_in_draft(): void
@@ -160,7 +164,7 @@ class MerakiLocationWebhookTest extends TestCase
 
         $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertAccepted();
         $event = TelemetryEvent::query()->firstOrFail();
-        (new ProcessMerakiLocationObservation($event->id))->handle(app(ZoneClassifier::class));
+        $this->process($event);
 
         $this->assertDatabaseHas('devices', [
             'identifier' => '18FE34D7FFAA',
@@ -204,7 +208,7 @@ class MerakiLocationWebhookTest extends TestCase
         $this->postJson(route('api.meraki.ingest', $secondConnector), $payload)->assertAccepted();
 
         foreach (TelemetryEvent::query()->orderBy('id')->get() as $event) {
-            (new ProcessMerakiLocationObservation($event->id))->handle(app(ZoneClassifier::class));
+            $this->process($event);
         }
 
         $devices = Device::query()->where('identifier', 'AABBCCDDEEFF')->get();
@@ -240,6 +244,126 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertDatabaseCount('telemetry_events', 0);
     }
 
+    public function test_real_expanded_meraki_record_is_compacted_into_normalized_payload(): void
+    {
+        $payload = json_decode((string) file_get_contents(
+            base_path('tests/Fixtures/meraki/v3-expanded-record.json'),
+        ), true, 512, JSON_THROW_ON_ERROR);
+
+        $record = app(MerakiPayloadNormalizer::class)->records($payload, 3)[0];
+
+        $this->assertSame('E455A815A240', strtoupper(str_replace(':', '', $record['client_mac'])));
+        $this->assertSame('L_597289900580014244', $record['network_id']);
+        $this->assertSame('f6b2afd3-1419-40c9-877b-2135fd81ec4b', $record['metadata']['ble_beacons'][0]['uuid']);
+        $this->assertCount(3, $record['rssi_records']);
+        $this->assertSame('AP-01', $record['rssi_records'][0]['apName']);
+        $this->assertSame('Q3AE-ONE1-TEST', $record['rssi_records'][0]['apSerial']);
+        $this->assertSame(3, $record['source_summary']['reporting_ap_count']);
+        $this->assertSame(6, $record['source_summary']['location_count']);
+        $this->assertTrue($record['source_summary']['compacted_from_expanded_record']);
+        $this->assertArrayNotHasKey('raw', $record);
+        $this->assertArrayNotHasKey('locations', $record['metadata']);
+        $this->assertLessThan(5000, strlen(json_encode($record, JSON_THROW_ON_ERROR)));
+    }
+
+    public function test_authenticated_expanded_record_can_enter_the_webhook_pipeline(): void
+    {
+        Queue::fake();
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'expanded-acme']);
+        $connector = $this->connector($organization, '3');
+        $connector->update(['configuration' => [
+            'api_version' => '3',
+            'network_id' => 'L_597289900580014244',
+        ]]);
+        $payload = json_decode((string) file_get_contents(
+            base_path('tests/Fixtures/meraki/v3-expanded-record.json'),
+        ), true, 512, JSON_THROW_ON_ERROR);
+        $payload['secret'] = 'meraki-shared-secret-value';
+
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)
+            ->assertAccepted()
+            ->assertJsonPath('observations_queued', 1);
+
+        $event = TelemetryEvent::query()->firstOrFail();
+        $this->assertLessThan(5000, strlen(json_encode($event->raw_payload, JSON_THROW_ON_ERROR)));
+        $this->process($event);
+        $event->refresh();
+        $this->assertSame('E455A815A240', $event->device->identifier);
+        $this->assertSame(3, $event->normalized_payload['source_summary']['reporting_ap_count']);
+        $this->assertArrayNotHasKey('rssi_records', $event->raw_payload);
+    }
+
+    public function test_meraki_history_keeps_only_latest_ten_events_per_device(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'history-acme']);
+        $connector = $this->connector($organization, '3');
+        $device = Device::query()->create([
+            'organization_id' => $organization->id,
+            'identifier' => 'AABBCCDDEEFF',
+            'name' => 'Beacon',
+            'type' => 'beacon',
+        ]);
+
+        for ($index = 0; $index < 12; $index++) {
+            $event = TelemetryEvent::query()->create([
+                'organization_id' => $organization->id,
+                'connector_id' => $connector->id,
+                'device_id' => $device->id,
+                'external_event_id' => hash('sha256', 'meraki-history-'.$index),
+                'event_type' => 'meraki_location',
+                'observed_at' => now()->subMinutes(12 - $index),
+                'received_at' => now()->subMinutes(12 - $index),
+                'raw_payload' => ['client_mac' => $device->identifier],
+                'processing_status' => 'processed',
+            ]);
+            app(MerakiEventRetention::class)->prune($event);
+        }
+
+        $events = TelemetryEvent::query()
+            ->where('connector_id', $connector->id)
+            ->where('device_id', $device->id)
+            ->orderBy('observed_at')
+            ->get();
+        $this->assertCount(10, $events);
+        $this->assertSame(
+            hash('sha256', 'meraki-history-2'),
+            $events->first()->external_event_id,
+        );
+    }
+
+    public function test_scheduled_pruner_corrects_existing_meraki_history(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'pruner-acme']);
+        $connector = $this->connector($organization, '3');
+        $device = Device::query()->create([
+            'organization_id' => $organization->id,
+            'identifier' => '112233445566',
+            'name' => 'Beacon',
+            'type' => 'beacon',
+        ]);
+        for ($index = 0; $index < 14; $index++) {
+            TelemetryEvent::query()->create([
+                'organization_id' => $organization->id,
+                'connector_id' => $connector->id,
+                'device_id' => $device->id,
+                'external_event_id' => hash('sha256', 'scheduled-history-'.$index),
+                'event_type' => 'meraki_location',
+                'observed_at' => now()->subMinutes(14 - $index),
+                'received_at' => now()->subMinutes(14 - $index),
+                'raw_payload' => ['client_mac' => $device->identifier],
+                'processing_status' => 'processed',
+            ]);
+        }
+
+        $this->artisan('loratrack:prune-meraki-history')
+            ->expectsOutput('Eventos Meraki antiguos eliminados: 4.')
+            ->assertSuccessful();
+        $this->assertSame(10, TelemetryEvent::query()
+            ->where('connector_id', $connector->id)
+            ->where('device_id', $device->id)
+            ->count());
+    }
+
     private function connector(Organization $organization, string $version): Connector
     {
         return Connector::query()->create([
@@ -254,6 +378,14 @@ class MerakiLocationWebhookTest extends TestCase
                 'shared_secret' => 'meraki-shared-secret-value',
             ],
         ]);
+    }
+
+    private function process(TelemetryEvent $event): void
+    {
+        (new ProcessMerakiLocationObservation($event->id))->handle(
+            app(ZoneClassifier::class),
+            app(MerakiEventRetention::class),
+        );
     }
 
     /** @return array<string, mixed> */

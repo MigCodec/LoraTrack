@@ -65,21 +65,36 @@ class MultiTenancyTest extends TestCase
         $second->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
 
         $this->actingAs($admin)->withSession(['organization_id' => $first->id])->get(route('organizations.index'))
-            ->assertOk()->assertSee('Empresa Visible')->assertDontSee('Empresa Oculta');
+            ->assertOk()
+            ->assertSee('Empresa Visible')
+            ->assertDontSee('Empresa Oculta')
+            ->assertSee('css/tenant-brand.css', false)
+            ->assertSee('--color-brand-primary: #2563EB', false);
 
         $this->actingAs($admin)->withSession(['organization_id' => $first->id])->put(route('organizations.update'), [
             'name' => 'Empresa Renovada',
             'primary_color' => '#112233',
             'secondary_color' => '#223344',
             'accent_color' => '#AABBCC',
+            'storage_cleanup_enabled' => '1',
+            'telemetry_retention_days' => 45,
             'logo' => UploadedFile::fake()->image('logo.png', 300, 120),
         ])->assertRedirect();
 
         $first->refresh();
         $this->assertSame('Empresa Renovada', $first->name);
         $this->assertSame('#112233', $first->primary_color);
+        $this->assertTrue($first->storage_cleanup_enabled);
+        $this->assertSame(45, $first->telemetry_retention_days);
         $this->assertSame('Empresa Oculta', $second->fresh()->name);
+        $this->assertFalse($second->fresh()->storage_cleanup_enabled);
         Storage::disk('local')->assertExists($first->logo_path);
+
+        $this->actingAs($admin)->withSession(['organization_id' => $first->id])->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('--color-brand-primary: #112233', false)
+            ->assertSee('--color-brand-secondary: #223344', false)
+            ->assertSee('--color-brand-accent: #AABBCC', false);
     }
 
     public function test_new_organization_uses_neutral_loratrack_palette(): void

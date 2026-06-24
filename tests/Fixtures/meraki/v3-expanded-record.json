@@ -1,0 +1,73 @@
+{
+  "version": "3.0",
+  "type": "Bluetooth",
+  "network_id": "L_597289900580014244",
+  "client_mac": "e4:55:a8:15:a2:40",
+  "client_name": "unknown",
+  "observed_at": "2026-06-24T22:23:54Z",
+  "external_floor_plan_id": "",
+  "external_floor_plan_name": "",
+  "x": null,
+  "y": null,
+  "latitude": -31.6951321,
+  "longitude": -71.9404598,
+  "accuracy_meters": 100,
+  "rssi_records": [
+    {"apMac": "e4:55:a8:15:a2:38", "rssi": -64},
+    {"apMac": "e4:55:a8:15:a2:a9", "rssi": -64},
+    {"apMac": "f8:9e:28:81:8d:bb", "rssi": -68}
+  ],
+  "metadata": {
+    "name": "unknown",
+    "bleBeacons": [
+      {
+        "uuid": "f6b2afd3-1419-40c9-877b-2135fd81ec4b",
+        "txPower": -59,
+        "major": 0,
+        "bleType": "iBeacon",
+        "minor": 140
+      }
+    ],
+    "latestRecord": {
+      "time": "2026-06-24T22:24:42Z",
+      "nearestApMac": "e4:55:a8:15:a2:38",
+      "nearestApRssi": -64
+    }
+  },
+  "raw": {
+    "version": "3.0",
+    "type": "Bluetooth",
+    "data": {
+      "networkId": "L_597289900580014244",
+      "reportingAps": [
+        {"serial": "Q3AE-ONE1-TEST", "mac": "e4:55:a8:15:a2:38", "name": "AP-01", "lat": -31.69, "lng": -71.94},
+        {"serial": "Q3AE-TWO2-TEST", "mac": "e4:55:a8:15:a2:a9", "name": "AP-02"},
+        {"serial": "Q3AE-THR3-TEST", "mac": "f8:9e:28:81:8d:bb", "name": "AP-03"}
+      ],
+      "observation": {
+        "clientMac": "e4:55:a8:15:a2:40",
+        "name": "unknown",
+        "bleBeacons": [
+          {
+            "uuid": "f6b2afd3-1419-40c9-877b-2135fd81ec4b",
+            "txPower": -59,
+            "major": 0,
+            "bleType": "iBeacon",
+            "minor": 140
+          }
+        ],
+        "locations": [{}, {}, {}, {}, {}, {}],
+        "latestRecord": {
+          "time": "2026-06-24T22:24:42Z",
+          "nearestApMac": "e4:55:a8:15:a2:38",
+          "nearestApRssi": -64
+        }
+      },
+      "location": {
+        "lat": -31.6951321,
+        "lng": -71.9404598,
+        "variance": 100
+      }
+    }
+  }
+}
