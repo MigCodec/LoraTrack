@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiEventRetention;
 use App\Connectors\Meraki\MerakiPayloadNormalizer;
 use App\Enums\ConnectorKind;
@@ -21,6 +22,7 @@ use App\Models\Organization;
 use App\Models\PositionEstimate;
 use App\Models\TelemetryEvent;
 use App\Positioning\ZoneClassifier;
+use App\Tenancy\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -291,6 +293,39 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertSame('E455A815A240', $event->device->identifier);
         $this->assertSame(3, $event->normalized_payload['source_summary']['reporting_ap_count']);
         $this->assertArrayNotHasKey('rssi_records', $event->raw_payload);
+        $scanners = Device::query()->where('type', 'scanner')->orderBy('identifier')->get();
+        $this->assertCount(3, $scanners);
+        $this->assertSame('AP-01', $scanners->firstWhere('identifier', 'E455A815A238')->name);
+        $this->assertSame('Q3AE-ONE1-TEST', data_get($scanners->firstWhere('identifier', 'E455A815A238')->metadata, 'meraki.serial'));
+        $this->assertSame('pending_floor_plan', data_get($scanners->firstWhere('identifier', 'E455A815A238')->metadata, 'meraki.installation_status'));
+        $this->assertTrue($scanners->every(fn (Device $scanner): bool => $scanner->last_seen_at->equalTo($event->observed_at)));
+        $this->assertTrue($scanners->every(fn (Device $scanner): bool => $scanner->installations()->doesntExist()));
+    }
+
+    public function test_older_meraki_observation_does_not_move_scanner_last_seen_backwards(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'scanner-last-seen']);
+        app(OrganizationContext::class)->set($organization);
+        try {
+            $registrar = app(MerakiAccessPointRegistrar::class);
+            $registrar->register([
+                'apMac' => '00:11:22:33:44:55',
+                'apName' => 'AP principal',
+                'apSerial' => 'Q3AE-LAST-SEEN',
+            ], now(), 'L_123');
+            $registrar->register([
+                'apMac' => '00:11:22:33:44:55',
+                'apName' => 'AP principal',
+                'apSerial' => 'Q3AE-LAST-SEEN',
+            ], now()->subDay(), 'L_123');
+
+            $scanner = Device::query()->where('identifier', '001122334455')->firstOrFail();
+            $this->assertTrue($scanner->last_seen_at->greaterThan(now()->subMinute()));
+            $this->assertSame('scanner', $scanner->type);
+            $this->assertSame($organization->id, $scanner->organization_id);
+        } finally {
+            app(OrganizationContext::class)->set(null);
+        }
     }
 
     public function test_meraki_history_keeps_only_latest_ten_events_per_device(): void
@@ -422,6 +457,7 @@ class MerakiLocationWebhookTest extends TestCase
         (new ProcessMerakiLocationObservation($event->id))->handle(
             app(ZoneClassifier::class),
             app(MerakiEventRetention::class),
+            app(MerakiAccessPointRegistrar::class),
         );
     }
 

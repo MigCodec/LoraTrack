@@ -17,7 +17,7 @@ class FloorPlan extends Model
 
     protected $fillable = [
         'location_id', 'name', 'tab_color', 'disk', 'file_path', 'preview_path', 'original_name',
-        'mime_type', 'width_meters', 'height_meters', 'is_active',
+        'mime_type', 'view_mode', 'width_meters', 'height_meters', 'depth_meters', 'model_transform', 'is_active',
     ];
 
     protected function casts(): array
@@ -25,6 +25,8 @@ class FloorPlan extends Model
         return [
             'width_meters' => 'decimal:3',
             'height_meters' => 'decimal:3',
+            'depth_meters' => 'decimal:3',
+            'model_transform' => 'array',
             'is_active' => 'boolean',
         ];
     }
@@ -46,5 +48,10 @@ class FloorPlan extends Model
         }
 
         return str_starts_with($this->mime_type, 'image/') ? $this->file_path : null;
+    }
+
+    public function isThreeDimensional(): bool
+    {
+        return $this->view_mode === '3d';
     }
 }

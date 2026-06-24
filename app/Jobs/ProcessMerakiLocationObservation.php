@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiEventRetention;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
 use App\Models\MerakiFloorPlanMapping;
 use App\Models\PositionEstimate;
+use App\Models\SignalObservation;
 use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\ZoneClassifier;
@@ -20,6 +22,7 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 class ProcessMerakiLocationObservation implements ShouldQueue
@@ -42,8 +45,11 @@ class ProcessMerakiLocationObservation implements ShouldQueue
 
     public function __construct(public readonly string $telemetryEventId) {}
 
-    public function handle(ZoneClassifier $zones, MerakiEventRetention $retention): void
-    {
+    public function handle(
+        ZoneClassifier $zones,
+        MerakiEventRetention $retention,
+        MerakiAccessPointRegistrar $accessPoints,
+    ): void {
         $event = TelemetryEvent::query()->findOrFail($this->telemetryEventId);
         if (! $event->organization?->active) {
             throw new \RuntimeException('La organización del evento Meraki no está activa.');
@@ -95,28 +101,44 @@ class ProcessMerakiLocationObservation implements ShouldQueue
                 ],
             ])->save();
 
+            $signalRows = [];
             foreach (($record['rssi_records'] ?? []) as $reading) {
                 if (! is_array($reading) || ! is_numeric($reading['rssi'] ?? null)) {
                     continue;
                 }
                 $receiver = BleObservationExtractor::normalizeMac((string) ($reading['apMac'] ?? ''));
-                $event->signalObservations()->updateOrCreate(
-                    [
-                        'transmitter_mac' => $clientMac,
-                        'receiver_identifier' => $receiver !== '' ? $receiver : null,
-                    ],
-                    [
-                        'rssi' => (int) $reading['rssi'],
-                        'observed_at' => $event->observed_at ?? $event->received_at,
-                        'metadata' => array_filter([
-                            'source' => 'meraki',
-                            'version' => $record['version'] ?? null,
-                            'ap_name' => $reading['apName'] ?? null,
-                            'ap_serial' => $reading['apSerial'] ?? null,
-                            'latitude' => $reading['lat'] ?? null,
-                            'longitude' => $reading['lng'] ?? null,
-                        ], fn (mixed $value): bool => $value !== null),
-                    ],
+                $accessPoints->register(
+                    $reading,
+                    $event->observed_at ?? $event->received_at,
+                    (string) ($record['network_id'] ?? ''),
+                );
+                if ($receiver === '') {
+                    continue;
+                }
+
+                $key = $clientMac.'|'.$receiver;
+                $signalRows[$key] = [
+                    'id' => (string) Str::ulid(),
+                    'organization_id' => $event->organization_id,
+                    'telemetry_event_id' => $event->id,
+                    'transmitter_mac' => $clientMac,
+                    'receiver_identifier' => $receiver,
+                    'rssi' => (int) $reading['rssi'],
+                    'observed_at' => $event->observed_at ?? $event->received_at,
+                    'metadata' => json_encode(array_filter([
+                        'source' => 'meraki',
+                        'version' => $record['version'] ?? null,
+                    ], fn (mixed $value): bool => $value !== null), JSON_THROW_ON_ERROR),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            if ($signalRows !== []) {
+                SignalObservation::query()->upsert(
+                    array_values($signalRows),
+                    ['telemetry_event_id', 'transmitter_mac', 'receiver_identifier'],
+                    ['rssi', 'observed_at', 'metadata', 'updated_at'],
                 );
             }
 

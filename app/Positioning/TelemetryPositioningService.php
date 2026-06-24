@@ -181,6 +181,7 @@ class TelemetryPositioningService
 
             $from = ($event->observed_at ?? $event->received_at)->copy()->subSeconds(15);
             $signals = SignalObservation::query()
+                ->select(['id', 'transmitter_mac', 'receiver_identifier', 'rssi', 'observed_at'])
                 ->where('transmitter_mac', $currentSignal->transmitter_mac)
                 ->whereBetween('observed_at', [$from, $event->observed_at ?? $event->received_at])
                 ->latest('observed_at')

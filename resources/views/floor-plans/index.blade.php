@@ -6,6 +6,13 @@
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/floor-plan-editor.css') }}?v={{ filemtime(public_path('css/floor-plan-editor.css')) }}">
 @endpush
+@push('scripts')
+    <script defer src="{{ asset('js/floor-plan-navigation.js') }}?v={{ filemtime(public_path('js/floor-plan-navigation.js')) }}"></script>
+    @if($selectedPlan?->isThreeDimensional())
+        <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"}}</script>
+        <script type="module" src="{{ asset('js/floor-plan-3d.js') }}?v={{ filemtime(public_path('js/floor-plan-3d.js')) }}"></script>
+    @endif
+@endpush
 
 @section('content')
     @if(auth()->user()->hasPermission('plans.manage') || $selectedPlan)
@@ -37,10 +44,17 @@
                             @csrf
                             <label class="field-label">Ubicación<select class="field-input" name="location_id" required>@foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
                             <label class="field-label">Nombre<input class="field-input" name="name" required placeholder="Planta nivel 1"></label>
-                            <label class="field-label">Archivo<input class="field-input" type="file" name="plan" accept=".jpg,.jpeg,.png,.webp,.pdf,.dxf" required><span class="mt-1 block text-xs font-normal text-slate-400">PNG, JPG, WEBP, PDF o DXF; máximo 20 MB.</span></label>
-                            <label class="field-label">Vista previa opcional<input class="field-input" type="file" name="preview" accept="image/png,image/jpeg,image/webp"><span class="mt-1 block text-xs font-normal text-slate-400">Obligatoria para dibujar sobre PDF o DXF.</span></label>
+                            <label class="field-label">Tipo de plano<select class="field-input" name="view_mode" data-floor-plan-mode><option value="2d" @selected(old('view_mode', '2d') === '2d')>Plano 2D</option><option value="3d" @selected(old('view_mode') === '3d')>Modelo 3D navegable</option></select></label>
+                            <label class="field-label">Archivo<input class="field-input" type="file" name="plan" accept=".jpg,.jpeg,.png,.webp,.pdf,.dxf" data-floor-plan-file required><span class="mt-1 block text-xs font-normal text-slate-400" data-floor-plan-file-help>PNG, JPG, WEBP, PDF o DXF; máximo 20 MB.</span></label>
+                            <label class="field-label">Vista previa opcional<input class="field-input" type="file" name="preview" accept="image/png,image/jpeg,image/webp"><span class="mt-1 block text-xs font-normal text-slate-400">Permite editar zonas en 2D sobre PDF, DXF o modelos 3D.</span></label>
                             <label class="field-label">Ancho real (metros)<input class="field-input" type="number" name="width_meters" min="0.001" step="0.001" required></label>
                             <label class="field-label">Alto real (metros)<input class="field-input" type="number" name="height_meters" min="0.001" step="0.001" required></label>
+                            <div class="sm:col-span-2 grid gap-4 sm:grid-cols-2" data-floor-plan-3d-fields hidden>
+                                <label class="field-label">Altura máxima del modelo (metros)<input class="field-input" type="number" name="depth_meters" min="0.001" step="0.001" value="{{ old('depth_meters') }}" data-floor-plan-depth></label>
+                                <label class="field-label">Escala del modelo<input class="field-input" type="number" name="model_scale" min="0.0001" step="0.0001" placeholder="Automática"></label>
+                                <label class="field-label">Rotación vertical (grados)<input class="field-input" type="number" name="model_rotation_y" min="-360" max="360" step="0.1" value="0"></label>
+                                <label class="field-label">Desplazamiento X / Y / Z (m)<span class="grid grid-cols-3 gap-2"><input class="field-input" type="number" name="model_offset_x" step="0.001" value="0" aria-label="Desplazamiento X"><input class="field-input" type="number" name="model_offset_y" step="0.001" value="0" aria-label="Desplazamiento Y"><input class="field-input" type="number" name="model_offset_z" step="0.001" value="0" aria-label="Desplazamiento Z"></span></label>
+                            </div>
                             <div class="sm:col-span-2"><button class="btn-primary" @disabled($locations->isEmpty())>Subir plano</button></div>
                         </form>
                     </div>
@@ -107,9 +121,49 @@
                         <div><x-nav-icon name="assets"/><span>Assets<strong>{{ $assetPositions->count() }}</strong></span></div>
                     </div>
                 </div>
+                @if($selectedPlan->isThreeDimensional())
+                    <div class="plan-editor-layout">
+                        <div class="plan-editor-stage">
+                            <div class="plan-viewer-toolbar" role="toolbar" aria-label="Navegación del modelo 3D">
+                                <span class="plan-viewer-badge">Vista 3D</span>
+                                <button type="button" data-3d-view="home">Restablecer</button>
+                                <button type="button" data-3d-view="top">Vista superior</button>
+                                <span class="plan-viewer-help">Arrastra para rotar · botón derecho para mover · rueda para zoom</span>
+                            </div>
+                            <div id="floor-plan-3d"
+                                class="floor-plan-3d"
+                                data-model-url="{{ route('floor-plans.model', $selectedPlan) }}"
+                                data-width-meters="{{ $selectedPlan->width_meters }}"
+                                data-height-meters="{{ $selectedPlan->height_meters }}"
+                                data-depth-meters="{{ $selectedPlan->depth_meters }}"
+                                data-transform='@json($selectedPlan->model_transform ?? [])'
+                                aria-label="Modelo 3D navegable de {{ $selectedPlan->name }}">
+                                <div class="floor-plan-3d-status" data-3d-status>Cargando modelo 3D…</div>
+                            </div>
+                            <script id="floor-plan-3d-markers" type="application/json">{!! Illuminate\Support\Js::encode([
+                                ...$installations->map(fn($installation) => ['kind' => 'anchor', 'name' => $installation->device->name, 'x' => (float) $installation->x, 'y' => (float) $installation->y, 'z' => (float) ($installation->z ?? 0.35)]),
+                                ...$assetPositions->map(fn($position) => ['kind' => 'asset', 'name' => $position->asset->name, 'x' => (float) $position->x, 'y' => (float) $position->y, 'z' => (float) ($position->z ?? 0.65)]),
+                            ]) !!}</script>
+                        </div>
+                    </div>
+                    @if($selectedPlan->drawablePath())
+                        <details class="plan-2d-companion">
+                            <summary>Editar zonas y anclas sobre la vista 2D</summary>
+                    @endif
+                @endif
                 @if($selectedPlan->drawablePath())
                     <div class="plan-editor-layout">
                         <div class="plan-editor-stage">
+                    <div class="plan-viewer-toolbar" role="toolbar" aria-label="Navegación del plano 2D">
+                        <span class="plan-viewer-badge">Vista 2D</span>
+                        <button type="button" data-plan-pan aria-pressed="false">Mover</button>
+                        <button type="button" data-plan-zoom="out" aria-label="Alejar">−</button>
+                        <output data-plan-zoom-value>100%</output>
+                        <button type="button" data-plan-zoom="in" aria-label="Acercar">+</button>
+                        <button type="button" data-plan-zoom="reset">Ajustar</button>
+                        <span class="plan-viewer-help">Rueda para zoom · activa Mover para desplazar</span>
+                    </div>
+                    <div id="plan-2d-viewport" class="plan-2d-viewport">
                     <div id="zone-editor" class="relative inline-block max-w-full overflow-hidden rounded-xl border border-slate-300 bg-slate-100 select-none" data-width-meters="{{ $selectedPlan->width_meters }}" data-height-meters="{{ $selectedPlan->height_meters }}">
                         <img id="floor-plan-image" class="block max-h-[70vh] max-w-full" src="{{ route('floor-plans.file', $selectedPlan) }}" alt="Plano {{ $selectedPlan->name }}" draggable="false">
                         <div id="saved-zone-overlay" class="absolute inset-0" aria-label="Áreas guardadas">
@@ -152,12 +206,18 @@
                         </div>
                         <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>
                     </div>
+                    </div>
                     <script id="zone-data" type="application/json">{!! Illuminate\Support\Js::encode($selectedPlan->zones->map(fn($zone) => ['id' => $zone->id, 'name' => $zone->name, 'color' => $zone->color, 'x_min' => (float) $zone->x_min, 'y_min' => (float) $zone->y_min, 'x_max' => (float) $zone->x_max, 'y_max' => (float) $zone->y_max])->values()) !!}</script>
                     <script id="installation-data" type="application/json">{!! Illuminate\Support\Js::encode($installations->map(fn($installation) => ['id' => $installation->id, 'name' => $installation->device->name, 'type' => $installation->device->type, 'x' => (float) $installation->x / (float) $selectedPlan->width_meters, 'y' => (float) $installation->y / (float) $selectedPlan->height_meters])->values()) !!}</script>
                         </div>
                     </div>
+                    @if($selectedPlan->isThreeDimensional())
+                        </details>
+                    @endif
                 @else
-                    <div class="empty-state rounded-xl bg-slate-50">Este {{ strtoupper(pathinfo($selectedPlan->original_name, PATHINFO_EXTENSION)) }} no tiene vista previa raster. Vuelve a cargarlo con una imagen PNG/JPG/WEBP para habilitar el editor.</div>
+                    @unless($selectedPlan->isThreeDimensional())
+                        <div class="empty-state rounded-xl bg-slate-50">Este {{ strtoupper(pathinfo($selectedPlan->original_name, PATHINFO_EXTENSION)) }} no tiene vista previa raster. Vuelve a cargarlo con una imagen PNG/JPG/WEBP para habilitar el editor.</div>
+                    @endunless
                 @endif
                 @if($plans->isNotEmpty())
                     <nav class="plan-sheet-tabs" aria-label="Seleccionar plano">

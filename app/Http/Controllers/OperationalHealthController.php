@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Connector;
+use App\Models\Device;
 use App\Models\FloorPlan;
 use App\Models\TelemetryEvent;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,9 @@ class OperationalHealthController extends Controller
                 'plan' => $plan,
                 'beacons' => (clone $base)->where('devices.type', 'beacon')->count(),
                 'scanners' => (clone $base)->where('devices.type', 'scanner')->count(),
-                'file_ok' => $plan->drawablePath() !== null && Storage::disk($plan->disk)->exists($plan->drawablePath()),
+                'file_ok' => $plan->isThreeDimensional()
+                    ? Storage::disk($plan->disk)->exists($plan->file_path)
+                    : $plan->drawablePath() !== null && Storage::disk($plan->disk)->exists($plan->drawablePath()),
             ];
         });
 
@@ -43,6 +46,12 @@ class OperationalHealthController extends Controller
             'connectors' => Connector::query()->orderBy('name')->get(),
             'lastTelemetryAt' => TelemetryEvent::query()->max('received_at'),
             'auditLogs' => request()->user()->isAdmin() ? AuditLog::query()->with('user')->latest()->limit(30)->get() : collect(),
+            'pendingScanners' => Device::query()
+                ->where('type', 'scanner')
+                ->whereDoesntHave('installations', fn ($query) => $query->whereNull('ended_at'))
+                ->latest('last_seen_at')
+                ->limit(100)
+                ->get(),
         ]);
     }
 }

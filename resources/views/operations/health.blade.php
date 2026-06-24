@@ -30,6 +30,23 @@
         </section>
     </div>
 
+    <section class="panel mt-6">
+        <div class="panel-header"><div><h2 class="panel-title">Scanners pendientes de instalación</h2><p class="panel-subtitle">AP Meraki registrados automáticamente, todavía sin plano ni coordenadas indoor</p></div></div>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>Scanner</th><th>MAC</th><th>Serial</th><th>Última señal</th><th>Estado</th></tr></thead><tbody>
+            @forelse($pendingScanners as $scanner)
+                <tr>
+                    <td><strong>{{ $scanner->name }}</strong><br><span class="text-xs text-slate-400">{{ $scanner->model }}</span></td>
+                    <td><code class="text-xs">{{ $scanner->identifier }}</code></td>
+                    <td>{{ data_get($scanner->metadata, 'meraki.serial', '—') }}</td>
+                    <td>{{ $scanner->last_seen_at?->format('d-m-Y H:i:s') ?? 'Sin señal' }}</td>
+                    <td><span class="status-badge status-disabled">Pendiente de plano</span></td>
+                </tr>
+            @empty
+                <tr><td colspan="5">No hay scanners pendientes de instalación.</td></tr>
+            @endforelse
+        </tbody></table></div>
+    </section>
+
     @if(auth()->user()->isAdmin())
     <section class="panel mt-6">
         <div class="panel-header"><div><h2 class="panel-title">Auditoría reciente</h2><p class="panel-subtitle">Cambios HTTP con usuario, resultado y Request ID</p></div></div>

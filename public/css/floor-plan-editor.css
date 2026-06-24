@@ -45,6 +45,26 @@
 .floor-plans-primary-ribbon .ribbon-command-panel textarea { position: relative; z-index: 1101; pointer-events: auto; }
 .plan-editor-stage { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: flex-start; border: 1px solid #dbe2e8; border-radius: .35rem; background: #f8fafc; padding: .75rem; }
 .plan-editor-stage #zone-editor { box-shadow: 0 1px 4px #0f172a1f; }
+.plan-viewer-toolbar { display: flex; width: 100%; align-items: center; gap: .35rem; margin-bottom: .65rem; overflow-x: auto; }
+.plan-viewer-toolbar button,
+.plan-viewer-toolbar output { display: inline-grid; min-width: 2rem; min-height: 2rem; flex: 0 0 auto; place-items: center; border: 1px solid #cbd5e1; border-radius: .35rem; padding: .35rem .55rem; background: #fff; color: #334155; font-size: .7rem; font-weight: 650; }
+.plan-viewer-toolbar button:hover,
+.plan-viewer-toolbar button:focus-visible,
+.plan-viewer-toolbar button.is-active { border-color: var(--color-brand-primary); background: color-mix(in srgb, var(--color-brand-primary) 10%, #fff); color: var(--color-brand-primary); outline: none; }
+.plan-viewer-badge { flex: 0 0 auto; border-radius: 999px; background: var(--color-brand-primary); padding: .32rem .65rem; color: #fff; font-size: .65rem; font-weight: 800; }
+.plan-viewer-help { margin-left: auto; color: #64748b; font-size: .65rem; white-space: nowrap; }
+.plan-2d-viewport { position: relative; display: flex; width: 100%; min-height: 24rem; max-height: 72vh; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #dbe2e8; border-radius: .45rem; background-color: #e9eef3; background-image: linear-gradient(45deg, #dce4eb 25%, transparent 25%), linear-gradient(-45deg, #dce4eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #dce4eb 75%), linear-gradient(-45deg, transparent 75%, #dce4eb 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; touch-action: none; }
+.plan-2d-viewport #zone-editor { flex: 0 0 auto; transform-origin: center center; will-change: transform; }
+.plan-2d-viewport.is-pannable { cursor: grab; }
+.plan-2d-viewport.is-panning { cursor: grabbing; }
+.floor-plan-3d { position: relative; width: 100%; height: clamp(28rem, 68vh, 54rem); overflow: hidden; border: 1px solid #cbd5e1; border-radius: .55rem; background: #f1f5f9; }
+.floor-plan-3d canvas { display: block; width: 100%; height: 100%; outline: none; }
+.floor-plan-3d-status { position: absolute; z-index: 2; inset: 50% auto auto 50%; max-width: calc(100% - 2rem); transform: translate(-50%, -50%); border-radius: .5rem; background: rgb(15 23 42 / 86%); padding: .65rem .9rem; color: #fff; font-size: .75rem; text-align: center; }
+.floor-plan-3d-status.is-error { background: #991b1be8; }
+.plan-2d-companion { margin-top: .9rem; border: 1px solid #dbe2e8; border-radius: .45rem; background: #f8fafc; }
+.plan-2d-companion > summary { cursor: pointer; padding: .75rem 1rem; color: #334155; font-size: .78rem; font-weight: 700; }
+.plan-2d-companion[open] > summary { border-bottom: 1px solid #dbe2e8; }
+.plan-2d-companion > .plan-editor-layout { margin: .75rem; }
 #zone-editor { overflow: visible; }
 #zone-editor.is-selecting-geometry { outline: 3px solid color-mix(in srgb, var(--color-brand-accent) 70%, #fff); outline-offset: 3px; }
 #zone-editor.is-selecting-geometry::after { content: attr(data-selection-instruction); position: absolute; z-index: 30; top: .6rem; left: 50%; transform: translateX(-50%); border-radius: 999px; background: #0f172ae8; padding: .4rem .75rem; color: #fff; font-size: .7rem; font-weight: 700; line-height: 1; pointer-events: none; white-space: nowrap; }
@@ -219,6 +239,9 @@ details.plan-anchor[data-popup-vertical="up"] > .anchor-inline-popup { top: auto
     .plan-editor-stats { width: 100%; overflow-x: auto; }
     .plan-editor-stats > div { min-width: 5.5rem; }
     .plan-editor-stage { padding: .35rem; }
+    .plan-viewer-help { display: none; }
+    .plan-2d-viewport { min-height: 20rem; }
+    .floor-plan-3d { height: min(65vh, 34rem); min-height: 22rem; }
     .anchor-context-popup { inset: auto .5rem .5rem !important; width: calc(100vw - 1rem); max-height: min(34rem, calc(100vh - 1rem)); border-radius: 1rem; }
     .anchor-inline-popup { position: fixed; inset: auto .5rem .5rem !important; width: calc(100vw - 1rem); max-height: min(34rem, calc(100vh - 1rem)); border-radius: 1rem; }
     .asset-technical-dialog { inset: auto .5rem .5rem !important; width: calc(100vw - 1rem); max-height: min(34rem, calc(100vh - 1rem)); border-radius: 1rem; }

@@ -6,6 +6,12 @@
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/floor-plan-editor.css') }}?v={{ filemtime(public_path('css/floor-plan-editor.css')) }}">
 @endpush
+@if($plan?->isThreeDimensional())
+    @push('scripts')
+        <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"}}</script>
+        <script type="module" src="{{ asset('js/floor-plan-3d.js') }}?v={{ filemtime(public_path('js/floor-plan-3d.js')) }}"></script>
+    @endpush
+@endif
 
 @section('content')
     <div class="mb-5 flex gap-2 overflow-x-auto">
@@ -16,6 +22,28 @@
 
     @if(!$plan)
         <div class="panel empty-state">Carga un plano para activar el mapa.</div>
+    @elseif($plan->isThreeDimensional())
+        <div class="panel p-4">
+            <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Modelo 3D · actualización cada 10 segundos · arrastra para navegar</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
+            <div class="plan-viewer-toolbar" role="toolbar" aria-label="Navegación del mapa 3D">
+                <span class="plan-viewer-badge">Vista 3D</span>
+                <button type="button" data-3d-view="home">Restablecer</button>
+                <button type="button" data-3d-view="top">Vista superior</button>
+                <span class="plan-viewer-help">Arrastra para rotar · botón derecho para mover · rueda para zoom</span>
+            </div>
+            <div id="floor-plan-3d"
+                class="floor-plan-3d"
+                data-model-url="{{ route('floor-plans.model', $plan) }}"
+                data-endpoint="{{ route('map.data', $plan) }}"
+                data-width-meters="{{ $plan->width_meters }}"
+                data-height-meters="{{ $plan->height_meters }}"
+                data-depth-meters="{{ $plan->depth_meters }}"
+                data-transform='@json($plan->model_transform ?? [])'
+                aria-label="Mapa operativo 3D de {{ $plan->name }}">
+                <div class="floor-plan-3d-status" data-3d-status>Cargando modelo 3D…</div>
+            </div>
+            <script id="floor-plan-3d-markers" type="application/json">[]</script>
+        </div>
     @elseif(!$plan->drawablePath())
         <div class="panel empty-state">El plano necesita una vista previa raster.</div>
     @else

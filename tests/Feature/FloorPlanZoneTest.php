@@ -19,6 +19,71 @@ class FloorPlanZoneTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_admin_can_upload_and_navigate_private_3d_floor_plan(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $location = Location::query()->create(['name' => 'Edificio 3D', 'type' => 'building']);
+
+        $response = $this->actingAs($admin)->post(route('floor-plans.store'), [
+            'location_id' => $location->id,
+            'name' => 'Gemelo digital',
+            'view_mode' => '3d',
+            'plan' => UploadedFile::fake()->create('edificio.glb', 64, 'model/gltf-binary'),
+            'width_meters' => 80,
+            'height_meters' => 50,
+            'depth_meters' => 12,
+            'model_rotation_y' => 90,
+        ]);
+
+        $plan = FloorPlan::query()->firstOrFail();
+        $response->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
+        $this->assertSame('3d', $plan->view_mode);
+        $this->assertSame('model/gltf-binary', $plan->mime_type);
+        $this->assertEquals(90.0, $plan->model_transform['rotation_y_degrees']);
+        Storage::disk('local')->assertExists($plan->file_path);
+
+        $this->get(route('floor-plans.model', $plan))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'model/gltf-binary');
+        $this->get(route('floor-plans.file', $plan))->assertNotFound();
+        $this->get(route('floor-plans.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('id="floor-plan-3d"', false)
+            ->assertSee('data-model-url="'.route('floor-plans.model', $plan).'"', false)
+            ->assertSee('floor-plan-3d.js', false)
+            ->assertSee('Vista superior')
+            ->assertDontSee('id="zone-editor"', false);
+        $this->get(route('map.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('aria-label="Mapa operativo 3D de Gemelo digital"', false)
+            ->assertSee('data-endpoint="'.route('map.data', $plan).'"', false)
+            ->assertDontSee('El plano necesita una vista previa raster.');
+    }
+
+    public function test_gltf_with_external_resources_is_rejected(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $location = Location::query()->create(['name' => 'Piso 3D', 'type' => 'floor']);
+        $gltf = json_encode([
+            'asset' => ['version' => '2.0'],
+            'buffers' => [['uri' => 'scene.bin', 'byteLength' => 12]],
+        ], JSON_THROW_ON_ERROR);
+
+        $this->actingAs($admin)->post(route('floor-plans.store'), [
+            'location_id' => $location->id,
+            'name' => 'Modelo incompleto',
+            'view_mode' => '3d',
+            'plan' => UploadedFile::fake()->createWithContent('scene.gltf', $gltf),
+            'width_meters' => 20,
+            'height_meters' => 10,
+            'depth_meters' => 4,
+        ])->assertSessionHasErrors('plan');
+
+        $this->assertDatabaseCount('floor_plans', 0);
+    }
+
     public function test_admin_can_upload_plan_and_draw_normalized_rectangle(): void
     {
         Storage::fake('local');

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreFloorPlanRequest;
 use App\Http\Requests\UpdateFloorPlanRequest;
 use App\Models\Device;
 use App\Models\DeviceInstallation;
@@ -94,32 +95,50 @@ class FloorPlanController extends Controller
         return back()->with('status', 'Ubicación creada.');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreFloorPlanRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'location_id' => ['required', TenantRule::exists('locations')],
-            'name' => ['required', 'string', 'max:255'],
-            'plan' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf,dxf', 'max:20480'],
-            'preview' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
-            'width_meters' => ['required', 'numeric', 'gt:0', 'max:100000'],
-            'height_meters' => ['required', 'numeric', 'gt:0', 'max:100000'],
-        ]);
+        $validated = $request->validated();
 
         $file = $request->file('plan');
         $root = 'organizations/'.app(OrganizationContext::class)->id().'/floor-plans';
         $path = $file->store($root, 'local');
         $previewPath = $request->file('preview')?->store($root.'/previews', 'local');
 
+        $extension = strtolower($file->getClientOriginalExtension());
+        $mimeType = match ($extension) {
+            'glb' => 'model/gltf-binary',
+            'gltf' => 'model/gltf+json',
+            default => $file->getMimeType() ?: 'application/octet-stream',
+        };
+        $modelTransform = $validated['view_mode'] === '3d' ? [
+            'scale' => isset($validated['model_scale']) ? (float) $validated['model_scale'] : null,
+            'rotation_y_degrees' => (float) ($validated['model_rotation_y'] ?? 0),
+            'offset_x' => (float) ($validated['model_offset_x'] ?? 0),
+            'offset_y' => (float) ($validated['model_offset_y'] ?? 0),
+            'offset_z' => (float) ($validated['model_offset_z'] ?? 0),
+            'coordinate_mapping' => 'x,z,y',
+        ] : null;
+
         $plan = FloorPlan::query()->create([
-            ...$validated,
+            'location_id' => $validated['location_id'],
+            'name' => $validated['name'],
+            'view_mode' => $validated['view_mode'],
+            'width_meters' => $validated['width_meters'],
+            'height_meters' => $validated['height_meters'],
+            'depth_meters' => $validated['depth_meters'] ?? null,
+            'model_transform' => $modelTransform,
             'disk' => 'local',
             'file_path' => $path,
             'preview_path' => $previewPath,
             'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
+            'mime_type' => $mimeType,
         ]);
 
-        return redirect()->route('floor-plans.index', ['plan' => $plan])->with('status', 'Plano cargado. Ya puedes dibujar zonas.');
+        $status = $plan->isThreeDimensional()
+            ? 'Modelo 3D cargado. Ya puedes recorrerlo con órbita, desplazamiento y zoom.'
+            : 'Plano 2D cargado. Ya puedes navegarlo y dibujar zonas.';
+
+        return redirect()->route('floor-plans.index', ['plan' => $plan])->with('status', $status);
     }
 
     public function destroy(FloorPlan $floorPlan): RedirectResponse

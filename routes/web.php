@@ -18,6 +18,7 @@ use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\FloorPlanController;
 use App\Http\Controllers\FloorPlanFileController;
+use App\Http\Controllers\FloorPlanModelController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MapController;
 use App\Http\Controllers\MerakiFloorPlanMappingController;
@@ -64,6 +65,7 @@ Route::middleware('auth')->group(function (): void {
     });
     Route::get('/floor-plans', [FloorPlanController::class, 'index'])->name('floor-plans.index');
     Route::get('/floor-plans/{floorPlan}/file', FloorPlanFileController::class)->name('floor-plans.file');
+    Route::get('/floor-plans/{floorPlan}/model', FloorPlanModelController::class)->name('floor-plans.model');
     Route::get('/map', [MapController::class, 'index'])->middleware('permission:maps.view')->name('map.index');
     Route::get('/map/{floorPlan}/data', [MapController::class, 'data'])->middleware('permission:maps.view')->name('map.data');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
