@@ -1,21 +1,52 @@
-document.querySelectorAll('[data-floor-plan-mode]').forEach((mode) => {
-    const form = mode.closest('form');
+document.querySelectorAll('[data-floor-plan-upload-form]').forEach((form) => {
+    const modes = [...form.querySelectorAll('[data-floor-plan-mode]')];
     const fields = form?.querySelector('[data-floor-plan-3d-fields]');
     const file = form?.querySelector('[data-floor-plan-file]');
     const help = form?.querySelector('[data-floor-plan-file-help]');
+    const fileStatus = form?.querySelector('[data-floor-plan-file-status]');
+    const summary = form?.querySelector('[data-floor-plan-upload-summary]');
     const depth = form?.querySelector('[data-floor-plan-depth]');
 
     const sync = () => {
-        const is3d = mode.value === '3d';
+        const mode = modes.find((option) => option.checked)?.value || '2d';
+        const is3d = mode === '3d';
         if (fields) fields.hidden = !is3d;
-        if (file) file.accept = is3d ? '.glb,.gltf' : '.jpg,.jpeg,.png,.webp,.pdf,.dxf';
+        fields?.querySelectorAll('input, select').forEach((control) => {
+            control.disabled = !is3d;
+        });
         if (help) help.textContent = is3d
-            ? 'GLB o glTF autocontenido; máximo 100 MB. GLB es el formato recomendado.'
+            ? 'GLB recomendado o glTF autocontenido. El servidor actual admite archivos de hasta 40 MB.'
             : 'PNG, JPG, WEBP, PDF o DXF; máximo 20 MB.';
-        if (depth) depth.required = is3d;
+        if (depth) depth.required = false;
+        if (summary) {
+            summary.querySelector('strong').textContent = is3d ? 'Modelo 3D navegable' : 'Plano 2D navegable';
+            summary.querySelector('span').textContent = is3d
+                ? 'Indica ancho y largo reales. La altura y la escala se calcularán automáticamente si las dejas vacías.'
+                : 'Indica el ancho y largo reales para conservar la escala de zonas y dispositivos.';
+        }
     };
 
-    mode.addEventListener('change', sync);
+    const selectMode = (value) => {
+        const option = modes.find((candidate) => candidate.value === value);
+        if (option) option.checked = true;
+        sync();
+    };
+
+    modes.forEach((mode) => mode.addEventListener('change', sync));
+    file?.addEventListener('change', () => {
+        const selected = file.files?.[0];
+        if (!selected) {
+            if (fileStatus) fileStatus.textContent = 'Ningún archivo seleccionado.';
+            return;
+        }
+
+        const extension = selected.name.split('.').pop()?.toLowerCase();
+        if (['glb', 'gltf'].includes(extension)) selectMode('3d');
+        if (['jpg', 'jpeg', 'png', 'webp', 'pdf', 'dxf'].includes(extension)) selectMode('2d');
+        if (fileStatus) {
+            fileStatus.textContent = `${selected.name} · ${(selected.size / 1024 / 1024).toLocaleString(undefined, {maximumFractionDigits: 2})} MB`;
+        }
+    });
     sync();
 });
 

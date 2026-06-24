@@ -29,7 +29,10 @@ class FloorPlanZoneTest extends TestCase
             'location_id' => $location->id,
             'name' => 'Gemelo digital',
             'view_mode' => '3d',
-            'plan' => UploadedFile::fake()->create('edificio.glb', 64, 'model/gltf-binary'),
+            'plan' => UploadedFile::fake()->createWithContent(
+                'edificio.glb',
+                file_get_contents(public_path('examples/bodega-demo.glb')),
+            ),
             'width_meters' => 80,
             'height_meters' => 50,
             'depth_meters' => 12,
@@ -84,6 +87,29 @@ class FloorPlanZoneTest extends TestCase
         $this->assertDatabaseCount('floor_plans', 0);
     }
 
+    public function test_3d_plan_uses_automatic_height_and_scale_when_advanced_values_are_empty(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $location = Location::query()->create(['name' => 'Bodega automática', 'type' => 'floor']);
+
+        $this->actingAs($admin)->post(route('floor-plans.store'), [
+            'location_id' => $location->id,
+            'name' => 'Bodega sin ajustes manuales',
+            'view_mode' => '3d',
+            'plan' => UploadedFile::fake()->createWithContent(
+                'bodega.glb',
+                file_get_contents(public_path('examples/bodega-demo.glb')),
+            ),
+            'width_meters' => 40,
+            'height_meters' => 24,
+        ])->assertRedirect();
+
+        $plan = FloorPlan::query()->firstOrFail();
+        $this->assertNull($plan->depth_meters);
+        $this->assertNull($plan->model_transform['scale']);
+    }
+
     public function test_admin_can_upload_plan_and_draw_normalized_rectangle(): void
     {
         Storage::fake('local');
@@ -105,6 +131,10 @@ class FloorPlanZoneTest extends TestCase
         $this->get(route('floor-plans.index', ['plan' => $plan]))
             ->assertOk()
             ->assertSee('id="zone-mode"', false)
+            ->assertSee('data-floor-plan-upload-form', false)
+            ->assertSee('type="radio" name="view_mode" value="3d"', false)
+            ->assertSee('.dxf,.glb,.gltf,model/gltf-binary,model/gltf+json', false)
+            ->assertSee('data-floor-plan-3d-fields hidden', false)
             ->assertSee('id="ribbon-anchor-mode"', false)
             ->assertSee('id="zone-command" class="ribbon-command"', false)
             ->assertSee('id="anchor-command" class="ribbon-command"', false)

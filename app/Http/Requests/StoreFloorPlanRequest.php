@@ -34,16 +34,40 @@ class StoreFloorPlanRequest extends FormRequest
             'location_id' => ['required', TenantRule::exists('locations')],
             'name' => ['required', 'string', 'max:255'],
             'view_mode' => ['required', 'in:2d,3d'],
-            'plan' => ['required', 'file', 'max:102400'],
+            'plan' => ['required', 'file', 'max:40960'],
             'preview' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'width_meters' => ['required', 'numeric', 'gt:0', 'max:100000'],
             'height_meters' => ['required', 'numeric', 'gt:0', 'max:100000'],
-            'depth_meters' => ['nullable', 'required_if:view_mode,3d', 'numeric', 'gt:0', 'max:100000'],
+            'depth_meters' => ['nullable', 'numeric', 'gt:0', 'max:100000'],
             'model_scale' => ['nullable', 'numeric', 'gt:0', 'max:10000'],
             'model_rotation_y' => ['nullable', 'numeric', 'between:-360,360'],
             'model_offset_x' => ['nullable', 'numeric', 'between:-100000,100000'],
             'model_offset_y' => ['nullable', 'numeric', 'between:-100000,100000'],
             'model_offset_z' => ['nullable', 'numeric', 'between:-100000,100000'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'location_id.required' => 'Selecciona la ubicación del plano.',
+            'name.required' => 'Ingresa un nombre para el plano.',
+            'view_mode.required' => 'Selecciona si cargarás un plano 2D o un modelo 3D.',
+            'view_mode.in' => 'El tipo de plano seleccionado no es válido.',
+            'plan.required' => 'Selecciona el archivo que quieres cargar.',
+            'plan.file' => 'El archivo seleccionado no pudo ser procesado.',
+            'plan.max' => 'El archivo no puede superar el tamaño máximo permitido.',
+            'width_meters.required' => 'Ingresa el ancho real del plano.',
+            'width_meters.numeric' => 'El ancho debe ser un valor numérico expresado en metros.',
+            'width_meters.gt' => 'El ancho debe ser mayor que cero.',
+            'height_meters.required' => 'Ingresa el largo real del plano.',
+            'height_meters.numeric' => 'El largo debe ser un valor numérico expresado en metros.',
+            'height_meters.gt' => 'El largo debe ser mayor que cero.',
+            'depth_meters.numeric' => 'La altura máxima debe ser un valor numérico expresado en metros.',
+            'depth_meters.gt' => 'La altura máxima debe ser mayor que cero.',
+            'model_scale.numeric' => 'La escala manual debe ser un valor numérico.',
+            'model_scale.gt' => 'La escala manual debe ser mayor que cero.',
         ];
     }
 
@@ -80,7 +104,36 @@ class StoreFloorPlanRequest extends FormRequest
                 }
                 $this->validateSelfContainedGltf($validator, $file);
             }
+
+            if ($mode === '3d' && $extension === 'glb') {
+                $this->validateGlb($validator, $file);
+            }
         });
+    }
+
+    private function validateGlb(Validator $validator, UploadedFile $file): void
+    {
+        $handle = fopen($file->getRealPath(), 'rb');
+        $header = $handle === false ? false : fread($handle, 12);
+        if (is_resource($handle)) {
+            fclose($handle);
+        }
+
+        if (! is_string($header) || strlen($header) !== 12) {
+            $validator->errors()->add('plan', 'El archivo GLB está vacío o incompleto.');
+
+            return;
+        }
+
+        $values = unpack('Vmagic/Vversion/Vlength', $header);
+        if (
+            ! is_array($values)
+            || ($values['magic'] ?? null) !== 0x46546C67
+            || ($values['version'] ?? null) !== 2
+            || ($values['length'] ?? null) !== $file->getSize()
+        ) {
+            $validator->errors()->add('plan', 'El archivo seleccionado no es un modelo GLB 2.0 válido.');
+        }
     }
 
     private function validateSelfContainedGltf(Validator $validator, UploadedFile $file): void

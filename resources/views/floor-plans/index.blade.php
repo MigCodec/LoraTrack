@@ -36,26 +36,49 @@
             </div>
             <div class="ribbon-group">
                 <span class="ribbon-label">Planos</span>
-                <details class="ribbon-command" @if($plans->isEmpty() && $locations->isNotEmpty()) open @endif>
+                <details class="ribbon-command" @if(($plans->isEmpty() && $locations->isNotEmpty()) || $errors->hasAny(['location_id', 'name', 'view_mode', 'plan', 'preview', 'width_meters', 'height_meters', 'depth_meters', 'model_scale', 'model_rotation_y', 'model_offset_x', 'model_offset_y', 'model_offset_z'])) open @endif>
                     <summary><x-nav-icon name="plans"/><span>Cargar plano</span></summary>
                     <div class="ribbon-command-panel ribbon-command-panel-wide">
                         <h2>Cargar plano</h2>
-                        <form method="POST" action="{{ route('floor-plans.store') }}" enctype="multipart/form-data" class="mt-4 grid gap-4 sm:grid-cols-2">
+                        <form method="POST" action="{{ route('floor-plans.store') }}" enctype="multipart/form-data" class="floor-plan-upload-form mt-4 grid gap-4 sm:grid-cols-2" data-floor-plan-upload-form>
                             @csrf
-                            <label class="field-label">Ubicación<select class="field-input" name="location_id" required>@foreach($locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
-                            <label class="field-label">Nombre<input class="field-input" name="name" required placeholder="Planta nivel 1"></label>
-                            <label class="field-label">Tipo de plano<select class="field-input" name="view_mode" data-floor-plan-mode><option value="2d" @selected(old('view_mode', '2d') === '2d')>Plano 2D</option><option value="3d" @selected(old('view_mode') === '3d')>Modelo 3D navegable</option></select></label>
-                            <label class="field-label">Archivo<input class="field-input" type="file" name="plan" accept=".jpg,.jpeg,.png,.webp,.pdf,.dxf" data-floor-plan-file required><span class="mt-1 block text-xs font-normal text-slate-400" data-floor-plan-file-help>PNG, JPG, WEBP, PDF o DXF; máximo 20 MB.</span></label>
+                            <fieldset class="floor-plan-type-picker sm:col-span-2">
+                                <legend>Tipo de plano</legend>
+                                <label>
+                                    <input type="radio" name="view_mode" value="2d" data-floor-plan-mode @checked(old('view_mode', '2d') === '2d')>
+                                    <span><strong>Plano 2D</strong><small>Imagen, PDF o DXF con zoom y desplazamiento.</small></span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="view_mode" value="3d" data-floor-plan-mode @checked(old('view_mode') === '3d')>
+                                    <span><strong>Modelo 3D</strong><small>GLB o glTF autocontenido con navegación orbital.</small></span>
+                                </label>
+                            </fieldset>
+                            <label class="field-label">Ubicación<select class="field-input" name="location_id" required>@foreach($locations as $location)<option value="{{ $location->id }}" @selected(old('location_id') === $location->id)>{{ $location->name }}</option>@endforeach</select></label>
+                            <label class="field-label">Nombre<input class="field-input" name="name" value="{{ old('name') }}" required placeholder="Bodega principal"></label>
+                            <label class="field-label sm:col-span-2">Archivo del plano
+                                <input class="field-input" type="file" name="plan" accept=".jpg,.jpeg,.png,.webp,.pdf,.dxf,.glb,.gltf,model/gltf-binary,model/gltf+json" data-floor-plan-file required>
+                                <span class="floor-plan-file-status" data-floor-plan-file-status>Ningún archivo seleccionado.</span>
+                                <span class="mt-1 block text-xs font-normal text-slate-400" data-floor-plan-file-help>PNG, JPG, WEBP, PDF o DXF; máximo 20 MB.</span>
+                            </label>
                             <label class="field-label">Vista previa opcional<input class="field-input" type="file" name="preview" accept="image/png,image/jpeg,image/webp"><span class="mt-1 block text-xs font-normal text-slate-400">Permite editar zonas en 2D sobre PDF, DXF o modelos 3D.</span></label>
-                            <label class="field-label">Ancho real (metros)<input class="field-input" type="number" name="width_meters" min="0.001" step="0.001" required></label>
-                            <label class="field-label">Alto real (metros)<input class="field-input" type="number" name="height_meters" min="0.001" step="0.001" required></label>
-                            <div class="sm:col-span-2 grid gap-4 sm:grid-cols-2" data-floor-plan-3d-fields hidden>
-                                <label class="field-label">Altura máxima del modelo (metros)<input class="field-input" type="number" name="depth_meters" min="0.001" step="0.001" value="{{ old('depth_meters') }}" data-floor-plan-depth></label>
-                                <label class="field-label">Escala del modelo<input class="field-input" type="number" name="model_scale" min="0.0001" step="0.0001" placeholder="Automática"></label>
-                                <label class="field-label">Rotación vertical (grados)<input class="field-input" type="number" name="model_rotation_y" min="-360" max="360" step="0.1" value="0"></label>
-                                <label class="field-label">Desplazamiento X / Y / Z (m)<span class="grid grid-cols-3 gap-2"><input class="field-input" type="number" name="model_offset_x" step="0.001" value="0" aria-label="Desplazamiento X"><input class="field-input" type="number" name="model_offset_y" step="0.001" value="0" aria-label="Desplazamiento Y"><input class="field-input" type="number" name="model_offset_z" step="0.001" value="0" aria-label="Desplazamiento Z"></span></label>
+                            <label class="field-label">Ancho real (metros)<input class="field-input" type="number" name="width_meters" value="{{ old('width_meters') }}" min="0.001" step="0.001" required></label>
+                            <label class="field-label">Largo real (metros)<input class="field-input" type="number" name="height_meters" value="{{ old('height_meters') }}" min="0.001" step="0.001" required></label>
+                            <div class="sm:col-span-2" data-floor-plan-3d-fields hidden>
+                                <label class="field-label">Altura máxima del modelo (metros, opcional)<input class="field-input" type="number" name="depth_meters" min="0.001" step="0.001" value="{{ old('depth_meters') }}" data-floor-plan-depth placeholder="Se calculará automáticamente"></label>
+                                <details class="floor-plan-advanced-settings mt-4">
+                                    <summary>Ajustes avanzados de orientación y escala</summary>
+                                    <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                                        <label class="field-label">Escala manual<input class="field-input" type="number" name="model_scale" value="{{ old('model_scale') }}" min="0.0001" step="0.0001" placeholder="Automática"><span class="mt-1 block text-xs font-normal text-slate-400">Déjala vacía salvo que el modelo haya sido exportado con unidades incorrectas.</span></label>
+                                        <label class="field-label">Rotación vertical (grados)<input class="field-input" type="number" name="model_rotation_y" min="-360" max="360" step="0.1" value="{{ old('model_rotation_y', 0) }}"></label>
+                                        <label class="field-label sm:col-span-2">Desplazamiento X / Y / Z (m)<span class="grid grid-cols-3 gap-2"><input class="field-input" type="number" name="model_offset_x" step="0.001" value="{{ old('model_offset_x', 0) }}" aria-label="Desplazamiento X"><input class="field-input" type="number" name="model_offset_y" step="0.001" value="{{ old('model_offset_y', 0) }}" aria-label="Desplazamiento Y"><input class="field-input" type="number" name="model_offset_z" step="0.001" value="{{ old('model_offset_z', 0) }}" aria-label="Desplazamiento Z"></span></label>
+                                    </div>
+                                </details>
                             </div>
-                            <div class="sm:col-span-2"><button class="btn-primary" @disabled($locations->isEmpty())>Subir plano</button></div>
+                            <div class="floor-plan-upload-summary sm:col-span-2" data-floor-plan-upload-summary>
+                                <strong>Plano 2D</strong>
+                                <span>Selecciona un archivo y completa sus dimensiones reales.</span>
+                            </div>
+                            <div class="sm:col-span-2"><button class="btn-primary" type="submit" @disabled($locations->isEmpty())>Cargar plano</button></div>
                         </form>
                     </div>
                 </details>
