@@ -32,6 +32,28 @@
                 </div>
             </div>
 
+            <details class="mt-6 rounded-xl border border-slate-200 p-4">
+                <summary class="cursor-pointer font-semibold text-slate-950">Actualizar validator o shared secret</summary>
+                <p class="mt-2 text-xs leading-relaxed text-slate-500">Los valores actuales están cifrados y no se muestran. Completa solamente el valor que quieras reemplazar.</p>
+                <form class="mt-4 grid gap-4 md:grid-cols-2" method="POST" action="{{ route('connectors.meraki-credentials.update', $connector) }}">
+                    @csrf
+                    @method('PUT')
+                    <label class="field-label">Validator proporcionado por Meraki
+                        <input class="field-input" id="meraki-validator-update" type="password" name="validator" minlength="8" maxlength="255" autocomplete="new-password" placeholder="Dejar vacío para conservar el actual">
+                        <span class="mt-2 block text-xs leading-relaxed text-slate-500">Si Meraki muestra un validator nuevo, cópialo aquí. LoraTrack no puede generarlo.</span>
+                    </label>
+                    <label class="field-label">Shared secret nuevo
+                        <input class="field-input" id="meraki-secret-update" type="password" name="shared_secret" minlength="16" maxlength="255" autocomplete="new-password" placeholder="Dejar vacío para conservar el actual">
+                        <span class="mt-2 flex flex-wrap items-center gap-2">
+                            <button class="btn-secondary" type="button" data-generate-secret="meraki-secret-update">Generar secret seguro</button>
+                            <button class="text-xs font-semibold text-brand-primary" type="button" data-copy-secret="meraki-secret-update">Copiar</button>
+                        </span>
+                    </label>
+                    <div class="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">Si reemplazas el shared secret, debes copiar el mismo valor en Meraki Dashboard antes del siguiente envío. El valor anterior dejará de funcionar inmediatamente.</div>
+                    <div class="md:col-span-2"><button class="btn-primary">Actualizar credenciales</button></div>
+                </form>
+            </details>
+
             <div class="mt-6 rounded-xl border border-slate-200 p-4">
                 <h3 class="font-semibold text-slate-950">Mapeo de planos Meraki</h3>
                 <p class="mt-1 text-xs leading-relaxed text-slate-500">Meraki expresa X/Y desde la esquina inferior izquierda. La inversión Y está activada por defecto para el lienzo web de LoraTrack.</p>
@@ -72,6 +94,31 @@
                     </tbody></table></div>
                 @endif
             </div>
+            <script>
+                (() => {
+                    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+                    document.querySelectorAll('[data-generate-secret]').forEach(button => {
+                        if (button.dataset.secretHandler === 'ready') return;
+                        button.dataset.secretHandler = 'ready';
+                        button.addEventListener('click', () => {
+                            const input = document.getElementById(button.dataset.generateSecret);
+                            const bytes = crypto.getRandomValues(new Uint8Array(32));
+                            input.value = Array.from(bytes, byte => alphabet[byte & 63]).join('');
+                            input.type = 'text';
+                            input.focus();
+                            input.select();
+                        });
+                    });
+                    document.querySelectorAll('[data-copy-secret]').forEach(button => {
+                        if (button.dataset.secretHandler === 'ready') return;
+                        button.dataset.secretHandler = 'ready';
+                        button.addEventListener('click', async () => {
+                            const input = document.getElementById(button.dataset.copySecret);
+                            if (input.value) await navigator.clipboard.writeText(input.value);
+                        });
+                    });
+                })();
+            </script>
             @break
 
         @case('mqtt')

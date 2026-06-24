@@ -17,6 +17,7 @@ use App\Models\TelemetryEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Throwable;
 
@@ -180,5 +181,42 @@ class ConnectorController extends Controller
 
         return back()->with('status', 'Token renovado. Cópialo ahora; solo se mostrará una vez.')
             ->with('new_webhook_token', $token);
+    }
+
+    public function updateMerakiCredentials(Request $request, Connector $connector): RedirectResponse
+    {
+        abort_unless($connector->provider === ConnectorProvider::MerakiLocation, 422);
+        $validated = $request->validate([
+            'validator' => ['nullable', 'string', 'min:8', 'max:255'],
+            'shared_secret' => ['nullable', 'string', 'min:16', 'max:255'],
+        ]);
+        $validator = trim((string) ($validated['validator'] ?? ''));
+        $sharedSecret = trim((string) ($validated['shared_secret'] ?? ''));
+        if ($validator === '' && $sharedSecret === '') {
+            throw ValidationException::withMessages([
+                'validator' => 'Ingresa el validator de Meraki o un shared secret nuevo.',
+            ]);
+        }
+
+        $credentials = $connector->credentials ?? [];
+        $changed = [];
+        if ($validator !== '') {
+            $credentials['validator'] = $validator;
+            $changed[] = 'validator';
+        }
+        if ($sharedSecret !== '') {
+            $credentials['shared_secret'] = $sharedSecret;
+            $changed[] = 'shared_secret';
+        }
+
+        $connector->forceFill(['credentials' => $credentials])->save();
+        $connector->logActivity(
+            'meraki_credentials_rotated',
+            'Credenciales del receptor Meraki actualizadas. Los valores anteriores modificados dejaron de ser válidos.',
+            'warning',
+            ['changed' => $changed],
+        );
+
+        return back()->with('status', 'Credenciales Meraki actualizadas. Actualiza Meraki Dashboard si cambiaste el shared secret.');
     }
 }

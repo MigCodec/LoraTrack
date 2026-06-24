@@ -54,11 +54,14 @@
                                         <span class="text-xs text-slate-500" id="webhook-token-status">Mínimo 24 caracteres.</span>
                                     </span>
                                 @endif
-                                @if($definition['provider']->value === 'meraki_location')
+                                @if($definition['provider']->value === 'meraki_location' && $key === 'shared_secret')
                                     <span class="mt-2 flex flex-wrap items-center gap-2">
                                         <button class="btn-secondary" type="button" data-generate-secret="credential-{{ $key }}">Generar valor seguro</button>
                                         <button class="text-xs font-semibold text-brand-primary" type="button" data-copy-secret="credential-{{ $key }}">Copiar</button>
                                     </span>
+                                @endif
+                                @if($definition['provider']->value === 'meraki_location' && $key === 'validator')
+                                    <span class="mt-2 block text-xs leading-relaxed text-slate-500">Pega el validator mostrado por Meraki Dashboard. Este valor lo genera Meraki, no LoraTrack.</span>
                                 @endif
                             </label>
                         @endforeach

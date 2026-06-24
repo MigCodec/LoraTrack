@@ -50,6 +50,73 @@ class ConnectorManagementTest extends TestCase
             ->assertSee('Shared secret');
     }
 
+    public function test_admin_can_replace_meraki_validator_or_secret_after_creation(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $connector = Connector::query()->create([
+            'name' => 'Meraki planta',
+            'provider' => ConnectorProvider::MerakiLocation,
+            'kind' => 'telemetry',
+            'status' => 'draft',
+            'configuration' => ['api_version' => '3'],
+            'credentials' => [
+                'validator' => 'validator-original',
+                'shared_secret' => 'shared-secret-original-value',
+            ],
+        ]);
+
+        $this->actingAs($admin)->get(route('connectors.show', $connector))
+            ->assertOk()
+            ->assertSee('Actualizar validator o shared secret')
+            ->assertSee('Validator proporcionado por Meraki')
+            ->assertSee('Generar secret seguro')
+            ->assertDontSee('validator-original')
+            ->assertDontSee('shared-secret-original-value');
+
+        $this->actingAs($admin)->put(route('connectors.meraki-credentials.update', $connector), [
+            'shared_secret' => 'shared-secret-replaced-value',
+        ])->assertRedirect();
+        $connector->refresh();
+        $this->assertSame('validator-original', $connector->credentials['validator']);
+        $this->assertSame('shared-secret-replaced-value', $connector->credentials['shared_secret']);
+
+        $this->actingAs($admin)->put(route('connectors.meraki-credentials.update', $connector), [
+            'validator' => 'validator-from-meraki-dashboard',
+        ])->assertRedirect();
+        $connector->refresh();
+        $this->assertSame('validator-from-meraki-dashboard', $connector->credentials['validator']);
+        $this->assertSame('shared-secret-replaced-value', $connector->credentials['shared_secret']);
+        $this->assertStringNotContainsString(
+            'shared-secret-replaced-value',
+            (string) DB::table('connectors')->where('id', $connector->id)->value('credentials'),
+        );
+        $this->assertDatabaseHas('connector_activity_logs', [
+            'connector_id' => $connector->id,
+            'event' => 'meraki_credentials_rotated',
+        ]);
+    }
+
+    public function test_empty_meraki_credential_update_is_rejected(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $connector = Connector::query()->create([
+            'name' => 'Meraki',
+            'provider' => ConnectorProvider::MerakiLocation,
+            'kind' => 'telemetry',
+            'credentials' => [
+                'validator' => 'validator-original',
+                'shared_secret' => 'shared-secret-original-value',
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('connectors.show', $connector))
+            ->put(route('connectors.meraki-credentials.update', $connector), [])
+            ->assertRedirect(route('connectors.show', $connector))
+            ->assertSessionHasErrors('validator');
+        $this->assertSame('validator-original', $connector->fresh()->credentials['validator']);
+    }
+
     public function test_admin_can_create_sap_connector_and_credentials_are_encrypted(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
