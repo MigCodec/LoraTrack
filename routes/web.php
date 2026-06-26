@@ -55,6 +55,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/assets/{asset}/track/data', [AssetTrackController::class, 'data'])->name('assets.track.data');
     Route::middleware('permission:assets.manage')->group(function (): void {
         Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
+        Route::get('/assets/device-options', [AssetController::class, 'deviceOptions'])->name('assets.device-options');
         Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
         Route::get('/assets/{asset}/edit', [AssetController::class, 'edit'])->name('assets.edit');
         Route::put('/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');

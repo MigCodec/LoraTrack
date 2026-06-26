@@ -12,6 +12,7 @@ use App\Models\Sku;
 use App\Positioning\TelemetryPositioningService;
 use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,47 @@ class AssetController extends Controller
     public function create(Request $request): View
     {
         return $this->form(new Asset(['mobility' => $request->query('mobility', 'mobile')]));
+    }
+
+    public function deviceOptions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:80'],
+            'type' => ['required', 'in:beacon,lorawan_tracker'],
+        ]);
+
+        $term = trim((string) ($validated['q'] ?? ''));
+        if (mb_strlen($term) < 2) {
+            return response()->json(['results' => []]);
+        }
+
+        $like = '%'.addcslashes($term, '\%_').'%';
+        $normalized = mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $term) ?? '');
+        $normalizedLike = '%'.addcslashes($normalized, '\%_').'%';
+
+        $devices = Device::query()
+            ->select(['id', 'name', 'identifier', 'model'])
+            ->where('status', 'active')
+            ->where('type', $validated['type'])
+            ->whereDoesntHave('assignments', fn ($query) => $query->whereNull('ended_at'))
+            ->where(function ($query) use ($like, $normalized, $normalizedLike): void {
+                $query->where('name', 'like', $like)
+                    ->orWhere('identifier', 'like', $like)
+                    ->orWhere('model', 'like', $like);
+
+                if ($normalized !== '') {
+                    $query->orWhereRaw("UPPER(REPLACE(REPLACE(REPLACE(identifier, ':', ''), '-', ''), ' ', '')) LIKE ?", [$normalizedLike]);
+                }
+            })
+            ->orderBy('name')
+            ->limit(25)
+            ->get()
+            ->map(fn (Device $device): array => [
+                'id' => $device->id,
+                'text' => $this->deviceOptionLabel($device),
+            ]);
+
+        return response()->json(['results' => $devices]);
     }
 
     public function edit(Asset $asset): View
@@ -94,20 +136,30 @@ class AssetController extends Controller
             'asset' => $asset,
             'skus' => Sku::query()->with('product')->orderBy('code')->get(),
             'locations' => Location::query()->orderBy('name')->get(),
-            'devices' => Device::query()->where('status', 'active')->orderBy('name')->get(),
-            'availableBeacons' => Device::query()
-                ->where('status', 'active')
-                ->where('type', 'beacon')
-                ->whereDoesntHave('assignments', fn ($query) => $query->whereNull('ended_at'))
-                ->orderBy('name')
-                ->get(),
-            'reportedTrackers' => Device::query()
-                ->where('status', 'active')
-                ->where('type', 'lorawan_tracker')
-                ->whereDoesntHave('assignments', fn ($query) => $query->whereNull('ended_at'))
-                ->orderBy('name')
-                ->get(),
+            'selectedInitialTracker' => $this->selectedAvailableDevice(old('tracker_device_id'), 'lorawan_tracker'),
+            'selectedInitialBeacon' => $this->selectedAvailableDevice(old('static_beacon_device_id'), 'beacon'),
+            'selectedAssignmentDevice' => $this->selectedAvailableDevice(old('device_id'), null),
         ]);
+    }
+
+    private function selectedAvailableDevice(mixed $deviceId, ?string $type): ?Device
+    {
+        if (! is_string($deviceId) || $deviceId === '') {
+            return null;
+        }
+
+        return Device::query()
+            ->select(['id', 'name', 'identifier', 'model', 'type'])
+            ->whereKey($deviceId)
+            ->when($type, fn ($query) => $query->where('type', $type))
+            ->first();
+    }
+
+    private function deviceOptionLabel(Device $device): string
+    {
+        return collect([$device->name, $device->model ?: null, $device->identifier])
+            ->filter()
+            ->join(' · ');
     }
 
     /** @return array<string,mixed> */

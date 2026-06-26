@@ -12,7 +12,7 @@ El proyecto parte de una instalación mínima de Laravel 12:
 
 - PHP 8.2 o superior y Laravel 12.
 - Blade como tecnología exclusiva de vistas del servidor.
-- CSS estático y JavaScript nativo servidos desde `public/`; no usar npm, Vite, Tailwind como build tool, Axios, React, Vue, Inertia ni otra SPA.
+- CSS estático y JavaScript nativo servidos desde `public/`; no usar npm, Vite, Tailwind como build tool, Axios, React, Vue, Inertia ni otra SPA. Excepción acotada: Select2 con jQuery vendorizados en `public/vendor/` puede usarse para controles de búsqueda remota sobre catálogos grandes, siempre que no cargue listas completas en el HTML.
 - MariaDB/MySQL como base de datos de aplicación.
 - PHPUnit 11 para pruebas.
 - Los módulos principales de catálogo, activos, dispositivos, planos, posicionamiento, alertas, conectores e identidad están implementados; inspeccionar su estado antes de modificarlos.
@@ -149,7 +149,7 @@ No borrar productos locales porque desaparezcan de una respuesta parcial. Las po
 
 ## Interfaz y marca
 
-- Construir todas las pantallas con Blade, CSS estático reutilizable y JavaScript nativo progresivo sólo cuando sea necesario.
+- Construir todas las pantallas con Blade, CSS estático reutilizable y JavaScript nativo progresivo sólo cuando sea necesario. Select2 es la única excepción frontend permitida para selectores con miles de registros; debe configurarse con AJAX remoto, mínimo de caracteres, límite/paginación en servidor y sin renderizar todas las opciones iniciales.
 - Antes de entregar un control visual nuevo o modificado, verificar su presentación real en escritorio y móvil y sus estados normal, foco, seleccionado, vacío, error y deshabilitado. No considerar terminado un formulario sólo porque el HTML o la prueba feature rendericen; evitar controles comprimidos, estilos del navegador sin normalizar y reglas CSS añadidas sin revisar su interacción con el layout existente.
 - La navegación debe incluir al menos Dashboard, Productos, Activos, Dispositivos, Ubicaciones, Conectores y Usuarios/Configuración según permisos.
 - En Conectores, separar visualmente “Telemetría” de “Catálogo”; mostrar tarjetas de proveedores disponibles y una lista de instancias configuradas.

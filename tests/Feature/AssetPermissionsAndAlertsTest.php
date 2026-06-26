@@ -7,6 +7,7 @@ use App\Models\Alert;
 use App\Models\AlertSetting;
 use App\Models\Asset;
 use App\Models\Device;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -27,7 +28,12 @@ class AssetPermissionsAndAlertsTest extends TestCase
         $this->actingAs($operator)->get(route('assets.create', ['mobility' => 'mobile']))
             ->assertOk()
             ->assertSee('Tracker LoRaWAN inicial')
-            ->assertSee('Tracker B1000');
+            ->assertSee('js-device-select')
+            ->assertDontSee('Tracker B1000');
+        $this->actingAs($operator)->getJson(route('assets.device-options', [
+            'type' => 'lorawan_tracker',
+            'q' => 'B1000',
+        ]))->assertOk()->assertJsonPath('results.0.id', $tracker->id);
         $this->actingAs($operator)->post(route('assets.store'), [
             'asset_tag' => 'MOV-001', 'name' => 'Montacargas 1', 'mobility' => 'mobile', 'status' => 'active',
             'tracker_device_id' => $tracker->id,
@@ -49,7 +55,13 @@ class AssetPermissionsAndAlertsTest extends TestCase
         $this->actingAs($operator)->get(route('assets.create', ['mobility' => 'static']))
             ->assertOk()
             ->assertSee('Beacon BLE inicial')
-            ->assertSee('Beacon vitrina');
+            ->assertSee('js-device-select')
+            ->assertDontSee('Beacon vitrina');
+
+        $this->actingAs($operator)->getJson(route('assets.device-options', [
+            'type' => 'beacon',
+            'q' => 'AA:BB',
+        ]))->assertOk()->assertJsonPath('results.0.id', $beacon->id);
 
         $this->actingAs($operator)->post(route('assets.store'), [
             'asset_tag' => 'STA-001',
@@ -66,6 +78,45 @@ class AssetPermissionsAndAlertsTest extends TestCase
             'tracking_strategy' => 'mobile_beacon_fixed_scanners',
             'ended_at' => null,
         ]);
+    }
+
+    public function test_device_options_do_not_return_the_full_list_without_search_text(): void
+    {
+        $operator = User::factory()->create(['role' => UserRole::Operator]);
+        Device::query()->create(['identifier' => 'AA:BB:CC:DD:EE:10', 'name' => 'Beacon bodega', 'type' => 'beacon']);
+
+        $this->actingAs($operator)->getJson(route('assets.device-options', ['type' => 'beacon']))
+            ->assertOk()
+            ->assertExactJson(['results' => []]);
+    }
+
+    public function test_device_options_are_scoped_to_the_active_organization(): void
+    {
+        $operator = User::factory()->create(['role' => UserRole::Operator]);
+        $first = Organization::query()->create(['name' => 'Empresa Uno', 'slug' => 'empresa-uno']);
+        $second = Organization::query()->create(['name' => 'Empresa Dos', 'slug' => 'empresa-dos']);
+        $first->memberships()->create(['user_id' => $operator->id, 'role' => UserRole::Operator]);
+        $second->memberships()->create(['user_id' => $operator->id, 'role' => UserRole::Operator]);
+
+        $visible = Device::query()->create([
+            'organization_id' => $first->id,
+            'identifier' => 'AA:BB:CC:DD:EE:20',
+            'name' => 'Beacon compartido visible',
+            'type' => 'beacon',
+        ]);
+        $hidden = Device::query()->create([
+            'organization_id' => $second->id,
+            'identifier' => 'AA:BB:CC:DD:EE:21',
+            'name' => 'Beacon compartido oculto',
+            'type' => 'beacon',
+        ]);
+
+        $this->actingAs($operator)
+            ->withSession(['organization_id' => $first->id])
+            ->getJson(route('assets.device-options', ['type' => 'beacon', 'q' => 'compartido']))
+            ->assertOk()
+            ->assertJsonPath('results.0.id', $visible->id)
+            ->assertJsonMissing(['id' => $hidden->id]);
     }
 
     public function test_static_initial_beacon_cannot_reuse_assigned_beacon(): void
@@ -105,8 +156,13 @@ class AssetPermissionsAndAlertsTest extends TestCase
         $this->actingAs($operator)->get(route('assets.edit', $asset))
             ->assertOk()
             ->assertSee('Tracker registrado')
-            ->assertSee($tracker->name)
-            ->assertSee($tracker->identifier);
+            ->assertSee('js-device-select')
+            ->assertDontSee($tracker->identifier);
+
+        $this->actingAs($operator)->getJson(route('assets.device-options', [
+            'type' => 'lorawan_tracker',
+            'q' => '2CF7',
+        ]))->assertOk()->assertJsonPath('results.0.id', $tracker->id);
 
         $this->actingAs($operator)->post(route('asset-assignments.store', $asset), [
             'device_identifier' => strtolower($tracker->identifier),
