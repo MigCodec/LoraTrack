@@ -6,13 +6,10 @@
     </div>
     <div class="grid gap-4 sm:grid-cols-2">
         <label class="field-label">Dispositivo registrado
-            <select class="field-input" name="device_id">
+            <select class="field-input js-installation-device-select" name="device_id" data-placeholder="Buscar beacon, scanner o AP">
                 <option value="">Crear nuevo por MAC</option>
-                @foreach($devices->whereIn('type', ['beacon', 'scanner']) as $device)
-                    <option value="{{ $device->id }}">{{ $device->name }} - {{ $device->type === 'scanner' ? 'Scanner/AP' : 'Beacon BLE' }} - {{ $device->identifier }}</option>
-                @endforeach
             </select>
-            <span class="mt-1 block text-xs font-normal text-slate-400">Incluye beacons y scanners/AP existentes, tambien APs creados desde la API Meraki.</span>
+            <span class="mt-1 block text-xs font-normal text-slate-400">Busca por nombre, modelo o MAC. No se cargan todos los dispositivos al abrir el formulario.</span>
         </label>
         <label class="field-label">Tipo del nuevo dispositivo
             <select class="field-input" name="device_type">
@@ -22,14 +19,11 @@
             <span class="mt-1 block text-xs font-normal text-slate-400">Solo aplica si creas un dispositivo nuevo por MAC.</span>
         </label>
         <label class="field-label">MAC del dispositivo
-            <input class="field-input font-mono" name="device_identifier" list="reported-beacon-macs" placeholder="58:BE:6F:65:9D:9D">
-            <span class="mt-1 block text-xs font-normal text-slate-400">Para Meraki usa la MAC del AP; se guardara como scanner.</span>
+            <select class="field-input font-mono js-observed-mac-select" name="device_identifier" data-placeholder="Buscar o escribir MAC">
+                <option value=""></option>
+            </select>
+            <span class="mt-1 block text-xs font-normal text-slate-400">Busca MACs observadas o escribe una nueva. Para Meraki usa la MAC del AP; se guardara como scanner.</span>
         </label>
-        <datalist id="reported-beacon-macs">
-            @foreach($reportedBeaconMacs as $reported)
-                <option value="{{ $reported['identifier'] }}">{{ $reported['tracker_name'] }} - RSSI {{ $reported['rssi'] }} dBm{{ $reported['connector_name'] ? ' - '.$reported['connector_name'] : '' }}</option>
-            @endforeach
-        </datalist>
         <label class="field-label">Nombre del nuevo dispositivo<input class="field-input" name="device_name" placeholder="AP bodega norte"></label>
         <div class="grid grid-cols-3 gap-3 sm:col-span-2">
             <label class="field-label">X en metros

@@ -80,6 +80,8 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/floor-plans', [FloorPlanController::class, 'store'])->name('floor-plans.store');
         Route::put('/floor-plans/{floorPlan}', [FloorPlanController::class, 'update'])->name('floor-plans.update');
         Route::delete('/floor-plans/{floorPlan}', [FloorPlanController::class, 'destroy'])->name('floor-plans.destroy');
+        Route::get('/floor-plans/{floorPlan}/installation-device-options', [DeviceController::class, 'installationDeviceOptions'])->name('floor-plans.installation-device-options');
+        Route::get('/floor-plans/{floorPlan}/observed-mac-options', [DeviceController::class, 'observedMacOptions'])->name('floor-plans.observed-mac-options');
         Route::post('/floor-plans/{floorPlan}/zones', [ZoneController::class, 'store'])->name('zones.store');
         Route::put('/zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
         Route::post('/floor-plans/{floorPlan}/installations', [DeviceController::class, 'install'])->name('installations.store');

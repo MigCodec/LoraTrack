@@ -6,34 +6,26 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreFloorPlanRequest;
 use App\Http\Requests\UpdateFloorPlanRequest;
-use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
 use App\Models\Location;
 use App\Models\PositionEstimate;
-use App\Models\TelemetryEvent;
-use App\Positioning\BleObservationExtractor;
 use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class FloorPlanController extends Controller
 {
-    public function index(Request $request, BleObservationExtractor $extractor): View
+    public function index(Request $request): View
     {
         $plans = FloorPlan::query()->with(['location', 'zones.alertRules'])->latest()->get();
         $selectedPlan = $plans->firstWhere('id', $request->query('plan')) ?? $plans->first();
         $installations = $selectedPlan
             ? DeviceInstallation::query()->with('device')->where('floor_plan_id', $selectedPlan->id)->whereNull('ended_at')->get()
             : collect();
-        $installedDeviceIds = $installations->pluck('device_id');
-        $installedIdentifiers = $installations->map(
-            fn (DeviceInstallation $installation): string => BleObservationExtractor::normalizeMac($installation->device->identifier),
-        );
         $assetPositions = $selectedPlan
             ? PositionEstimate::query()
                 ->with('asset')
@@ -47,40 +39,13 @@ class FloorPlanController extends Controller
 
         return view('floor-plans.index', [
             'locations' => Location::query()->orderBy('name')->get(),
-            'devices' => Device::query()->whereNotIn('id', $installedDeviceIds)->orderBy('name')->get(),
-            'reportedBeaconMacs' => $this->reportedBeaconMacs($extractor, $installedIdentifiers),
+            'devices' => collect(),
+            'reportedBeaconMacs' => collect(),
             'plans' => $plans,
             'selectedPlan' => $selectedPlan,
             'assetPositions' => $assetPositions,
             'installations' => $installations,
         ]);
-    }
-
-    private function reportedBeaconMacs(BleObservationExtractor $extractor, Collection $excludedIdentifiers): Collection
-    {
-        $reported = collect();
-        $events = TelemetryEvent::query()->with(['device', 'connector'])->latest('received_at')->limit(250)->get();
-
-        foreach ($events as $event) {
-            $decoded = data_get($event->normalized_payload, 'decoded')
-                ?? data_get($event->raw_payload, 'uplink_message.decoded_payload', []);
-            foreach ($extractor->extract($decoded) as $observation) {
-                $normalized = BleObservationExtractor::normalizeMac($observation['mac']);
-                if (strlen($normalized) !== 12 || $reported->has($normalized) || $excludedIdentifiers->contains($normalized)) {
-                    continue;
-                }
-                $reported->put($normalized, [
-                    'identifier' => implode(':', str_split($normalized, 2)),
-                    'tracker_name' => $event->device?->name
-                        ?? data_get($event->raw_payload, 'end_device_ids.device_id', 'Sensor sin nombre'),
-                    'connector_name' => $event->connector?->name,
-                    'rssi' => $observation['rssi'],
-                    'observed_at' => $event->observed_at ?? $event->received_at,
-                ]);
-            }
-        }
-
-        return $reported->values();
     }
 
     public function storeLocation(Request $request): RedirectResponse

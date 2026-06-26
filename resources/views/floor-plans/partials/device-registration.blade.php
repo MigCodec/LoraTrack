@@ -3,8 +3,10 @@
     <p class="text-xs leading-relaxed text-slate-500">Registra hardware antes de colocarlo en un plano. Los AP recibidos desde Meraki se tratan como scanners porque detectan dispositivos y reportan observaciones.</p>
     <label class="field-label">Nombre<input class="field-input" name="name" required placeholder="AP bodega norte o Beacon acceso 1"></label>
     <label class="field-label">MAC / identificador
-        <input class="field-input font-mono" name="identifier" list="reported-beacon-macs" required>
-        <span class="mt-1 block text-xs font-normal text-slate-400">Para AP Meraki usa la MAC del AP. Para beacons BLE usa la MAC del beacon observado.</span>
+        <select class="field-input font-mono js-observed-mac-select" name="identifier" data-placeholder="Buscar o escribir MAC/identificador" required>
+            <option value=""></option>
+        </select>
+        <span class="mt-1 block text-xs font-normal text-slate-400">Busca MACs observadas o escribe una nueva. Para AP Meraki usa la MAC del AP. Para beacons BLE usa la MAC del beacon observado.</span>
     </label>
     <label class="field-label">Tipo
         <select class="field-input" name="type">

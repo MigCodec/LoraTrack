@@ -8,17 +8,104 @@ use App\Http\Requests\UpdateDeviceInstallationRequest;
 use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
+use App\Models\SignalObservation;
+use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class DeviceController extends Controller
 {
+    public function installationDeviceOptions(Request $request, FloorPlan $floorPlan): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:80'],
+            'type' => ['nullable', 'in:beacon,scanner'],
+        ]);
+
+        $term = trim((string) ($validated['q'] ?? ''));
+        if (mb_strlen($term) < 2) {
+            return response()->json(['results' => []]);
+        }
+
+        $like = '%'.addcslashes($term, '\%_').'%';
+        $normalized = mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $term) ?? '');
+        $normalizedLike = '%'.addcslashes($normalized, '\%_').'%';
+
+        $devices = Device::query()
+            ->select(['id', 'name', 'identifier', 'model', 'type'])
+            ->where('status', 'active')
+            ->whereIn('type', ['beacon', 'scanner'])
+            ->when($validated['type'] ?? null, fn ($query, string $type) => $query->where('type', $type))
+            ->whereDoesntHave('installations', fn ($query) => $query
+                ->where('floor_plan_id', $floorPlan->id)
+                ->whereNull('ended_at'))
+            ->where(function ($query) use ($like, $normalized, $normalizedLike): void {
+                $query->where('name', 'like', $like)
+                    ->orWhere('identifier', 'like', $like)
+                    ->orWhere('model', 'like', $like);
+
+                if ($normalized !== '') {
+                    $query->orWhereRaw("UPPER(REPLACE(REPLACE(REPLACE(identifier, ':', ''), '-', ''), ' ', '')) LIKE ?", [$normalizedLike]);
+                }
+            })
+            ->orderBy('name')
+            ->limit(25)
+            ->get()
+            ->map(fn (Device $device): array => [
+                'id' => $device->id,
+                'text' => collect([
+                    $device->name,
+                    $device->type === 'scanner' ? 'Scanner/AP' : 'Beacon BLE',
+                    $device->identifier,
+                    $device->model,
+                ])->filter()->join(' - '),
+            ]);
+
+        return response()->json(['results' => $devices]);
+    }
+
+    public function observedMacOptions(Request $request, FloorPlan $floorPlan, BleObservationExtractor $extractor): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $term = trim((string) ($validated['q'] ?? ''));
+        if (mb_strlen($term) < 2) {
+            return response()->json(['results' => []]);
+        }
+
+        $normalized = mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $term) ?? '');
+        if ($normalized === '') {
+            return response()->json(['results' => []]);
+        }
+
+        $excluded = DeviceInstallation::query()
+            ->with('device:id,identifier')
+            ->where('floor_plan_id', $floorPlan->id)
+            ->whereNull('ended_at')
+            ->get()
+            ->map(fn (DeviceInstallation $installation): string => BleObservationExtractor::normalizeMac($installation->device->identifier));
+
+        $results = $this->signalObservationMacOptions($normalized, $excluded);
+        if ($results->count() < 25) {
+            $results = $results
+                ->merge($this->telemetryPayloadMacOptions($extractor, $normalized, $excluded, 25 - $results->count()))
+                ->unique('id')
+                ->values();
+        }
+
+        return response()->json(['results' => $results->take(25)->values()]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -178,5 +265,77 @@ class DeviceController extends Controller
 
         return redirect()->route('floor-plans.index', ['plan' => $deviceInstallation->floor_plan_id])
             ->with('status', 'Parametros y posicion del dispositivo actualizados.');
+    }
+
+    private function signalObservationMacOptions(string $normalized, Collection $excluded): Collection
+    {
+        $normalizedLike = '%'.addcslashes($normalized, '\%_').'%';
+
+        return SignalObservation::query()
+            ->selectRaw('transmitter_mac, MAX(observed_at) as last_observed_at')
+            ->whereRaw("UPPER(REPLACE(REPLACE(REPLACE(transmitter_mac, ':', ''), '-', ''), ' ', '')) LIKE ?", [$normalizedLike])
+            ->groupBy('transmitter_mac')
+            ->latest('last_observed_at')
+            ->limit(25)
+            ->get()
+            ->toBase()
+            ->map(function (SignalObservation $observation) use ($excluded): ?array {
+                $normalizedMac = BleObservationExtractor::normalizeMac($observation->transmitter_mac);
+                if (strlen($normalizedMac) !== 12 || $excluded->contains($normalizedMac)) {
+                    return null;
+                }
+
+                $mac = implode(':', str_split($normalizedMac, 2));
+
+                return [
+                    'id' => $mac,
+                    'text' => $mac.' - observado en telemetria',
+                ];
+            })
+            ->filter()
+            ->values();
+    }
+
+    private function telemetryPayloadMacOptions(BleObservationExtractor $extractor, string $normalized, Collection $excluded, int $limit): Collection
+    {
+        $reported = collect();
+        $events = TelemetryEvent::query()->with(['device', 'connector'])->latest('received_at')->limit(250)->get();
+
+        foreach ($events as $event) {
+            $decoded = data_get($event->normalized_payload, 'decoded')
+                ?? data_get($event->raw_payload, 'uplink_message.decoded_payload', []);
+
+            foreach ($extractor->extract($decoded) as $observation) {
+                $normalizedMac = BleObservationExtractor::normalizeMac($observation['mac']);
+                if (strlen($normalizedMac) !== 12
+                    || ! str_contains($normalizedMac, $normalized)
+                    || $excluded->contains($normalizedMac)
+                    || $reported->has($normalizedMac)) {
+                    continue;
+                }
+
+                $mac = implode(':', str_split($normalizedMac, 2));
+                $source = $event->device?->name
+                    ?? data_get($event->raw_payload, 'end_device_ids.device_id', 'sensor sin nombre');
+                $connector = $event->connector?->name;
+                $rssi = $observation['rssi'] ?? null;
+
+                $reported->put($normalizedMac, [
+                    'id' => $mac,
+                    'text' => collect([
+                        $mac,
+                        $source,
+                        $rssi !== null ? 'RSSI '.$rssi.' dBm' : null,
+                        $connector,
+                    ])->filter()->join(' - '),
+                ]);
+
+                if ($reported->count() >= $limit) {
+                    break 2;
+                }
+            }
+        }
+
+        return $reported->values();
     }
 }

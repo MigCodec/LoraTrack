@@ -4,13 +4,79 @@
 @section('heading', 'Planos y zonas')
 
 @push('styles')
+    <link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/floor-plan-editor.css') }}?v={{ filemtime(public_path('css/floor-plan-editor.css')) }}">
 @endpush
 @push('scripts')
+    <script src="{{ asset('vendor/jquery/jquery-3.7.1.min.js') }}"></script>
+    <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
     <script defer src="{{ asset('js/floor-plan-navigation.js') }}?v={{ filemtime(public_path('js/floor-plan-navigation.js')) }}"></script>
     @if($selectedPlan?->isThreeDimensional())
         <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"}}</script>
         <script type="module" src="{{ asset('js/floor-plan-3d.js') }}?v={{ filemtime(public_path('js/floor-plan-3d.js')) }}"></script>
+    @endif
+    @if($selectedPlan)
+        <script>
+            jQuery(function ($) {
+                var language = {
+                    inputTooShort: function () { return 'Escribe al menos 2 caracteres.'; },
+                    noResults: function () { return 'Sin coincidencias.'; },
+                    searching: function () { return 'Buscando...'; },
+                    errorLoading: function () { return 'No se pudo cargar la busqueda.'; }
+                };
+
+                $('.js-installation-device-select').select2({
+                    ajax: {
+                        url: @json(route('floor-plans.installation-device-options', $selectedPlan)),
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {q: params.term || ''};
+                        },
+                        processResults: function (data) {
+                            return {results: data.results || []};
+                        },
+                        cache: true
+                    },
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    placeholder: function () {
+                        return $(this).data('placeholder') || 'Buscar dispositivo';
+                    },
+                    width: '100%',
+                    language: language
+                });
+
+                $('.js-observed-mac-select').select2({
+                    ajax: {
+                        url: @json(route('floor-plans.observed-mac-options', $selectedPlan)),
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {q: params.term || ''};
+                        },
+                        processResults: function (data) {
+                            return {results: data.results || []};
+                        },
+                        cache: true
+                    },
+                    tags: true,
+                    allowClear: true,
+                    minimumInputLength: 2,
+                    placeholder: function () {
+                        return $(this).data('placeholder') || 'Buscar o escribir MAC';
+                    },
+                    width: '100%',
+                    language: language,
+                    createTag: function (params) {
+                        var term = $.trim(params.term || '');
+                        if (term.length < 2) return null;
+
+                        return {id: term, text: term};
+                    }
+                });
+            });
+        </script>
     @endif
 @endpush
 

@@ -359,9 +359,16 @@ class FloorPlanZoneTest extends TestCase
 
         $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
             ->assertOk()
-            ->assertSee('58:BE:6F:65:9D:9D')
-            ->assertSee('sensecap-001')
-            ->assertSee('TTI Bodega');
+            ->assertSee('js-observed-mac-select', false)
+            ->assertDontSee('58:BE:6F:65:9D:9D');
+
+        $this->actingAs($admin)->getJson(route('floor-plans.observed-mac-options', [
+            'floorPlan' => $plan,
+            'q' => '65:9D',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('results.0.id', '58:BE:6F:65:9D:9D')
+            ->assertJsonPath('results.0.text', '58:BE:6F:65:9D:9D - sensecap-001 - RSSI -90 dBm - TTI Bodega');
 
         $this->actingAs($admin)->post(route('installations.store', $plan), [
             'device_identifier' => '58:BE:6F:65:9D:9D',
@@ -379,7 +386,14 @@ class FloorPlanZoneTest extends TestCase
         $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
             ->assertOk()
             ->assertViewHas('reportedBeaconMacs', fn ($macs): bool => $macs->isEmpty())
-            ->assertViewHas('devices', fn ($devices): bool => ! $devices->contains('id', $beacon->id));
+            ->assertViewHas('devices', fn ($devices): bool => $devices->isEmpty());
+
+        $this->actingAs($admin)->getJson(route('floor-plans.observed-mac-options', [
+            'floorPlan' => $plan,
+            'q' => '65:9D',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('results', []);
 
         $this->actingAs($admin)->post(route('installations.store', $plan), [
             'device_identifier' => '58:BE:6F:65:9D:9D',
@@ -400,8 +414,16 @@ class FloorPlanZoneTest extends TestCase
         ]);
         $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $secondPlan]))
             ->assertOk()
-            ->assertViewHas('reportedBeaconMacs', fn ($macs): bool => $macs->contains('identifier', '58:BE:6F:65:9D:9D'))
-            ->assertViewHas('devices', fn ($devices): bool => $devices->contains('id', $beacon->id));
+            ->assertViewHas('reportedBeaconMacs', fn ($macs): bool => $macs->isEmpty())
+            ->assertViewHas('devices', fn ($devices): bool => $devices->isEmpty());
+
+        $this->actingAs($admin)->getJson(route('floor-plans.installation-device-options', [
+            'floorPlan' => $secondPlan,
+            'q' => 'Beacon acceso',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('results.0.id', $beacon->id)
+            ->assertJsonPath('results.0.text', 'Beacon acceso norte - Beacon BLE - 58BE6F659D9D');
 
         $this->actingAs($admin)->post(route('installations.store', $secondPlan), [
             'device_id' => $beacon->id,
@@ -436,9 +458,18 @@ class FloorPlanZoneTest extends TestCase
 
         $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
             ->assertOk()
-            ->assertSee('AP-01 - Scanner/AP - E455A815A238')
+            ->assertSee('js-installation-device-select', false)
+            ->assertDontSee('AP-01 - Scanner/AP - E455A815A238')
             ->assertSee('name="device_type"', false)
             ->assertSee('Scanner/AP Meraki');
+
+        $this->actingAs($admin)->getJson(route('floor-plans.installation-device-options', [
+            'floorPlan' => $plan,
+            'q' => 'E455',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('results.0.id', $merakiAp->id)
+            ->assertJsonPath('results.0.text', 'AP-01 - Scanner/AP - E455A815A238 - Cisco Meraki AP');
 
         $this->actingAs($admin)->post(route('installations.store', $plan), [
             'device_id' => $merakiAp->id,
