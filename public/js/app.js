@@ -270,6 +270,8 @@ if (editor && !editor.dataset.editorInitialized) {
             draftAnchor = pointer(event);
             anchorForm.elements.x_normalized.value = draftAnchor.x.toFixed(7);
             anchorForm.elements.y_normalized.value = draftAnchor.y.toFixed(7);
+            if (anchorForm.elements.x_meters) anchorForm.elements.x_meters.value = (draftAnchor.x * planWidthMeters).toFixed(3);
+            if (anchorForm.elements.y_meters) anchorForm.elements.y_meters.value = (draftAnchor.y * planHeightMeters).toFixed(3);
             anchorSubmit.disabled = false;
             anchorStatus.textContent = 'Punto seleccionado. Guarda la instalación.';
             anchorStatus.className = 'rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800';

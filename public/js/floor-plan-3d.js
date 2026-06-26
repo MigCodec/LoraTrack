@@ -63,32 +63,113 @@ if (container) {
         Number(transform.offset_z) || 0,
     );
 
+    const disposeObject = (object) => {
+        object.traverse((child) => {
+            child.geometry?.dispose();
+            if (Array.isArray(child.material)) {
+                child.material.forEach((material) => {
+                    material.map?.dispose();
+                    material.dispose();
+                });
+            } else if (child.material) {
+                child.material.map?.dispose();
+                child.material.dispose();
+            }
+        });
+    };
+
+    const markerStyle = (marker) => {
+        if (marker.kind === 'asset') {
+            return {color: 0x14b8a6, emissive: 0x042f2e, label: 'ASSET'};
+        }
+        if (marker.kind === 'scanner') {
+            return {color: 0x7c3aed, emissive: 0x2e1065, label: 'AP'};
+        }
+
+        return {color: 0x2563eb, emissive: 0x172554, label: 'BLE'};
+    };
+
+    const labelSprite = (text, color) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 96;
+        const context = canvas.getContext('2d');
+        context.font = '700 34px sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        if (typeof context.roundRect === 'function') context.roundRect(24, 18, 208, 60, 14);
+        else context.rect(24, 18, 208, 60);
+        context.fill();
+        context.strokeStyle = color;
+        context.lineWidth = 5;
+        context.stroke();
+        context.fillStyle = '#ffffff';
+        context.fillText(text, 128, 48);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const material = new THREE.SpriteMaterial({map: texture, transparent: true});
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(Math.max(gridSize * 0.045, 0.8), Math.max(gridSize * 0.017, 0.3), 1);
+        sprite.position.y = Math.max(gridSize * 0.028, 0.42);
+
+        return sprite;
+    };
+
+    const markerMesh = (marker, style) => {
+        const markerSize = Math.max(gridSize * 0.007, 0.1);
+        const material = new THREE.MeshStandardMaterial({
+            color: style.color,
+            emissive: style.emissive,
+            emissiveIntensity: 0.3,
+            roughness: 0.35,
+        });
+
+        if (marker.kind === 'asset') {
+            return new THREE.Mesh(new THREE.SphereGeometry(Math.max(gridSize * 0.008, 0.12), 20, 12), material);
+        }
+        if (marker.kind === 'scanner') {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(markerSize * 0.8, markerSize * 0.8, markerSize * 2.1, 20), material);
+            body.position.y = markerSize;
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(markerSize * 1.65, markerSize * 0.14, 8, 28),
+                new THREE.MeshStandardMaterial({color: 0xa78bfa, emissive: style.emissive, emissiveIntensity: 0.2}),
+            );
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = markerSize * 2.2;
+            group.add(body, ring);
+
+            return group;
+        }
+
+        return new THREE.Mesh(new THREE.OctahedronGeometry(markerSize), material);
+    };
+
     const replaceMarkers = (items) => {
         while (markerGroup.children.length) {
             const child = markerGroup.children[0];
             markerGroup.remove(child);
-            child.geometry?.dispose();
-            child.material?.dispose();
+            disposeObject(child);
         }
         items.forEach((marker) => {
-            const isAsset = marker.kind === 'asset';
-            const geometry = isAsset
-                ? new THREE.SphereGeometry(Math.max(gridSize * 0.008, 0.12), 20, 12)
-                : new THREE.OctahedronGeometry(Math.max(gridSize * 0.007, 0.1));
-            const material = new THREE.MeshStandardMaterial({
-                color: isAsset ? 0x14b8a6 : 0x2563eb,
-                emissive: isAsset ? 0x042f2e : 0x172554,
-                emissiveIntensity: 0.3,
-                roughness: 0.35,
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(
+            const style = markerStyle(marker);
+            const mesh = markerMesh(marker, style);
+            const markerNode = new THREE.Group();
+            markerNode.add(mesh, labelSprite(style.label, `#${style.color.toString(16).padStart(6, '0')}`));
+            markerNode.position.set(
                 Number(marker.x) - width / 2 + offset.x,
                 Math.max(0.08, Number(marker.z) || 0.35) + offset.y,
                 Number(marker.y) - length / 2 + offset.z,
             );
-            mesh.userData = {name: marker.name, kind: marker.kind};
-            markerGroup.add(mesh);
+            markerNode.userData = {
+                name: marker.name,
+                identifier: marker.identifier,
+                kind: marker.kind,
+                type: marker.type,
+            };
+            markerGroup.add(markerNode);
         });
     };
 
@@ -149,8 +230,10 @@ if (container) {
                     const data = await response.json();
                     replaceMarkers([
                         ...(data.anchors || []).map((anchor) => ({
-                            kind: 'anchor',
+                            kind: anchor.type === 'scanner' ? 'scanner' : 'anchor',
+                            type: anchor.type,
                             name: anchor.name,
+                            identifier: anchor.identifier,
                             x: anchor.x_meters,
                             y: anchor.y_meters,
                             z: anchor.z_meters,

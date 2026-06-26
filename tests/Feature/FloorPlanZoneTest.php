@@ -50,13 +50,60 @@ class FloorPlanZoneTest extends TestCase
             ->assertOk()
             ->assertHeader('Content-Type', 'model/gltf-binary');
         $this->get(route('floor-plans.file', $plan))->assertNotFound();
+
+        $scanner = Device::query()->create([
+            'identifier' => 'AP-3D-01',
+            'name' => 'Scanner pasillo 3D',
+            'type' => 'scanner',
+        ]);
+        DeviceInstallation::query()->create([
+            'device_id' => $scanner->id,
+            'location_id' => $location->id,
+            'floor_plan_id' => $plan->id,
+            'x' => 12,
+            'y' => 8,
+            'z' => 2.4,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+            'started_at' => now(),
+        ]);
+
         $this->get(route('floor-plans.index', ['plan' => $plan]))
             ->assertOk()
             ->assertSee('id="floor-plan-3d"', false)
             ->assertSee('data-model-url="'.route('floor-plans.model', $plan).'"', false)
             ->assertSee('floor-plan-3d.js', false)
+            ->assertSee('"kind":"scanner"', false)
+            ->assertSee('"identifier":"AP-3D-01"', false)
+            ->assertSee('Scanner pasillo 3D')
+            ->assertSee('id="anchor-form"', false)
+            ->assertSee('name="x_meters"', false)
+            ->assertSee('name="z_meters"', false)
+            ->assertSee('Este modelo no tiene vista 2D para seleccionar con clic')
             ->assertSee('Vista superior')
             ->assertDontSee('id="zone-editor"', false);
+
+        $this->actingAs($admin)->post(route('installations.store', $plan), [
+            'device_type' => 'scanner',
+            'device_identifier' => 'AA:BB:CC:DD:EE:80',
+            'device_name' => 'AP mezzanine',
+            'x_meters' => 20,
+            'y_meters' => 10,
+            'z_meters' => 3.5,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+        ])->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
+
+        $installed3dScanner = Device::query()->where('identifier', 'AABBCCDDEE80')->firstOrFail();
+        $this->assertSame('scanner', $installed3dScanner->type);
+        $this->assertDatabaseHas('device_installations', [
+            'device_id' => $installed3dScanner->id,
+            'floor_plan_id' => $plan->id,
+            'x' => 20,
+            'y' => 10,
+            'z' => 3.5,
+        ]);
+
         $this->get(route('map.index', ['plan' => $plan]))
             ->assertOk()
             ->assertSee('aria-label="Mapa operativo 3D de Gemelo digital"', false)
@@ -364,5 +411,68 @@ class FloorPlanZoneTest extends TestCase
             'path_loss_exponent' => 2,
         ])->assertRedirect();
         $this->assertSame(2, DeviceInstallation::query()->where('device_id', $beacon->id)->whereNull('ended_at')->count());
+    }
+
+    public function test_scanners_and_meraki_aps_can_be_selected_or_created_when_placing_anchor(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $location = Location::query()->create(['name' => 'Piso AP', 'type' => 'floor']);
+        $plan = FloorPlan::query()->create([
+            'location_id' => $location->id,
+            'name' => 'Plano AP',
+            'file_path' => 'floor-plans/ap.png',
+            'original_name' => 'ap.png',
+            'mime_type' => 'image/png',
+            'width_meters' => 30,
+            'height_meters' => 20,
+        ]);
+        $merakiAp = Device::query()->create([
+            'identifier' => 'E455A815A238',
+            'name' => 'AP-01',
+            'type' => 'scanner',
+            'model' => 'Cisco Meraki AP',
+            'metadata' => ['meraki' => ['role' => 'access_point_scanner']],
+        ]);
+
+        $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('AP-01 - Scanner/AP - E455A815A238')
+            ->assertSee('name="device_type"', false)
+            ->assertSee('Scanner/AP Meraki');
+
+        $this->actingAs($admin)->post(route('installations.store', $plan), [
+            'device_id' => $merakiAp->id,
+            'x_normalized' => 0.25,
+            'y_normalized' => 0.5,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('device_installations', [
+            'device_id' => $merakiAp->id,
+            'floor_plan_id' => $plan->id,
+            'x' => 7.5,
+            'y' => 10,
+        ]);
+
+        $this->actingAs($admin)->post(route('installations.store', $plan), [
+            'device_type' => 'scanner',
+            'device_identifier' => 'AA:BB:CC:DD:EE:70',
+            'device_name' => 'AP nuevo bodega',
+            'x_normalized' => 0.5,
+            'y_normalized' => 0.25,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+        ])->assertRedirect();
+
+        $newScanner = Device::query()->where('identifier', 'AABBCCDDEE70')->firstOrFail();
+        $this->assertSame('scanner', $newScanner->type);
+        $this->assertSame('AP nuevo bodega', $newScanner->name);
+        $this->assertDatabaseHas('device_installations', [
+            'device_id' => $newScanner->id,
+            'floor_plan_id' => $plan->id,
+            'x' => 15,
+            'y' => 5,
+        ]);
     }
 }

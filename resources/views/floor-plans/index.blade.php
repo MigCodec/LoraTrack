@@ -95,7 +95,7 @@
                     <details class="ribbon-layers">
                         <summary><x-nav-icon name="map"/><span>Visualizar</span></summary>
                         <div class="ribbon-layer-menu">
-                            <label><input type="checkbox" data-editor-layer="beacons" checked> Beacons</label>
+                            <label><input type="checkbox" data-editor-layer="beacons" checked> Beacons y scanners/AP</label>
                             <label><input type="checkbox" data-editor-layer="zones" checked> Zonas</label>
                             <label><input type="checkbox" data-editor-layer="assets" checked> Assets</label>
                         </div>
@@ -107,6 +107,15 @@
             @endif
             @if($selectedPlan)
                 @if(auth()->user()->hasPermission('plans.manage'))
+                    @unless($selectedPlan->drawablePath())
+                    <div class="ribbon-group">
+                        <span class="ribbon-label">Dispositivos</span>
+                        <details id="anchor-command" class="ribbon-command">
+                            <summary id="ribbon-anchor-mode"><x-nav-icon name="map"/><span>Colocar ancla</span></summary>
+                            <div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Colocar ancla</h2>@include('floor-plans.partials.anchor-placement-form')</div>
+                        </details>
+                    </div>
+                    @endunless
                     <div class="ribbon-group">
                         <span class="ribbon-label">Dispositivos</span>
                         <details class="ribbon-command">
@@ -164,7 +173,7 @@
                                 <div class="floor-plan-3d-status" data-3d-status>Cargando modelo 3D…</div>
                             </div>
                             <script id="floor-plan-3d-markers" type="application/json">{!! Illuminate\Support\Js::encode([
-                                ...$installations->map(fn($installation) => ['kind' => 'anchor', 'name' => $installation->device->name, 'x' => (float) $installation->x, 'y' => (float) $installation->y, 'z' => (float) ($installation->z ?? 0.35)]),
+                                ...$installations->map(fn($installation) => ['kind' => $installation->device->type === 'scanner' ? 'scanner' : 'anchor', 'type' => $installation->device->type, 'name' => $installation->device->name, 'identifier' => $installation->device->identifier, 'x' => (float) $installation->x, 'y' => (float) $installation->y, 'z' => (float) ($installation->z ?? 0.35)]),
                                 ...$assetPositions->map(fn($position) => ['kind' => 'asset', 'name' => $position->asset->name, 'x' => (float) $position->x, 'y' => (float) $position->y, 'z' => (float) ($position->z ?? 0.65)]),
                             ]) !!}</script>
                         </div>
@@ -194,15 +203,17 @@
                                 <div class="saved-zone" style="left: {{ (float) $zone->x_min * 100 }}%; top: {{ (float) $zone->y_min * 100 }}%; width: {{ ((float) $zone->x_max - (float) $zone->x_min) * 100 }}%; height: {{ ((float) $zone->y_max - (float) $zone->y_min) * 100 }}%; border-color: {{ $zone->color }}; background-color: {{ $zone->color }}33"><span style="background-color: {{ $zone->color }}">{{ $zone->name }}</span></div>
                             @endforeach
                         </div>
-                        <div id="saved-anchor-overlay" class="absolute inset-0 pointer-events-none" aria-label="Beacons instalados">
+                        <div id="saved-anchor-overlay" class="absolute inset-0 pointer-events-none" aria-label="Beacons y scanners instalados">
                             @foreach($installations as $installation)
+                                @php($installedDeviceLabel = $installation->device->type === 'scanner' ? 'Scanner/AP instalado' : 'Beacon BLE instalado')
+                                @php($installedDeviceTypeLabel = $installation->device->type === 'scanner' ? 'scanner/AP' : 'beacon BLE')
                                 @if(auth()->user()->hasPermission('plans.manage'))
                                     @php($anchorXPercent = min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)))
                                     @php($anchorYPercent = min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)))
                                     <details class="plan-anchor" style="left: {{ $anchorXPercent }}%; top: {{ $anchorYPercent }}%" data-anchor-details data-popup-horizontal="{{ $anchorXPercent > 62 ? 'left' : 'right' }}" data-popup-vertical="{{ $anchorYPercent > 55 ? 'up' : 'down' }}">
                                         <summary title="Editar {{ $installation->device->name }}" aria-label="Editar {{ $installation->device->name }}"><i aria-hidden="true"></i></summary>
                                         <div class="anchor-inline-popup" role="dialog" aria-label="Parámetros de {{ $installation->device->name }}">
-                                            <div class="anchor-context-header"><div><p class="anchor-context-kicker">Beacon instalado</p><h2>{{ $installation->device->name }}</h2><p>{{ $installation->device->type }} · {{ $installation->device->identifier }}</p></div></div>
+                                            <div class="anchor-context-header"><div><p class="anchor-context-kicker">{{ $installedDeviceLabel }}</p><h2>{{ $installation->device->name }}</h2><p>{{ $installedDeviceTypeLabel }} - {{ $installation->device->identifier }}</p></div></div>
                                             <form method="POST" action="{{ route('installations.update', $installation) }}" class="anchor-context-body" data-anchor-edit-form data-installation-id="{{ $installation->id }}">
                                                 @csrf @method('PUT')
                                                 <label class="field-label">Nombre<input class="field-input" name="name" value="{{ $installation->device->name }}" maxlength="255" required></label>
@@ -211,7 +222,7 @@
                                                 <div class="grid grid-cols-2 gap-3"><label class="field-label">RSSI a 1 m<input class="field-input" type="number" name="reference_rssi" value="{{ $installation->reference_rssi }}" min="-127" max="-1" required></label><label class="field-label">Factor ambiental<input class="field-input" type="number" name="path_loss_exponent" value="{{ $installation->path_loss_exponent }}" min="0.5" max="8" step="0.01" required></label></div>
                                                 <div class="anchor-context-actions"><button class="btn-primary" type="submit">Guardar cambios</button></div>
                                             </form>
-                                            <form method="POST" action="{{ route('installations.destroy', $installation) }}" class="anchor-context-danger" onsubmit="return confirm('¿Quitar este beacon del plano? Se conservará su historial de instalación.')">
+                                            <form method="POST" action="{{ route('installations.destroy', $installation) }}" class="anchor-context-danger" onsubmit="return confirm('Quitar este dispositivo del plano? Se conservara su historial de instalacion.')">
                                                 @csrf @method('DELETE')
                                                 <p>Quitar cierra esta instalación sin borrar el dispositivo ni su historial.</p><button type="submit">Quitar del plano</button>
                                             </form>
