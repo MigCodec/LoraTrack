@@ -1,3 +1,14 @@
+document.querySelectorAll('[data-toast]').forEach((toast) => {
+    const close = () => {
+        toast.classList.add('is-dismissing');
+        window.setTimeout(() => toast.remove(), 160);
+    };
+    toast.querySelector('[data-toast-close]')?.addEventListener('click', close);
+    if (toast.classList.contains('app-toast-success')) {
+        window.setTimeout(close, 6000);
+    }
+});
+
 document.addEventListener('click', (event) => {
     const defineAreaButton = event.target.closest('#zone-draw-mode');
     if (!defineAreaButton) return;
@@ -182,7 +193,7 @@ if (editor && !editor.dataset.editorInitialized) {
         else delete editor.dataset.selectionInstruction;
         canvas.style.pointerEvents = ['zone', 'edit-zone', 'anchor', 'relocate-anchor'].includes(mode) ? 'auto' : 'none';
         canvas.style.cursor = ['zone', 'edit-zone'].includes(mode) ? 'crosshair' : ['anchor', 'relocate-anchor'].includes(mode) ? 'copy' : 'default';
-        if (modeStatus) modeStatus.textContent = ['zone', 'edit-zone'].includes(mode) ? 'Modo área activo: arrastra sobre el plano.' : mode === 'anchor' ? 'Modo ancla activo: haz clic en una ubicación conocida.' : mode === 'relocate-anchor' ? 'Reubicando beacon: haz clic en su nueva posición.' : 'Selecciona una herramienta para editar el plano.';
+        if (modeStatus) modeStatus.textContent = ['zone', 'edit-zone'].includes(mode) ? 'Modo área activo: arrastra sobre el plano.' : mode === 'anchor' ? 'Modo punto de referencia activo: haz clic en una ubicación conocida.' : mode === 'relocate-anchor' ? 'Reubicando punto de referencia: haz clic en su nueva posición.' : 'Selecciona una herramienta para editar el plano.';
     };
 
     const pointer = (event) => {
@@ -230,7 +241,7 @@ if (editor && !editor.dataset.editorInitialized) {
         zoneData.forEach((zone) => drawRectangle(zone, zone.color, zone.name));
         const brand = getComputedStyle(document.body);
         if (draft) drawRectangle(draft, (zoneEditForm || form)?.elements.color?.value || brand.getPropertyValue('--color-brand-accent').trim() || '#14B8A6', zoneEditForm?.elements.name?.value || 'Nueva zona');
-        [...installationData, ...(draftAnchor ? [{...draftAnchor, name: 'Nueva ancla'}] : [])].forEach((installation) => {
+        [...installationData, ...(draftAnchor ? [{...draftAnchor, name: 'Nuevo punto'}] : [])].forEach((installation) => {
             const x = installation.x * width;
             const y = installation.y * height;
             context.beginPath();
@@ -273,7 +284,7 @@ if (editor && !editor.dataset.editorInitialized) {
             if (anchorForm.elements.x_meters) anchorForm.elements.x_meters.value = (draftAnchor.x * planWidthMeters).toFixed(3);
             if (anchorForm.elements.y_meters) anchorForm.elements.y_meters.value = (draftAnchor.y * planHeightMeters).toFixed(3);
             anchorSubmit.disabled = false;
-            anchorStatus.textContent = 'Punto seleccionado. Guarda la instalación.';
+            anchorStatus.textContent = 'Punto seleccionado. Guarda el punto de referencia.';
             anchorStatus.className = 'rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800';
             setMode(null);
             anchorModeButton.textContent = 'Cambiar punto en plano';
@@ -344,7 +355,7 @@ if (editor && !editor.dataset.editorInitialized) {
         relocationForm = null;
         draft = null;
         setMode('anchor');
-        anchorStatus.textContent = 'Haz clic en la posición conocida del dispositivo.';
+        anchorStatus.textContent = 'Haz clic en la posición conocida del punto de referencia.';
         redraw();
     };
     [zoneCommand, anchorCommand].forEach((command) => command?.addEventListener('toggle', () => {
@@ -373,7 +384,7 @@ if (editor && !editor.dataset.editorInitialized) {
         activateAnchorMode();
         if (anchorCommand) anchorCommand.removeAttribute('open');
         anchorModeButton.textContent = 'Haz clic sobre el plano…';
-        anchorStatus.textContent = 'Modo ancla activo: haz clic en la posición conocida.';
+        anchorStatus.textContent = 'Modo punto de referencia activo: haz clic en la posición conocida.';
         editor.scrollIntoView({block: 'nearest'});
     });
     const applyEditorLayers = () => {

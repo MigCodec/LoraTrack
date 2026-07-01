@@ -78,7 +78,7 @@ Content-Type: application/json
 
 Los eventos se deduplican, almacenan y procesan por cola. El endpoint responde HTTP 202.
 
-El payload decodificado puede incluir listas bajo `observations`, `beacons`, `ble`, `scan` o `devices`. Cada observación debe contener una MAC (`mac`, `mac_address`, `address` o `beacon_mac`) y RSSI (`rssi`, `signal` o `signal_strength`). Para publicar una posición 2D deben existir al menos cuatro anclas no colineales instaladas en el mismo plano.
+El payload decodificado puede incluir listas bajo `observations`, `beacons`, `ble`, `scan` o `devices`. Cada observación debe contener una MAC (`mac`, `mac_address`, `address` o `beacon_mac`) y RSSI (`rssi`, `signal` o `signal_strength`). Para publicar una posición 2D deben existir al menos tres anclas no colineales instaladas en el mismo plano.
 
 ### SAP S/4HANA
 

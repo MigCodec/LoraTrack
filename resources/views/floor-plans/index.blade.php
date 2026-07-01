@@ -31,7 +31,10 @@
                         dataType: 'json',
                         delay: 250,
                         data: function (params) {
-                            return {q: params.term || ''};
+                            return {
+                                q: params.term || '',
+                                type: $('.js-reference-type:checked').val() || ''
+                            };
                         },
                         processResults: function (data) {
                             return {results: data.results || []};
@@ -46,6 +49,14 @@
                     width: '100%',
                     language: language
                 });
+
+                $('.js-reference-type').on('change', function () {
+                    $('.js-installation-device-select').val(null).trigger('change');
+                    var label = $('.js-reference-type:checked').val() === 'scanner'
+                        ? 'AP Meraki / scanner fijo: detecta tags BLE pegados a assets.'
+                        : 'Beacon BLE fijo: lo detecta un tracker SenseCAP T1000B movil.';
+                    $('[data-reference-guidance]').text(label);
+                }).trigger('change');
 
                 $('.js-observed-mac-select').select2({
                     ajax: {
@@ -153,7 +164,7 @@
             @if($selectedPlan?->drawablePath())
                 @if(auth()->user()->hasPermission('plans.manage'))
                 <div class="ribbon-group"><span class="ribbon-label">Dibujar</span><details id="zone-command" class="ribbon-command"><summary id="zone-mode"><x-nav-icon name="plans"/><span>Crear área</span></summary><div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Crear área</h2>@include('floor-plans.partials.zone-creation-form')</div></details></div>
-                <div class="ribbon-group"><span class="ribbon-label">Dispositivos</span><details id="anchor-command" class="ribbon-command"><summary id="ribbon-anchor-mode"><x-nav-icon name="map"/><span>Colocar ancla</span></summary><div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Colocar ancla</h2>@include('floor-plans.partials.anchor-placement-form')</div></details></div>
+                <div class="ribbon-group"><span class="ribbon-label">Referencias fijas</span><details id="anchor-command" class="ribbon-command"><summary id="ribbon-anchor-mode"><x-nav-icon name="map"/><span>Agregar punto</span></summary><div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Agregar punto de referencia fijo</h2>@include('floor-plans.partials.anchor-placement-form')</div></details></div>
                 <div class="ribbon-group"><span class="ribbon-label">Medición</span><a class="ribbon-button" href="{{ route('calibration.index', $selectedPlan) }}"><x-nav-icon name="calibration"/><span>Calibrar RSSI</span></a></div>
                 @endif
                 <div class="ribbon-group">
@@ -175,20 +186,13 @@
                 @if(auth()->user()->hasPermission('plans.manage'))
                     @unless($selectedPlan->drawablePath())
                     <div class="ribbon-group">
-                        <span class="ribbon-label">Dispositivos</span>
+                        <span class="ribbon-label">Referencias fijas</span>
                         <details id="anchor-command" class="ribbon-command">
-                            <summary id="ribbon-anchor-mode"><x-nav-icon name="map"/><span>Colocar ancla</span></summary>
-                            <div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Colocar ancla</h2>@include('floor-plans.partials.anchor-placement-form')</div>
+                            <summary id="ribbon-anchor-mode"><x-nav-icon name="map"/><span>Agregar punto</span></summary>
+                            <div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Agregar punto de referencia fijo</h2>@include('floor-plans.partials.anchor-placement-form')</div>
                         </details>
                     </div>
                     @endunless
-                    <div class="ribbon-group">
-                        <span class="ribbon-label">Dispositivos</span>
-                        <details class="ribbon-command">
-                            <summary><x-nav-icon name="assets"/><span>Registrar dispositivo</span></summary>
-                            <div class="ribbon-command-panel"><h2>Registrar dispositivo</h2>@include('floor-plans.partials.device-registration')</div>
-                        </details>
-                    </div>
                 @endif
                 <div class="ribbon-group">
                     <span class="ribbon-label">Inventario del plano</span>
@@ -197,8 +201,8 @@
                         <div class="ribbon-command-panel"><h2>Zonas definidas</h2>@include('floor-plans.partials.zones-panel')</div>
                     </details>
                     <details class="ribbon-command">
-                        <summary><x-nav-icon name="calibration"/><span>Anclas ({{ $installations->count() }})</span></summary>
-                        <div class="ribbon-command-panel"><h2>Anclas instaladas</h2>@include('floor-plans.partials.anchors-panel')</div>
+                        <summary><x-nav-icon name="calibration"/><span>Referencias ({{ $installations->count() }})</span></summary>
+                        <div class="ribbon-command-panel"><h2>Puntos de referencia fijos</h2>@include('floor-plans.partials.anchors-panel')</div>
                     </details>
                 </div>
             @endif
@@ -215,7 +219,7 @@
                     <div class="plan-editor-ready"><i></i><div><strong>Editor listo</strong><small>Plano activo y disponible</small></div></div>
                     <div class="plan-editor-stats">
                         <div><x-nav-icon name="plans"/><span>Zonas<strong>{{ $selectedPlan->zones->count() }}</strong></span></div>
-                        <div><x-nav-icon name="map"/><span>Anclas<strong>{{ $installations->count() }}</strong></span></div>
+                        <div><x-nav-icon name="map"/><span>Referencias<strong>{{ $installations->count() }}</strong></span></div>
                         <div><x-nav-icon name="assets"/><span>Assets<strong>{{ $assetPositions->count() }}</strong></span></div>
                     </div>
                 </div>
@@ -246,7 +250,7 @@
                     </div>
                     @if($selectedPlan->drawablePath())
                         <details class="plan-2d-companion">
-                            <summary>Editar zonas y anclas sobre la vista 2D</summary>
+                            <summary>Editar zonas y puntos de referencia sobre la vista 2D</summary>
                     @endif
                 @endif
                 @if($selectedPlan->drawablePath())
@@ -269,10 +273,10 @@
                                 <div class="saved-zone" style="left: {{ (float) $zone->x_min * 100 }}%; top: {{ (float) $zone->y_min * 100 }}%; width: {{ ((float) $zone->x_max - (float) $zone->x_min) * 100 }}%; height: {{ ((float) $zone->y_max - (float) $zone->y_min) * 100 }}%; border-color: {{ $zone->color }}; background-color: {{ $zone->color }}33"><span style="background-color: {{ $zone->color }}">{{ $zone->name }}</span></div>
                             @endforeach
                         </div>
-                        <div id="saved-anchor-overlay" class="absolute inset-0 pointer-events-none" aria-label="Beacons y scanners instalados">
+                        <div id="saved-anchor-overlay" class="absolute inset-0 pointer-events-none" aria-label="Puntos de referencia fijos instalados">
                             @foreach($installations as $installation)
-                                @php($installedDeviceLabel = $installation->device->type === 'scanner' ? 'Scanner/AP instalado' : 'Beacon BLE instalado')
-                                @php($installedDeviceTypeLabel = $installation->device->type === 'scanner' ? 'scanner/AP' : 'beacon BLE')
+                                @php($installedDeviceLabel = $installation->device->type === 'scanner' ? 'AP Meraki / scanner fijo' : 'Beacon BLE fijo')
+                                @php($installedDeviceTypeLabel = $installation->device->type === 'scanner' ? 'AP/scanner fijo que detecta tags BLE' : 'beacon fijo detectado por tracker movil')
                                 @if(auth()->user()->hasPermission('plans.manage'))
                                     @php($anchorXPercent = min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)))
                                     @php($anchorYPercent = min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)))

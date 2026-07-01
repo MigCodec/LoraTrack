@@ -1,30 +1,34 @@
-<form id="anchor-form" method="POST" action="{{ route('installations.store', $selectedPlan) }}" class="mt-4 space-y-4">
+<form id="anchor-form" method="POST" action="{{ route('installations.store', $selectedPlan) }}" class="mt-4 space-y-4 fixed-reference-form">
     @csrf
-    <p class="text-xs leading-relaxed text-slate-500">Selecciona un beacon/scanner existente o crea uno nuevo por MAC. En Meraki, el AP se registra como scanner.</p>
-    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-        Si eliges un dispositivo registrado, se usara ese equipo y su tipo actual. Si dejas el selector en "Crear nuevo por MAC", se creara un beacon o scanner/AP segun el tipo elegido abajo.
+    <p class="text-xs leading-relaxed text-slate-500">Agrega infraestructura fija con coordenadas conocidas. Elige una de las dos topologias para no mezclar beacons fijos con AP/scanners fijos.</p>
+    <fieldset class="fixed-reference-type-picker">
+        <legend>Tipo de punto de referencia</legend>
+        <label>
+            <input type="radio" name="reference_type" value="beacon" class="js-reference-type" @checked(old('reference_type', old('device_type', 'beacon')) === 'beacon')>
+            <span><strong>Beacon BLE fijo</strong><small>Lo detecta el tracker SenseCAP T1000B movil para ubicar el asset asociado.</small></span>
+        </label>
+        <label>
+            <input type="radio" name="reference_type" value="scanner" class="js-reference-type" @checked(old('reference_type', old('device_type')) === 'scanner')>
+            <span><strong>AP Meraki / scanner fijo</strong><small>Detecta la MAC BLE del tag pegado al asset y reporta observaciones.</small></span>
+        </label>
+    </fieldset>
+    <div class="fixed-reference-guidance" data-reference-guidance>
+        Selecciona un tipo para filtrar dispositivos existentes y crear nuevos con el rol correcto.
     </div>
     <div class="grid gap-4 sm:grid-cols-2">
-        <label class="field-label">Dispositivo registrado
-            <select class="field-input js-installation-device-select" name="device_id" data-placeholder="Buscar beacon, scanner o AP">
+        <label class="field-label sm:col-span-2">Dispositivo
+            <select class="field-input js-installation-device-select" name="device_id" data-placeholder="Buscar dispositivo fijo existente">
                 <option value="">Crear nuevo por MAC</option>
             </select>
-            <span class="mt-1 block text-xs font-normal text-slate-400">Busca por nombre, modelo o MAC. No se cargan todos los dispositivos al abrir el formulario.</span>
-        </label>
-        <label class="field-label">Tipo del nuevo dispositivo
-            <select class="field-input" name="device_type">
-                <option value="beacon">Beacon BLE</option>
-                <option value="scanner">Scanner/AP Meraki</option>
-            </select>
-            <span class="mt-1 block text-xs font-normal text-slate-400">Solo aplica si creas un dispositivo nuevo por MAC.</span>
+            <span class="mt-1 block text-xs font-normal text-slate-400">Busca solo dentro del tipo seleccionado. Si no existe, deja este campo vacio y completa la MAC.</span>
         </label>
         <label class="field-label">MAC del dispositivo
             <select class="field-input font-mono js-observed-mac-select" name="device_identifier" data-placeholder="Buscar o escribir MAC">
                 <option value=""></option>
             </select>
-            <span class="mt-1 block text-xs font-normal text-slate-400">Busca MACs observadas o escribe una nueva. Para Meraki usa la MAC del AP; se guardara como scanner.</span>
+            <span class="mt-1 block text-xs font-normal text-slate-400">Para beacon fijo usa la MAC del beacon. Para AP Meraki/scanner usa la MAC del AP o scanner.</span>
         </label>
-        <label class="field-label">Nombre del nuevo dispositivo<input class="field-input" name="device_name" placeholder="AP bodega norte"></label>
+        <label class="field-label">Nombre si es nuevo<input class="field-input" name="device_name" placeholder="Beacon acceso norte o AP bodega norte"></label>
         <div class="grid grid-cols-3 gap-3 sm:col-span-2">
             <label class="field-label">X en metros
                 <input class="field-input" type="number" name="x_meters" min="0" max="{{ $selectedPlan->width_meters }}" step="0.001" placeholder="0.000">
@@ -36,18 +40,21 @@
                 <input class="field-input" type="number" name="z_meters" min="0" @if($selectedPlan->depth_meters) max="{{ $selectedPlan->depth_meters }}" @endif step="0.001" placeholder="{{ $selectedPlan->isThreeDimensional() ? 'Altura' : 'Opcional' }}">
             </label>
         </div>
-        <p class="text-xs leading-relaxed text-slate-500 sm:col-span-2">En planos 2D puedes escribir X/Y o usar el boton de seleccion. En modelos 3D sin vista 2D, ingresa las coordenadas en metros; Z es la altura del AP/scanner o beacon dentro del modelo.</p>
-        <div class="grid grid-cols-2 gap-3">
-            <label class="field-label">RSSI a 1 m<input class="field-input" type="number" name="reference_rssi" value="-59" min="-127" max="-1" required></label>
-            <label class="field-label">Factor ambiental<input class="field-input" type="number" name="path_loss_exponent" value="2.0" min="0.5" max="8" step="0.1" required></label>
-        </div>
+        <p class="text-xs leading-relaxed text-slate-500 sm:col-span-2">En planos 2D puedes elegir el punto en el plano. En modelos 3D sin vista 2D, escribe X/Y/Z en metros.</p>
     </div>
     <input id="anchor-x" type="hidden" name="x_normalized"><input id="anchor-y" type="hidden" name="y_normalized">
     @if($selectedPlan->drawablePath())
-        <button id="anchor-mode" class="btn-secondary" type="button">Seleccionar punto en el plano</button>
-        <p id="anchor-selection-status" class="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Haz clic en "Seleccionar punto" y luego sobre el plano, o escribe X/Y en metros.</p>
+        <button id="anchor-mode" class="btn-secondary" type="button">Elegir punto en el plano</button>
+        <p id="anchor-selection-status" class="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Haz clic en "Elegir punto" y luego sobre el plano, o escribe X/Y en metros.</p>
     @else
         <p id="anchor-selection-status" class="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">Este modelo no tiene vista 2D para seleccionar con clic. Escribe las coordenadas en metros.</p>
     @endif
-    <div class="flex justify-end"><button id="anchor-submit" class="btn-primary">Guardar instalacion</button></div>
+    <details class="fixed-reference-advanced">
+        <summary>Parametros de calibracion avanzados</summary>
+        <div class="mt-3 grid grid-cols-2 gap-3">
+            <label class="field-label">RSSI a 1 m<input class="field-input" type="number" name="reference_rssi" value="{{ old('reference_rssi', -59) }}" min="-127" max="-1" required></label>
+            <label class="field-label">Factor ambiental<input class="field-input" type="number" name="path_loss_exponent" value="{{ old('path_loss_exponent', 2.0) }}" min="0.5" max="8" step="0.1" required></label>
+        </div>
+    </details>
+    <div class="flex justify-end"><button id="anchor-submit" class="btn-primary">Guardar punto de referencia</button></div>
 </form>

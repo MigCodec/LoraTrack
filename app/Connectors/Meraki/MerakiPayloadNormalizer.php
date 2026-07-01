@@ -106,10 +106,13 @@ class MerakiPayloadNormalizer
     private function compactExpandedRecord(array $payload): array
     {
         $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $sourceSummary = is_array($payload['source_summary'] ?? null) ? $payload['source_summary'] : [];
         $raw = is_array($payload['raw'] ?? null) ? $payload['raw'] : [];
         $rawData = is_array($raw['data'] ?? null) ? $raw['data'] : [];
         $observation = is_array($rawData['observation'] ?? null) ? $rawData['observation'] : [];
-        $latest = is_array($metadata['latestRecord'] ?? null) ? $metadata['latestRecord'] : [];
+        $latest = is_array($metadata['latestRecord'] ?? null)
+            ? $metadata['latestRecord']
+            : (is_array($metadata['latest_record'] ?? null) ? $metadata['latest_record'] : []);
         $rssiRecords = $this->compactRssiRecords(
             is_array($payload['rssi_records'] ?? null) ? $payload['rssi_records'] : [],
             is_array($rawData['reportingAps'] ?? null) ? $rawData['reportingAps'] : [],
@@ -133,10 +136,10 @@ class MerakiPayloadNormalizer
             'metadata' => $this->compactMetadata($metadata + $observation, $latest),
             'source_summary' => [
                 'payload_checksum' => hash('sha256', json_encode($raw ?: $payload, JSON_UNESCAPED_SLASHES) ?: ''),
-                'reporting_ap_count' => count($rawData['reportingAps'] ?? []),
-                'location_count' => count($observation['locations'] ?? []),
+                'reporting_ap_count' => $sourceSummary['reporting_ap_count'] ?? count($rawData['reportingAps'] ?? []),
+                'location_count' => $sourceSummary['location_count'] ?? count($observation['locations'] ?? []),
                 'rssi_record_count' => count($rssiRecords),
-                'nearest_ap_mac' => $latest['nearestApMac'] ?? null,
+                'nearest_ap_mac' => $sourceSummary['nearest_ap_mac'] ?? $latest['nearestApMac'] ?? $latest['nearest_ap_mac'] ?? null,
                 'compacted_from_expanded_record' => true,
             ],
         ];
@@ -173,7 +176,11 @@ class MerakiPayloadNormalizer
     /** @return array<string, mixed> */
     private function compactMetadata(array $observation, array $latest): array
     {
-        $beacons = collect(is_array($observation['bleBeacons'] ?? null) ? $observation['bleBeacons'] : [])
+        $sourceBeacons = is_array($observation['bleBeacons'] ?? null)
+            ? $observation['bleBeacons']
+            : (is_array($observation['ble_beacons'] ?? null) ? $observation['ble_beacons'] : []);
+
+        $beacons = collect($sourceBeacons)
             ->filter(fn (mixed $beacon): bool => is_array($beacon))
             ->map(fn (array $beacon): array => Arr::only($beacon, [
                 'uuid', 'major', 'minor', 'txPower', 'bleType',
@@ -187,8 +194,8 @@ class MerakiPayloadNormalizer
             'ble_beacons' => $beacons,
             'latest_record' => array_filter([
                 'time' => $latest['time'] ?? null,
-                'nearest_ap_mac' => $latest['nearestApMac'] ?? null,
-                'nearest_ap_rssi' => $latest['nearestApRssi'] ?? null,
+                'nearest_ap_mac' => $latest['nearestApMac'] ?? $latest['nearest_ap_mac'] ?? null,
+                'nearest_ap_rssi' => $latest['nearestApRssi'] ?? $latest['nearest_ap_rssi'] ?? null,
             ], fn (mixed $value): bool => $value !== null),
         ], fn (mixed $value): bool => $value !== null && $value !== []);
     }

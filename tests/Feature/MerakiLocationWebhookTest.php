@@ -268,6 +268,76 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertLessThan(5000, strlen(json_encode($record, JSON_THROW_ON_ERROR)));
     }
 
+    public function test_compacted_meraki_record_preserves_summary_and_snake_case_metadata(): void
+    {
+        $payload = [
+            'version' => '3.0',
+            'type' => 'Bluetooth',
+            'network_id' => 'L_597289900580014244',
+            'client_mac' => 'e4:55:a8:15:a2:d7',
+            'client_name' => 'unknown',
+            'observed_at' => '2026-06-26T19:35:17Z',
+            'external_floor_plan_id' => '',
+            'external_floor_plan_name' => '',
+            'x' => null,
+            'y' => null,
+            'latitude' => 16.436738861377624,
+            'longitude' => -106.87157129737767,
+            'accuracy_meters' => 100,
+            'rssi_records' => [
+                [
+                    'apMac' => 'e4:55:a8:15:a3:b2',
+                    'rssi' => -61,
+                    'apName' => 'ANF-AP-THER-2-3',
+                    'apSerial' => 'Q3AE-TGJL-V7HD',
+                    'lat' => -33.465,
+                    'lng' => -70.656,
+                ],
+                [
+                    'apMac' => 'e4:55:a8:15:a2:a0',
+                    'rssi' => -58,
+                    'apName' => 'ANF-AP-THER-2-2',
+                    'apSerial' => 'Q3AE-RDXF-NLEL',
+                    'lat' => 37.4180951010362,
+                    'lng' => -122.098531723022,
+                ],
+            ],
+            'metadata' => [
+                'name' => 'unknown',
+                'ble_beacons' => [[
+                    'uuid' => 'f6b2afd3-1419-40c9-877b-2135fd81ec4b',
+                    'txPower' => -59,
+                    'major' => 0,
+                    'bleType' => 'iBeacon',
+                    'minor' => 212,
+                ]],
+                'latest_record' => [
+                    'time' => '2026-06-26T19:35:18Z',
+                    'nearest_ap_mac' => 'e4:55:a8:15:a2:a0',
+                    'nearest_ap_rssi' => -58,
+                ],
+            ],
+            'source_summary' => [
+                'reporting_ap_count' => 169,
+                'location_count' => 6,
+                'rssi_record_count' => 17,
+                'nearest_ap_mac' => 'e4:55:a8:15:a2:a0',
+            ],
+        ];
+
+        $record = app(MerakiPayloadNormalizer::class)->records($payload, 3)[0];
+
+        $this->assertSame('E455A815A2D7', strtoupper(str_replace(':', '', $record['client_mac'])));
+        $this->assertCount(2, $record['rssi_records']);
+        $this->assertSame('f6b2afd3-1419-40c9-877b-2135fd81ec4b', $record['metadata']['ble_beacons'][0]['uuid']);
+        $this->assertSame('e4:55:a8:15:a2:a0', $record['metadata']['latest_record']['nearest_ap_mac']);
+        $this->assertSame(-58, $record['metadata']['latest_record']['nearest_ap_rssi']);
+        $this->assertSame(169, $record['source_summary']['reporting_ap_count']);
+        $this->assertSame(6, $record['source_summary']['location_count']);
+        $this->assertSame('e4:55:a8:15:a2:a0', $record['source_summary']['nearest_ap_mac']);
+        $this->assertTrue($record['source_summary']['compacted_from_expanded_record']);
+    }
+
     public function test_authenticated_expanded_record_can_enter_the_webhook_pipeline(): void
     {
         Queue::fake();

@@ -28,10 +28,6 @@
                 <h2 class="mt-2 text-3xl font-semibold text-slate-950">Iniciar sesión</h2>
                 <p class="mt-2 text-sm text-slate-500">Usa tus credenciales de LoraTrack o tu cuenta Microsoft autorizada.</p>
 
-                @if($errors->any())
-                    <div class="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ $errors->first() }}</div>
-                @endif
-
                 <form method="POST" action="{{ url('/login') }}" class="mt-8 space-y-5">
                     @csrf
                     <label class="field-label">Correo
@@ -58,5 +54,6 @@
             </div>
         </section>
     </main>
+    @include('partials.toasts')
 </body>
 </html>

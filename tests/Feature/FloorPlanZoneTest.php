@@ -84,7 +84,7 @@ class FloorPlanZoneTest extends TestCase
             ->assertDontSee('id="zone-editor"', false);
 
         $this->actingAs($admin)->post(route('installations.store', $plan), [
-            'device_type' => 'scanner',
+            'reference_type' => 'scanner',
             'device_identifier' => 'AA:BB:CC:DD:EE:80',
             'device_name' => 'AP mezzanine',
             'x_meters' => 20,
@@ -195,9 +195,12 @@ class FloorPlanZoneTest extends TestCase
             ->assertDontSee('data-editor-mode="explore"', false)
             ->assertSee('id="zone-geometry-metrics"', false)
             ->assertDontSee('floor-plan-editor.js', false)
-            ->assertSee('Registrar dispositivo')
+            ->assertSee('Agregar punto de referencia fijo')
+            ->assertSee('Beacon BLE fijo')
+            ->assertSee('AP Meraki / scanner fijo')
+            ->assertDontSee('Registrar dispositivo')
             ->assertSee('Zonas (0)')
-            ->assertSee('Anclas (0)')
+            ->assertSee('Referencias (0)')
             ->assertSee('class="plan-sheet-tabs"', false)
             ->assertSee('id="plan-sheet-context-menu" class="plan-sheet-context-menu" role="menu" popover="manual" hidden', false)
             ->assertSee('id="plan-rename-dialog" class="plan-rename-dialog plan-sheet-dialog"', false)
@@ -460,16 +463,41 @@ class FloorPlanZoneTest extends TestCase
             ->assertOk()
             ->assertSee('js-installation-device-select', false)
             ->assertDontSee('AP-01 - Scanner/AP - E455A815A238')
-            ->assertSee('name="device_type"', false)
-            ->assertSee('Scanner/AP Meraki');
+            ->assertSee('name="reference_type"', false)
+            ->assertSee('AP Meraki / scanner fijo');
 
         $this->actingAs($admin)->getJson(route('floor-plans.installation-device-options', [
             'floorPlan' => $plan,
             'q' => 'E455',
+            'type' => 'beacon',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('results', []);
+
+        $this->actingAs($admin)->getJson(route('floor-plans.installation-device-options', [
+            'floorPlan' => $plan,
+            'q' => 'E455',
+            'type' => 'scanner',
         ]))
             ->assertOk()
             ->assertJsonPath('results.0.id', $merakiAp->id)
             ->assertJsonPath('results.0.text', 'AP-01 - Scanner/AP - E455A815A238 - Cisco Meraki AP');
+
+        $this->actingAs($admin)->from(route('floor-plans.index', ['plan' => $plan]))->post(route('installations.store', $plan), [
+            'reference_type' => 'beacon',
+            'device_id' => $merakiAp->id,
+            'x_normalized' => 0.25,
+            'y_normalized' => 0.5,
+            'reference_rssi' => -59,
+            'path_loss_exponent' => 2,
+        ])
+            ->assertRedirect(route('floor-plans.index', ['plan' => $plan]))
+            ->assertSessionHasErrors('device_id');
+
+        $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
+            ->assertOk()
+            ->assertSee('class="toast-region"', false)
+            ->assertSee('Revisa la informacion ingresada');
 
         $this->actingAs($admin)->post(route('installations.store', $plan), [
             'device_id' => $merakiAp->id,
@@ -487,7 +515,7 @@ class FloorPlanZoneTest extends TestCase
         ]);
 
         $this->actingAs($admin)->post(route('installations.store', $plan), [
-            'device_type' => 'scanner',
+            'reference_type' => 'scanner',
             'device_identifier' => 'AA:BB:CC:DD:EE:70',
             'device_name' => 'AP nuevo bodega',
             'x_normalized' => 0.5,

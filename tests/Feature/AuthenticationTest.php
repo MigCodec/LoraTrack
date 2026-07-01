@@ -39,12 +39,19 @@ class AuthenticationTest extends TestCase
     {
         User::factory()->create(['email' => 'existing@example.com']);
 
-        $this->post(route('registration.store'), [
+        $this->from(route('register'))->post(route('registration.store'), [
             'organization_name' => 'Empresa no creada',
             'email' => 'existing@example.com',
             'password' => 'A-secure-password-2026',
             'password_confirmation' => 'A-secure-password-2026',
-        ])->assertSessionHasErrors('email');
+        ])
+            ->assertRedirect(route('register'))
+            ->assertSessionHasErrors('email');
+
+        $this->get(route('register'))
+            ->assertOk()
+            ->assertSee('class="toast-region"', false)
+            ->assertSee('Revisa la informacion ingresada');
 
         $this->assertDatabaseMissing('organizations', ['name' => 'Empresa no creada']);
     }

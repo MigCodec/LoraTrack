@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Crear empresa · LoraTrack</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    <script defer src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
 </head>
 <body class="login-shell min-h-screen px-5 py-10">
     <main class="mx-auto grid min-h-[calc(100vh-5rem)] max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl lg:grid-cols-2">
@@ -24,10 +25,6 @@
                 <p class="text-sm font-semibold text-brand-accent">Comenzar</p>
                 <h2 class="mt-2 text-3xl font-semibold text-slate-950">Crear empresa</h2>
                 <p class="mt-2 text-sm text-slate-500">Tu correo será el administrador inicial.</p>
-
-                @if($errors->any())
-                    <div class="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{{ $errors->first() }}</div>
-                @endif
 
                 <form method="POST" action="{{ route('registration.store') }}" class="mt-8 space-y-5">
                     @csrf
@@ -52,5 +49,6 @@
             </div>
         </section>
     </main>
+    @include('partials.toasts')
 </body>
 </html>
