@@ -21,6 +21,7 @@ use App\Http\Controllers\FloorPlanFileController;
 use App\Http\Controllers\FloorPlanModelController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\MapController;
+use App\Http\Controllers\MerakiAccessPointController;
 use App\Http\Controllers\MerakiFloorPlanMappingController;
 use App\Http\Controllers\OperationalHealthController;
 use App\Http\Controllers\OrganizationController;
@@ -54,6 +55,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/assets/{asset}/track', [AssetTrackController::class, 'show'])->name('assets.track');
     Route::get('/assets/{asset}/track/data', [AssetTrackController::class, 'data'])->name('assets.track.data');
     Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
+    Route::get('/meraki-access-points', MerakiAccessPointController::class)->name('meraki-access-points.index');
     Route::middleware('permission:assets.manage')->group(function (): void {
         Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
         Route::get('/assets/device-options', [AssetController::class, 'deviceOptions'])->name('assets.device-options');

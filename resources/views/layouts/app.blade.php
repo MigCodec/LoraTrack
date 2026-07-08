@@ -28,6 +28,7 @@
                 <a class="nav-link {{ request()->routeIs('products.*') ? 'nav-link-active' : '' }}" href="{{ route('products.index') }}"><x-nav-icon name="products"/><span>Productos y SKU</span></a>
                 <a class="nav-link {{ request()->routeIs('assets.*') ? 'nav-link-active' : '' }}" href="{{ route('assets.index') }}"><x-nav-icon name="assets"/><span>Activos</span></a>
                 <a class="nav-link {{ request()->routeIs('devices.*') ? 'nav-link-active' : '' }}" href="{{ route('devices.index') }}"><x-nav-icon name="devices"/><span>Dispositivos</span></a>
+                <a class="nav-link {{ request()->routeIs('meraki-access-points.*') ? 'nav-link-active' : '' }}" href="{{ route('meraki-access-points.index') }}"><x-nav-icon name="access-points"/><span>AP Meraki</span></a>
                 <a class="nav-link {{ request()->routeIs('floor-plans.*') || request()->routeIs('zones.*') || request()->routeIs('calibration.*') || request()->routeIs('installations.*') ? 'nav-link-active' : '' }}" href="{{ route('floor-plans.index') }}"><x-nav-icon name="plans"/><span>Planos y zonas</span></a>
                 <a class="nav-link {{ request()->routeIs('map.*') ? 'nav-link-active' : '' }}" href="{{ route('map.index') }}"><x-nav-icon name="map"/><span>Mapa operativo</span></a>
 

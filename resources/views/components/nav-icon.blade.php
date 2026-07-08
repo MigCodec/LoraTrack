@@ -14,6 +14,9 @@
         @case('devices')
             <rect x="7" y="5" width="10" height="14" rx="2"/><path d="M10 2v3M14 2v3M10 19v3M14 19v3M4 9h3M4 15h3M17 9h3M17 15h3"/><circle cx="12" cy="12" r="2"/>
             @break
+        @case('access-points')
+            <path d="M5 18a10 10 0 0 1 14 0"/><path d="M8 14a6 6 0 0 1 8 0"/><path d="M11 10a2 2 0 0 1 2 0"/><circle cx="12" cy="19" r="1.5"/><path d="M4 5h16M6 5v4M18 5v4"/>
+            @break
         @case('plans')
             <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/>
             @break
