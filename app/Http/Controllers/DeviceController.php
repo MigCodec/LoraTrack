@@ -41,16 +41,19 @@ class DeviceController extends Controller
                     ->latest('started_at'),
             ])
             ->orderBy('name')
-            ->get();
+            ->paginate(50)
+            ->withQueryString();
         $normalizedDeviceIdentifiers = $devices
+            ->getCollection()
             ->map(fn (Device $device): string => BleObservationExtractor::normalizeMac($device->identifier))
             ->filter()
             ->unique()
             ->values();
+        $deviceIds = $devices->getCollection()->pluck('id');
 
         $lastSeenByDeviceId = TelemetryEvent::query()
             ->selectRaw('device_id, MAX(COALESCE(observed_at, received_at)) as last_seen_at')
-            ->whereNotNull('device_id')
+            ->whereIn('device_id', $deviceIds)
             ->groupBy('device_id')
             ->pluck('last_seen_at', 'device_id');
 
@@ -66,7 +69,7 @@ class DeviceController extends Controller
                 ->take(3)
                 ->values());
 
-        $rows = $devices->map(function (Device $device) use ($lastSeenByDeviceId, $observationsByTransmitter): array {
+        $rows = $devices->getCollection()->map(function (Device $device) use ($lastSeenByDeviceId, $observationsByTransmitter): array {
             $installation = $device->installations->first();
             $assignment = $device->assignments->first();
             $position = $assignment?->asset?->latestPosition;
@@ -97,7 +100,9 @@ class DeviceController extends Controller
             ];
         });
 
-        return view('devices.index', ['deviceRows' => $rows]);
+        $devices->setCollection($rows);
+
+        return view('devices.index', ['deviceRows' => $devices]);
     }
 
     public function installationDeviceOptions(Request $request, FloorPlan $floorPlan): JsonResponse

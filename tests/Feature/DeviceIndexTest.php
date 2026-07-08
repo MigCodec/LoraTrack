@@ -99,4 +99,27 @@ class DeviceIndexTest extends TestCase
             ->assertSee('Sin area/zona establecida')
             ->assertSee('AP0011223344');
     }
+
+    public function test_device_inventory_is_paginated(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        foreach (range(1, 55) as $number) {
+            Device::query()->create([
+                'identifier' => sprintf('DEVICE%04d', $number),
+                'name' => sprintf('Device %04d', $number),
+                'type' => 'beacon',
+            ]);
+        }
+
+        $this->actingAs($admin)->get(route('devices.index'))
+            ->assertOk()
+            ->assertSee('Device 0001')
+            ->assertDontSee('Device 0055')
+            ->assertSee('page=2', false);
+
+        $this->actingAs($admin)->get(route('devices.index', ['page' => 2]))
+            ->assertOk()
+            ->assertSee('Device 0055');
+    }
 }

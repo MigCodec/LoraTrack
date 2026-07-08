@@ -75,6 +75,9 @@
                     </tbody>
                 </table>
             </div>
+            <div class="border-t border-slate-200 p-4">
+                {{ $deviceRows->links() }}
+            </div>
         @endif
     </section>
 @endsection
