@@ -11,6 +11,9 @@
         @case('assets')
             <path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 12h18M9 12v2h6v-2"/>
             @break
+        @case('devices')
+            <rect x="7" y="5" width="10" height="14" rx="2"/><path d="M10 2v3M14 2v3M10 19v3M14 19v3M4 9h3M4 15h3M17 9h3M17 15h3"/><circle cx="12" cy="12" r="2"/>
+            @break
         @case('plans')
             <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/>
             @break

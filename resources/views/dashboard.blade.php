@@ -18,11 +18,17 @@
 
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         @foreach([
-            ['label' => 'Productos', 'value' => $metrics['products']], ['label' => 'Activos', 'value' => $metrics['assets']],
-            ['label' => 'Dispositivos', 'value' => $metrics['devices']], ['label' => 'Conectores activos', 'value' => $metrics['activeConnectors']],
+            ['label' => 'Productos', 'value' => $metrics['products']],
+            ['label' => 'Activos', 'value' => $metrics['assets']],
+            ['label' => 'Dispositivos', 'value' => $metrics['devices'], 'url' => route('devices.index')],
+            ['label' => 'Conectores activos', 'value' => $metrics['activeConnectors']],
             ['label' => 'Eventos hoy', 'value' => $metrics['eventsToday']],
         ] as $metric)
-            <article class="metric-card"><p class="text-sm text-slate-500">{{ $metric['label'] }}</p><p class="mt-2 text-3xl font-semibold text-slate-950">{{ number_format($metric['value']) }}</p></article>
+            @if(isset($metric['url']))
+                <a class="metric-card metric-card-link" href="{{ $metric['url'] }}"><p class="text-sm text-slate-500">{{ $metric['label'] }}</p><p class="mt-2 text-3xl font-semibold text-slate-950">{{ number_format($metric['value']) }}</p><span class="mt-2 block text-xs font-semibold text-brand-primary">Ver dispositivos</span></a>
+            @else
+                <article class="metric-card"><p class="text-sm text-slate-500">{{ $metric['label'] }}</p><p class="mt-2 text-3xl font-semibold text-slate-950">{{ number_format($metric['value']) }}</p></article>
+            @endif
         @endforeach
     </div>
 

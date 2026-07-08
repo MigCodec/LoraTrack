@@ -280,7 +280,7 @@
                                 @if(auth()->user()->hasPermission('plans.manage'))
                                     @php($anchorXPercent = min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)))
                                     @php($anchorYPercent = min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)))
-                                    <details class="plan-anchor" style="left: {{ $anchorXPercent }}%; top: {{ $anchorYPercent }}%" data-anchor-details data-popup-horizontal="{{ $anchorXPercent > 62 ? 'left' : 'right' }}" data-popup-vertical="{{ $anchorYPercent > 55 ? 'up' : 'down' }}">
+                                    <details class="plan-anchor" style="left: {{ $anchorXPercent }}%; top: {{ $anchorYPercent }}%" data-anchor-details data-anchor-type="{{ $installation->device->type }}" data-popup-horizontal="{{ $anchorXPercent > 62 ? 'left' : 'right' }}" data-popup-vertical="{{ $anchorYPercent > 55 ? 'up' : 'down' }}">
                                         <summary title="Editar {{ $installation->device->name }}" aria-label="Editar {{ $installation->device->name }}"><i aria-hidden="true"></i></summary>
                                         <div class="anchor-inline-popup" role="dialog" aria-label="Parámetros de {{ $installation->device->name }}">
                                             <div class="anchor-context-header"><div><p class="anchor-context-kicker">{{ $installedDeviceLabel }}</p><h2>{{ $installation->device->name }}</h2><p>{{ $installedDeviceTypeLabel }} - {{ $installation->device->identifier }}</p></div></div>
@@ -299,7 +299,7 @@
                                         </div>
                                     </details>
                                 @else
-                                    <span class="plan-anchor" style="left: {{ min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $installation->device->name }} · {{ $installation->device->identifier }}"><i aria-hidden="true"></i><small class="sr-only">{{ $installation->device->name }}</small></span>
+                                    <span class="plan-anchor" style="left: {{ min(100, max(0, (float) $installation->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $installation->y / (float) $selectedPlan->height_meters * 100)) }}%" data-anchor-type="{{ $installation->device->type }}" title="{{ $installation->device->name }} · {{ $installation->device->identifier }}"><i aria-hidden="true"></i><small class="sr-only">{{ $installation->device->name }}</small></span>
                                 @endif
                             @endforeach
                         </div>
@@ -326,7 +326,7 @@
                 @if($plans->isNotEmpty())
                     <nav class="plan-sheet-tabs" aria-label="Seleccionar plano">
                         @foreach($plans as $plan)
-                            <a class="plan-sheet-tab {{ $selectedPlan->is($plan) ? 'is-active' : '' }}" href="{{ route('floor-plans.index', ['plan' => $plan]) }}" title="{{ $plan->location->name }} · {{ $plan->name }}" data-plan-name="{{ $plan->name }}" @if($plan->tab_color) style="--sheet-color: {{ $plan->tab_color }}" @endif @if(auth()->user()->hasPermission('plans.manage')) data-tab-color="{{ $plan->tab_color }}" data-update-url="{{ route('floor-plans.update', $plan) }}" data-delete-url="{{ route('floor-plans.destroy', $plan) }}" data-calibration-url="{{ route('calibration.index', $plan) }}" @endif @if($selectedPlan->is($plan)) aria-current="page" @endif>
+                            <a class="plan-sheet-tab {{ $selectedPlan->is($plan) ? 'is-active' : '' }}" href="{{ route('floor-plans.index', ['plan' => $plan]) }}" title="{{ $plan->location->name }} · {{ $plan->name }}" data-plan-name="{{ $plan->name }}" @if($plan->tab_color) style="--sheet-color: {{ $plan->tab_color }}" @endif @if(auth()->user()->hasPermission('plans.manage')) data-tab-color="{{ $plan->tab_color }}" data-update-url="{{ route('floor-plans.update', $plan) }}" data-delete-url="{{ route('floor-plans.destroy', $plan) }}" @endif @if($selectedPlan->is($plan)) aria-current="page" @endif>
                                 <span>{{ $plan->name }}</span><small>{{ $plan->location->name }}</small>
                             </a>
                         @endforeach
@@ -340,7 +340,6 @@
                 <button type="button" role="menuitem" data-sheet-action="open">Abrir hoja</button>
                 <button type="button" role="menuitem" data-sheet-action="rename">Cambiar nombre…</button>
                 <button type="button" role="menuitem" data-sheet-action="color">Color de pestaña…</button>
-                <button type="button" role="menuitem" data-sheet-action="calibrate">Calibrar RSSI</button>
                 <hr>
                 <button class="is-danger" type="button" role="menuitem" data-sheet-action="delete">Eliminar hoja…</button>
             </div>

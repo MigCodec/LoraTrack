@@ -85,7 +85,6 @@ if (sheetContextMenu) {
         if (!action || !selectedSheet) return;
         closeSheetMenu();
         if (action === 'open') window.location.assign(selectedSheet.href);
-        if (action === 'calibrate') window.location.assign(selectedSheet.dataset.calibrationUrl);
         if (action === 'rename') {
             renameForm.action = selectedSheet.dataset.updateUrl;
             renameInput.value = selectedSheet.dataset.planName;
@@ -211,6 +210,8 @@ if (editor && !editor.dataset.editorInitialized) {
         y_max: Math.max(from.y, to.y),
     });
 
+    const selectedReferenceType = () => anchorForm?.querySelector('.js-reference-type:checked')?.value || 'beacon';
+
     const drawRectangle = (zone, color, label) => {
         const width = canvas.clientWidth;
         const height = canvas.clientHeight;
@@ -241,12 +242,21 @@ if (editor && !editor.dataset.editorInitialized) {
         zoneData.forEach((zone) => drawRectangle(zone, zone.color, zone.name));
         const brand = getComputedStyle(document.body);
         if (draft) drawRectangle(draft, (zoneEditForm || form)?.elements.color?.value || brand.getPropertyValue('--color-brand-accent').trim() || '#14B8A6', zoneEditForm?.elements.name?.value || 'Nueva zona');
-        [...installationData, ...(draftAnchor ? [{...draftAnchor, name: 'Nuevo punto'}] : [])].forEach((installation) => {
+        [...installationData, ...(draftAnchor ? [{...draftAnchor, name: 'Nuevo punto', type: selectedReferenceType()}] : [])].forEach((installation) => {
             const x = installation.x * width;
             const y = installation.y * height;
+            const scanner = installation.type === 'scanner';
             context.beginPath();
-            context.arc(x, y, 6, 0, Math.PI * 2);
-            context.fillStyle = installation === draftAnchor ? '#dc2626' : brand.getPropertyValue('--color-brand-primary').trim() || '#2563EB';
+            if (scanner) {
+                context.arc(x, y, 6, 0, Math.PI * 2);
+            } else {
+                context.moveTo(x, y - 7);
+                context.lineTo(x + 7, y);
+                context.lineTo(x, y + 7);
+                context.lineTo(x - 7, y);
+                context.closePath();
+            }
+            context.fillStyle = installation === draftAnchor ? '#dc2626' : scanner ? '#7c3aed' : brand.getPropertyValue('--color-brand-primary').trim() || '#2563EB';
             context.fill();
             context.strokeStyle = '#ffffff';
             context.lineWidth = 2;

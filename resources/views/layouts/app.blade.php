@@ -27,14 +27,12 @@
                 <a class="nav-link {{ request()->routeIs('dashboard') ? 'nav-link-active' : '' }}" href="{{ route('dashboard') }}"><x-nav-icon name="dashboard"/><span>Dashboard</span></a>
                 <a class="nav-link {{ request()->routeIs('products.*') ? 'nav-link-active' : '' }}" href="{{ route('products.index') }}"><x-nav-icon name="products"/><span>Productos y SKU</span></a>
                 <a class="nav-link {{ request()->routeIs('assets.*') ? 'nav-link-active' : '' }}" href="{{ route('assets.index') }}"><x-nav-icon name="assets"/><span>Activos</span></a>
-                <a class="nav-link {{ request()->routeIs('floor-plans.*') || request()->routeIs('zones.*') ? 'nav-link-active' : '' }}" href="{{ route('floor-plans.index') }}"><x-nav-icon name="plans"/><span>Planos y zonas</span></a>
+                <a class="nav-link {{ request()->routeIs('devices.*') ? 'nav-link-active' : '' }}" href="{{ route('devices.index') }}"><x-nav-icon name="devices"/><span>Dispositivos</span></a>
+                <a class="nav-link {{ request()->routeIs('floor-plans.*') || request()->routeIs('zones.*') || request()->routeIs('calibration.*') || request()->routeIs('installations.*') ? 'nav-link-active' : '' }}" href="{{ route('floor-plans.index') }}"><x-nav-icon name="plans"/><span>Planos y zonas</span></a>
                 <a class="nav-link {{ request()->routeIs('map.*') ? 'nav-link-active' : '' }}" href="{{ route('map.index') }}"><x-nav-icon name="map"/><span>Mapa operativo</span></a>
 
-                @if(auth()->user()->hasPermission('plans.manage') || auth()->user()->hasPermission('payload_profiles.manage'))
+                @if(auth()->user()->hasPermission('payload_profiles.manage'))
                     <p class="nav-section-label">Ingeniería</p>
-                    @if(auth()->user()->hasPermission('plans.manage'))
-                        <a class="nav-link {{ request()->routeIs('calibration.*') || request()->routeIs('installations.*') ? 'nav-link-active' : '' }}" href="{{ route('floor-plans.index') }}"><x-nav-icon name="calibration"/><span>Configuración de planos</span></a>
-                    @endif
                     @if(auth()->user()->hasPermission('payload_profiles.manage'))
                         <a class="nav-link {{ request()->routeIs('payload-profiles.*') ? 'nav-link-active' : '' }}" href="{{ route('payload-profiles.index') }}"><x-nav-icon name="decoder"/><span>Decoders de payload</span></a>
                     @endif

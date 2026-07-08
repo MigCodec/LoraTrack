@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateDeviceInstallationRequest;
+use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
@@ -16,14 +17,89 @@ use App\Tenancy\TenantRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 use Throwable;
 
 class DeviceController extends Controller
 {
+    public function index(): View
+    {
+        $devices = Device::query()
+            ->with([
+                'installations' => fn ($query) => $query
+                    ->with(['floorPlan.location', 'location'])
+                    ->whereNull('ended_at')
+                    ->latest('started_at'),
+                'assignments' => fn ($query) => $query
+                    ->with(['asset.latestPosition.zone', 'asset.latestPosition.floorPlan', 'asset.latestPosition.location'])
+                    ->whereNull('ended_at')
+                    ->latest('started_at'),
+            ])
+            ->orderBy('name')
+            ->get();
+        $normalizedDeviceIdentifiers = $devices
+            ->map(fn (Device $device): string => BleObservationExtractor::normalizeMac($device->identifier))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $lastSeenByDeviceId = TelemetryEvent::query()
+            ->selectRaw('device_id, MAX(COALESCE(observed_at, received_at)) as last_seen_at')
+            ->whereNotNull('device_id')
+            ->groupBy('device_id')
+            ->pluck('last_seen_at', 'device_id');
+
+        $observationsByTransmitter = SignalObservation::query()
+            ->select(['transmitter_mac', 'receiver_identifier', 'rssi', 'observed_at'])
+            ->whereIn('transmitter_mac', $normalizedDeviceIdentifiers)
+            ->whereNotNull('receiver_identifier')
+            ->latest('observed_at')
+            ->get()
+            ->groupBy(fn (SignalObservation $observation): string => BleObservationExtractor::normalizeMac($observation->transmitter_mac))
+            ->map(fn (Collection $observations): Collection => $observations
+                ->unique(fn (SignalObservation $observation): string => (string) $observation->receiver_identifier)
+                ->take(3)
+                ->values());
+
+        $rows = $devices->map(function (Device $device) use ($lastSeenByDeviceId, $observationsByTransmitter): array {
+            $installation = $device->installations->first();
+            $assignment = $device->assignments->first();
+            $position = $assignment?->asset?->latestPosition;
+            $normalizedIdentifier = BleObservationExtractor::normalizeMac($device->identifier);
+            $observations = $observationsByTransmitter->get($normalizedIdentifier, collect());
+            $lastObservation = $observations->first();
+            $lastSeenAt = collect([
+                $device->last_seen_at,
+                $lastSeenByDeviceId->get($device->id) ? Carbon::parse($lastSeenByDeviceId->get($device->id)) : null,
+                $lastObservation?->observed_at,
+                $position?->calculated_at,
+            ])->filter()->sortDesc()->first();
+
+            return [
+                'device' => $device,
+                'type_label' => match ($device->type) {
+                    'beacon' => 'Beacon BLE',
+                    'scanner' => 'Scanner/AP',
+                    'lorawan_tracker' => 'Tracker LoRaWAN',
+                    default => $device->type,
+                },
+                'installation' => $installation,
+                'assignment' => $assignment,
+                'position' => $position,
+                'observations' => $observations,
+                'last_seen_at' => $lastSeenAt,
+                'location_label' => $this->deviceLocationLabel($installation, $assignment),
+            ];
+        });
+
+        return view('devices.index', ['deviceRows' => $rows]);
+    }
+
     public function installationDeviceOptions(Request $request, FloorPlan $floorPlan): JsonResponse
     {
         $validated = $request->validate([
@@ -374,5 +450,34 @@ class DeviceController extends Controller
         }
 
         return $reported->values();
+    }
+
+    private function deviceLocationLabel(?DeviceInstallation $installation, ?AssetDeviceAssignment $assignment): string
+    {
+        if ($installation) {
+            $plan = $installation->floorPlan;
+            $location = $plan?->location ?? $installation->location;
+            $coordinates = $installation->x !== null && $installation->y !== null
+                ? sprintf('X %.2f m, Y %.2f m', (float) $installation->x, (float) $installation->y)
+                : null;
+
+            return collect([$location?->name, $plan?->name, $coordinates])->filter()->join(' - ') ?: 'Instalacion fija';
+        }
+
+        $asset = $assignment?->asset;
+        $position = $asset?->latestPosition;
+        if (! $asset || ! $position) {
+            return 'Sin ubicacion establecida';
+        }
+
+        if ($position->zone) {
+            return collect([$asset->name, $position->zone->name, $position->floorPlan?->name])->filter()->join(' - ');
+        }
+
+        $coordinates = $position->x !== null && $position->y !== null
+            ? sprintf('X %.2f m, Y %.2f m', (float) $position->x, (float) $position->y)
+            : null;
+
+        return collect([$asset->name, $position->floorPlan?->name ?? $position->location?->name, $coordinates])->filter()->join(' - ') ?: 'Sin area establecida';
     }
 }

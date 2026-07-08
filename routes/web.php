@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/assets/{asset}/photo', AssetPhotoController::class)->name('assets.photo');
     Route::get('/assets/{asset}/track', [AssetTrackController::class, 'show'])->name('assets.track');
     Route::get('/assets/{asset}/track/data', [AssetTrackController::class, 'data'])->name('assets.track.data');
+    Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
     Route::middleware('permission:assets.manage')->group(function (): void {
         Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
         Route::get('/assets/device-options', [AssetController::class, 'deviceOptions'])->name('assets.device-options');
