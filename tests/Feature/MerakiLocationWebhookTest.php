@@ -258,8 +258,10 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertSame('L_597289900580014244', $record['network_id']);
         $this->assertSame('f6b2afd3-1419-40c9-877b-2135fd81ec4b', $record['metadata']['ble_beacons'][0]['uuid']);
         $this->assertCount(3, $record['rssi_records']);
+        $this->assertCount(3, $record['reporting_aps']);
         $this->assertSame('AP-01', $record['rssi_records'][0]['apName']);
         $this->assertSame('Q3AE-ONE1-TEST', $record['rssi_records'][0]['apSerial']);
+        $this->assertSame('AP-03', $record['reporting_aps'][2]['apName']);
         $this->assertSame(3, $record['source_summary']['reporting_ap_count']);
         $this->assertSame(6, $record['source_summary']['location_count']);
         $this->assertTrue($record['source_summary']['compacted_from_expanded_record']);
@@ -329,6 +331,7 @@ class MerakiLocationWebhookTest extends TestCase
 
         $this->assertSame('E455A815A2D7', strtoupper(str_replace(':', '', $record['client_mac'])));
         $this->assertCount(2, $record['rssi_records']);
+        $this->assertCount(0, $record['reporting_aps']);
         $this->assertSame('f6b2afd3-1419-40c9-877b-2135fd81ec4b', $record['metadata']['ble_beacons'][0]['uuid']);
         $this->assertSame('e4:55:a8:15:a2:a0', $record['metadata']['latest_record']['nearest_ap_mac']);
         $this->assertSame(-58, $record['metadata']['latest_record']['nearest_ap_rssi']);
@@ -370,6 +373,49 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertSame('pending_floor_plan', data_get($scanners->firstWhere('identifier', 'E455A815A238')->metadata, 'meraki.installation_status'));
         $this->assertTrue($scanners->every(fn (Device $scanner): bool => $scanner->last_seen_at->equalTo($event->observed_at)));
         $this->assertTrue($scanners->every(fn (Device $scanner): bool => $scanner->installations()->doesntExist()));
+    }
+
+    public function test_meraki_v3_registers_reporting_aps_even_without_rssi_records(): void
+    {
+        Queue::fake();
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'reporting-aps']);
+        $connector = $this->connector($organization, '3');
+        $payload = [
+            'version' => '3.0',
+            'secret' => 'meraki-shared-secret-value',
+            'type' => 'Bluetooth',
+            'data' => [
+                'networkId' => 'L_123',
+                'reportingAps' => [
+                    ['serial' => 'Q3AE-ONE1-TEST', 'mac' => 'e4:55:a8:15:a2:38', 'name' => 'AP-01'],
+                    ['serial' => 'Q3AE-TWO2-TEST', 'mac' => 'e4:55:a8:15:a2:a9', 'name' => 'AP-02'],
+                    ['serial' => 'Q3AE-THR3-TEST', 'mac' => 'f8:9e:28:81:8d:bb', 'name' => 'AP-03'],
+                ],
+                'observations' => [[
+                    'clientMac' => 'aa:bb:cc:dd:ee:ff',
+                    'latestRecord' => [
+                        'time' => now()->subMinute()->toIso8601String(),
+                        'nearestApMac' => 'e4:55:a8:15:a2:38',
+                        'nearestApRssi' => -64,
+                    ],
+                    'locations' => [],
+                ]],
+            ],
+        ];
+
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)
+            ->assertAccepted()
+            ->assertJsonPath('observations_queued', 1);
+
+        $event = TelemetryEvent::query()->firstOrFail();
+        $this->process($event);
+
+        $scanners = Device::query()->where('type', 'scanner')->orderBy('identifier')->get();
+        $this->assertCount(3, $scanners);
+        $this->assertSame('AP-01', $scanners->firstWhere('identifier', 'E455A815A238')->name);
+        $this->assertSame('AP-02', $scanners->firstWhere('identifier', 'E455A815A2A9')->name);
+        $this->assertSame('AP-03', $scanners->firstWhere('identifier', 'F89E28818DBB')->name);
+        $this->assertCount(1, $event->fresh()->signalObservations);
     }
 
     public function test_older_meraki_observation_does_not_move_scanner_last_seen_backwards(): void

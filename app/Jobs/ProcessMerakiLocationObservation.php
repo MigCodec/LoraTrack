@@ -102,6 +102,16 @@ class ProcessMerakiLocationObservation implements ShouldQueue
             ])->save();
 
             $signalRows = [];
+            foreach (($record['reporting_aps'] ?? []) as $accessPoint) {
+                if (is_array($accessPoint)) {
+                    $accessPoints->register(
+                        $accessPoint,
+                        $event->observed_at ?? $event->received_at,
+                        (string) ($record['network_id'] ?? ''),
+                    );
+                }
+            }
+
             foreach (($record['rssi_records'] ?? []) as $reading) {
                 if (! is_array($reading) || ! is_numeric($reading['rssi'] ?? null)) {
                     continue;

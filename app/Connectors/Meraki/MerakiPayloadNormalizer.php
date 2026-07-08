@@ -58,6 +58,9 @@ class MerakiPayloadNormalizer
     {
         $floorPlan = is_array($location['floorPlan'] ?? null) ? $location['floorPlan'] : [];
         $latest = is_array($observation['latestRecord'] ?? null) ? $observation['latestRecord'] : [];
+        $reportingAps = is_array(Arr::get($payload, 'data.reportingAps'))
+            ? Arr::get($payload, 'data.reportingAps')
+            : [];
         $rssiRecords = $this->compactRssiRecords(
             is_array($location['rssiRecords'] ?? null)
                 ? $location['rssiRecords']
@@ -65,9 +68,7 @@ class MerakiPayloadNormalizer
                     'apMac' => $location['nearestApMac'] ?? $latest['nearestApMac'] ?? null,
                     'rssi' => $latest['nearestApRssi'] ?? null,
                 ]],
-            is_array(Arr::get($payload, 'data.reportingAps'))
-                ? Arr::get($payload, 'data.reportingAps')
-                : [],
+            $reportingAps,
         );
 
         return [
@@ -85,10 +86,11 @@ class MerakiPayloadNormalizer
             'longitude' => $location['lng'] ?? null,
             'accuracy_meters' => $location['variance'] ?? null,
             'rssi_records' => $rssiRecords,
+            'reporting_aps' => $this->compactReportingAps($reportingAps),
             'metadata' => $this->compactMetadata($observation, $latest),
             'source_summary' => [
                 'payload_checksum' => hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES) ?: ''),
-                'reporting_ap_count' => count(Arr::get($payload, 'data.reportingAps', [])),
+                'reporting_ap_count' => count($reportingAps),
                 'location_count' => count($observation['locations'] ?? []),
                 'rssi_record_count' => count($rssiRecords),
                 'nearest_ap_mac' => $location['nearestApMac'] ?? $latest['nearestApMac'] ?? null,
@@ -117,6 +119,7 @@ class MerakiPayloadNormalizer
             is_array($payload['rssi_records'] ?? null) ? $payload['rssi_records'] : [],
             is_array($rawData['reportingAps'] ?? null) ? $rawData['reportingAps'] : [],
         );
+        $reportingAps = is_array($rawData['reportingAps'] ?? null) ? $rawData['reportingAps'] : [];
 
         return [
             'version' => (string) ($payload['version'] ?? '3.0'),
@@ -133,10 +136,11 @@ class MerakiPayloadNormalizer
             'longitude' => $payload['longitude'] ?? null,
             'accuracy_meters' => $payload['accuracy_meters'] ?? null,
             'rssi_records' => $rssiRecords,
+            'reporting_aps' => $this->compactReportingAps($reportingAps),
             'metadata' => $this->compactMetadata($metadata + $observation, $latest),
             'source_summary' => [
                 'payload_checksum' => hash('sha256', json_encode($raw ?: $payload, JSON_UNESCAPED_SLASHES) ?: ''),
-                'reporting_ap_count' => $sourceSummary['reporting_ap_count'] ?? count($rawData['reportingAps'] ?? []),
+                'reporting_ap_count' => $sourceSummary['reporting_ap_count'] ?? count($reportingAps),
                 'location_count' => $sourceSummary['location_count'] ?? count($observation['locations'] ?? []),
                 'rssi_record_count' => count($rssiRecords),
                 'nearest_ap_mac' => $sourceSummary['nearest_ap_mac'] ?? $latest['nearestApMac'] ?? $latest['nearest_ap_mac'] ?? null,
@@ -168,6 +172,23 @@ class MerakiPayloadNormalizer
                     'lng' => $record['lng'] ?? $accessPoint['lng'] ?? null,
                 ], fn (mixed $value): bool => $value !== null);
             })
+            ->unique('apMac')
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function compactReportingAps(array $accessPoints): array
+    {
+        return collect($accessPoints)
+            ->filter(fn (mixed $accessPoint): bool => is_array($accessPoint) && is_string($accessPoint['mac'] ?? null))
+            ->map(fn (array $accessPoint): array => array_filter([
+                'apMac' => (string) $accessPoint['mac'],
+                'apName' => $accessPoint['name'] ?? null,
+                'apSerial' => $accessPoint['serial'] ?? null,
+                'lat' => $accessPoint['lat'] ?? null,
+                'lng' => $accessPoint['lng'] ?? null,
+            ], fn (mixed $value): bool => $value !== null))
             ->unique('apMac')
             ->values()
             ->all();
