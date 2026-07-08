@@ -14,7 +14,7 @@
     <script defer src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
     @stack('scripts')
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900" style="{{ App\Support\BrandPalette::cssVariables($tenant) }}">
+<body class="min-h-screen bg-slate-50 text-slate-900 @yield('body_class')" style="{{ App\Support\BrandPalette::cssVariables($tenant) }}">
     <div class="min-h-screen lg:flex">
         <aside class="brand-sidebar sidebar-shell px-5 py-6 text-white lg:fixed lg:inset-y-0 lg:w-64">
             <a href="{{ route('dashboard') }}" class="flex items-center gap-3" aria-label="LoraTrack, inicio">
@@ -69,12 +69,12 @@
             </div>
         </aside>
 
-        <main class="min-w-0 flex-1 lg:ml-64">
-            <header class="border-b border-slate-200 bg-white px-6 py-5 lg:px-10">
+        <main class="min-w-0 flex-1 lg:ml-64 @yield('main_class')">
+            <header class="border-b border-slate-200 bg-white px-6 py-5 lg:px-10 @yield('header_class')">
                 <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-xs font-semibold uppercase tracking-[0.18em] text-brand-accent">LoraTrack · {{ $tenant?->name }}</p>@if(auth()->user()->isAdmin())@endif</div>
                 <h1 class="mt-1 text-2xl font-semibold text-slate-950">@yield('heading', 'Dashboard')</h1>
             </header>
-            <div class="p-6 lg:p-10">
+            <div class="p-6 lg:p-10 @yield('content_class')">
                 @yield('content')
             </div>
         </main>

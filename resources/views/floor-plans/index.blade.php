@@ -2,6 +2,10 @@
 
 @section('title', 'Planos y zonas')
 @section('heading', 'Planos y zonas')
+@section('body_class', 'floor-plan-office-body')
+@section('main_class', 'floor-plan-office-main')
+@section('header_class', 'floor-plan-office-header')
+@section('content_class', 'floor-plan-office-content')
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}">
@@ -92,6 +96,7 @@
 @endpush
 
 @section('content')
+<div class="floor-plan-office-shell">
     @if(auth()->user()->hasPermission('plans.manage') || $selectedPlan)
         <div class="plan-ribbon floor-plans-primary-ribbon" role="toolbar" aria-label="Acciones y herramientas de planos">
             @if(auth()->user()->hasPermission('plans.manage'))
@@ -210,10 +215,10 @@
     @endif
 
     @if(!$selectedPlan)
-        <div class="panel mt-8 empty-state">Carga un plano para comenzar a definir zonas.</div>
+        <div class="floor-plan-empty-workbook empty-state">Carga un plano para comenzar a definir zonas.</div>
     @else
-        <div class="floor-plan-workspace mt-6">
-            <section class="panel p-4">
+        <div class="floor-plan-workspace">
+            <section class="floor-plan-canvas-shell">
                 <div class="plan-editor-overview">
                     <div class="plan-editor-current"><span>Plano actual</span><strong>{{ $selectedPlan->name }}</strong><small>{{ $selectedPlan->location->name }} · {{ $selectedPlan->width_meters }} × {{ $selectedPlan->height_meters }} m</small></div>
                     <div class="plan-editor-ready"><i></i><div><strong>Editor listo</strong><small>Plano activo y disponible</small></div></div>
@@ -363,4 +368,5 @@
             <form id="plan-sheet-delete-form" method="POST" hidden>@csrf @method('DELETE')</form>
         @endif
     @endif
+</div>
 @endsection

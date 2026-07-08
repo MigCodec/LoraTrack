@@ -9,6 +9,124 @@
     background: #fff;
 }
 
+.floor-plan-office-main {
+    min-height: 100vh;
+}
+
+.floor-plan-office-header {
+    display: none;
+}
+
+.floor-plan-office-content {
+    height: 100vh;
+    overflow: hidden;
+    background: #e9eef3;
+    padding: 0 !important;
+}
+
+.floor-plan-office-shell {
+    display: flex;
+    height: 100vh;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background: #e9eef3;
+}
+
+.floor-plan-office-shell .floor-plans-primary-ribbon {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: 0 1px 3px rgb(15 23 42 / .14);
+}
+
+.floor-plan-office-shell .floor-plan-workspace {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    margin: 0;
+}
+
+.floor-plan-canvas-shell {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: #f8fafc;
+}
+
+.floor-plan-office-shell .plan-editor-overview {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: .55rem .85rem;
+}
+
+.floor-plan-office-shell .plan-editor-layout {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    margin: 0;
+}
+
+.floor-plan-office-shell .plan-editor-stage {
+    min-height: 0;
+    flex: 1 1 auto;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding: .5rem;
+}
+
+.floor-plan-office-shell .plan-viewer-toolbar {
+    flex: 0 0 auto;
+    margin-bottom: .5rem;
+}
+
+.floor-plan-office-shell .plan-2d-viewport {
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+    border-radius: .25rem;
+}
+
+.floor-plan-office-shell #zone-editor {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.floor-plan-office-shell #floor-plan-image {
+    max-width: 100%;
+    max-height: calc(100vh - 14rem);
+}
+
+.floor-plan-office-shell .floor-plan-3d {
+    min-height: 0;
+    height: auto;
+    flex: 1 1 auto;
+    border-radius: .25rem;
+}
+
+.floor-plan-office-shell .plan-sheet-tabs {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0 .85rem;
+}
+
+.floor-plan-empty-workbook {
+    display: grid;
+    min-height: 0;
+    flex: 1 1 auto;
+    place-items: center;
+    margin: 0;
+    border-radius: 0;
+}
+
 .plan-editor-current,
 .plan-editor-ready div,
 .plan-editor-stats span {
