@@ -567,6 +567,144 @@ if (realtimeMap) {
     refresh(); setInterval(refresh, 10000);
 }
 
+document.querySelectorAll('[data-meraki-access-points]').forEach((container) => {
+    const endpoint = container.dataset.endpoint;
+    const search = container.querySelector('[data-meraki-access-point-search]');
+    const rows = container.querySelector('[data-meraki-access-point-rows]');
+    const pagination = container.querySelector('[data-meraki-access-point-pagination]');
+    let controller = null;
+    let debounce = null;
+    let currentPage = Number(new URLSearchParams(window.location.search).get('page') || 1);
+
+    const appendText = (parent, tag, text, className = null) => {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        element.textContent = text;
+        parent.appendChild(element);
+        return element;
+    };
+    const appendOptionalText = (parent, tag, text, className = null) => {
+        if (!text) return null;
+        return appendText(parent, tag, text, className);
+    };
+    const setMessage = (message) => {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 5;
+        cell.textContent = message;
+        row.appendChild(cell);
+        rows.replaceChildren(row);
+    };
+    const updateBrowserUrl = (page) => {
+        const params = new URLSearchParams(window.location.search);
+        const query = search?.value.trim() || '';
+        if (page > 1) params.set('page', String(page));
+        else params.delete('page');
+        if (query !== '') params.set('q', query);
+        else params.delete('q');
+        const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}`;
+        window.history.replaceState({}, '', next);
+    };
+    const renderRows = (items) => {
+        if (!items.length) {
+            setMessage('No hay AP Meraki para los filtros actuales.');
+            return;
+        }
+        rows.replaceChildren(...items.map((item) => {
+            const row = document.createElement('tr');
+
+            const ap = document.createElement('td');
+            appendText(ap, 'strong', item.name || 'AP sin nombre', 'block text-sm');
+            appendText(ap, 'code', item.identifier || 'Sin MAC', 'text-xs');
+            appendOptionalText(ap, 'span', item.model, 'mt-1 block text-xs text-slate-400');
+
+            const meraki = document.createElement('td');
+            appendText(meraki, 'span', `Serial: ${item.serial || 'Sin serial'}`, 'block text-sm text-slate-700');
+            appendText(meraki, 'span', `Network: ${item.network_id || 'Sin network_id'}`, 'mt-1 block text-xs text-slate-400');
+            if (item.reported_latitude !== null && item.reported_longitude !== null) {
+                appendText(meraki, 'span', `Meraki lat/lng: ${item.reported_latitude}, ${item.reported_longitude}`, 'mt-1 block text-xs text-slate-400');
+            }
+
+            const location = document.createElement('td');
+            appendText(location, 'span', item.status_label, `status-badge status-${item.status_class}`);
+            appendText(location, 'span', item.location_label, 'mt-2 block text-sm text-slate-700');
+
+            const clients = document.createElement('td');
+            appendText(clients, 'strong', Number(item.clients_count || 0).toLocaleString(), 'block text-sm text-slate-800');
+            appendText(clients, 'span', 'MAC cliente distintas observadas por este AP', 'text-xs text-slate-400');
+
+            const activity = document.createElement('td');
+            appendText(activity, 'span', item.last_activity_human || 'Sin senal', 'text-sm text-slate-700');
+            appendOptionalText(activity, 'span', item.last_activity_label, 'mt-1 block text-xs text-slate-400');
+
+            row.append(ap, meraki, location, clients, activity);
+            return row;
+        }));
+    };
+    const pageButton = (label, page, disabled = false, active = false) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = active ? 'btn-primary' : 'btn-secondary';
+        button.textContent = label;
+        button.disabled = disabled;
+        button.addEventListener('click', () => load(page));
+        return button;
+    };
+    const renderPagination = (meta) => {
+        const summary = document.createElement('span');
+        summary.className = 'text-sm text-slate-500';
+        summary.textContent = meta.total
+            ? `Mostrando ${meta.from}-${meta.to} de ${meta.total} AP`
+            : 'Sin resultados';
+
+        const controls = document.createElement('div');
+        controls.className = 'mt-3 flex flex-wrap gap-2';
+        controls.appendChild(pageButton('Anterior', Math.max(1, meta.current_page - 1), meta.current_page <= 1));
+        const first = Math.max(1, meta.current_page - 2);
+        const last = Math.min(meta.last_page, meta.current_page + 2);
+        for (let page = first; page <= last; page += 1) {
+            controls.appendChild(pageButton(String(page), page, false, page === meta.current_page));
+        }
+        controls.appendChild(pageButton('Siguiente', Math.min(meta.last_page, meta.current_page + 1), meta.current_page >= meta.last_page));
+        pagination.replaceChildren(summary, controls);
+    };
+    async function load(page = 1) {
+        if (!endpoint) return;
+        currentPage = page;
+        if (controller) controller.abort();
+        controller = new AbortController();
+        container.setAttribute('aria-busy', 'true');
+        setMessage('Cargando AP Meraki...');
+        const url = new URL(endpoint, window.location.origin);
+        url.searchParams.set('page', String(page));
+        const query = search?.value.trim() || '';
+        if (query !== '') url.searchParams.set('q', query);
+        try {
+            const response = await fetch(url, {headers: {Accept: 'application/json'}, signal: controller.signal});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const payload = await response.json();
+            renderRows(payload.data || []);
+            renderPagination(payload.meta || {current_page: 1, last_page: 1, total: 0});
+            updateBrowserUrl(page);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                setMessage('No fue posible cargar los AP Meraki.');
+                pagination.replaceChildren();
+            }
+        } finally {
+            container.removeAttribute('aria-busy');
+        }
+    }
+
+    const initialParams = new URLSearchParams(window.location.search);
+    if (search && initialParams.get('q')) search.value = initialParams.get('q');
+    search?.addEventListener('input', () => {
+        window.clearTimeout(debounce);
+        debounce = window.setTimeout(() => load(1), 250);
+    });
+    load(currentPage);
+});
+
 document.querySelectorAll('[data-access-form]').forEach((form) => {
     const accessType = form.querySelector('[data-access-type]');
     const expirationField = form.querySelector('[data-expiration-field]');

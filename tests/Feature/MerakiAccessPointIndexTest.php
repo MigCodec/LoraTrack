@@ -95,15 +95,28 @@ class MerakiAccessPointIndexTest extends TestCase
         $this->actingAs($admin)->get(route('meraki-access-points.index'))
             ->assertOk()
             ->assertSee('Access points Meraki')
+            ->assertSee(route('api.meraki-access-points.index'), false)
+            ->assertSee('data-meraki-access-points', false)
+            ->assertDontSee('Scanner no Meraki');
+
+        $this->actingAs($admin)->getJson(route('api.meraki-access-points.index'))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.name', 'MR Oficina Norte')
+            ->assertJsonPath('data.0.identifier', 'E455A815A238')
+            ->assertJsonPath('data.0.serial', 'Q3AE-ONE1-TEST')
+            ->assertJsonPath('data.0.network_id', 'L_123456789')
+            ->assertJsonPath('data.0.reported_latitude', -31.695)
+            ->assertJsonPath('data.0.reported_longitude', -71.948)
+            ->assertJsonPath('data.0.location_label', 'Piso 3 - Oficina norte - X 7.50 m, Y 4.25 m')
+            ->assertJsonPath('data.0.clients_count', 2)
+            ->assertJsonPath('data.1.name', 'MR Pendiente')
+            ->assertJsonPath('data.1.status_label', 'Pendiente de plano');
+
+        $this->actingAs($admin)->getJson(route('api.meraki-access-points.index', ['q' => 'Q3AE-ONE1']))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
             ->assertSee('MR Oficina Norte')
-            ->assertSee('E455A815A238')
-            ->assertSee('Q3AE-ONE1-TEST')
-            ->assertSee('L_123456789')
-            ->assertSee('-31.695, -71.948')
-            ->assertSee('Piso 3 - Oficina norte - X 7.50 m, Y 4.25 m')
-            ->assertSee('2')
-            ->assertSee('MR Pendiente')
-            ->assertSee('Pendiente de plano')
             ->assertDontSee('Scanner no Meraki');
     }
 
@@ -120,14 +133,17 @@ class MerakiAccessPointIndexTest extends TestCase
             ]);
         }
 
-        $this->actingAs($admin)->get(route('meraki-access-points.index'))
+        $this->actingAs($admin)->getJson(route('api.meraki-access-points.index'))
             ->assertOk()
-            ->assertSee('Meraki AP 0001')
-            ->assertDontSee('Meraki AP 0055')
-            ->assertSee('page=2', false);
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.total', 55)
+            ->assertJsonPath('data.0.name', 'Meraki AP 0001')
+            ->assertJsonMissing(['name' => 'Meraki AP 0055']);
 
-        $this->actingAs($admin)->get(route('meraki-access-points.index', ['page' => 2]))
+        $this->actingAs($admin)->getJson(route('api.meraki-access-points.index', ['page' => 2]))
             ->assertOk()
-            ->assertSee('Meraki AP 0055');
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('data.4.name', 'Meraki AP 0055');
     }
 }

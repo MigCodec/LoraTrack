@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AlertRuleController;
+use App\Http\Controllers\Api\MerakiAccessPointIndexController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetDeviceAssignmentController;
 use App\Http\Controllers\AssetPhotoController;
@@ -56,6 +57,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/assets/{asset}/track/data', [AssetTrackController::class, 'data'])->name('assets.track.data');
     Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
     Route::get('/meraki-access-points', MerakiAccessPointController::class)->name('meraki-access-points.index');
+    Route::get('/api/v1/meraki-access-points', MerakiAccessPointIndexController::class)->name('api.meraki-access-points.index');
     Route::middleware('permission:assets.manage')->group(function (): void {
         Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
         Route::get('/assets/device-options', [AssetController::class, 'deviceOptions'])->name('assets.device-options');

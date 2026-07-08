@@ -4,7 +4,7 @@
 @section('heading', 'AP Meraki')
 
 @section('content')
-    <section class="panel">
+    <section class="panel" data-meraki-access-points data-endpoint="{{ route('api.meraki-access-points.index') }}">
         <div class="panel-header">
             <div>
                 <h2 class="panel-title">Access points Meraki</h2>
@@ -15,60 +15,27 @@
             @endif
         </div>
 
-        @if($accessPointRows->isEmpty())
-            <div class="empty-state">Aun no hay AP Meraki registrados desde el conector.</div>
-        @else
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>AP</th>
-                            <th>Meraki</th>
-                            <th>Ubicacion</th>
-                            <th>Clientes vistos</th>
-                            <th>Ultima actividad</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($accessPointRows as $row)
-                            @php($accessPoint = $row['access_point'])
-                            <tr>
-                                <td>
-                                    <strong class="block text-sm">{{ $accessPoint->name }}</strong>
-                                    <code class="text-xs">{{ $accessPoint->identifier }}</code>
-                                    @if($accessPoint->model)
-                                        <span class="mt-1 block text-xs text-slate-400">{{ $accessPoint->model }}</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <span class="block text-sm text-slate-700">Serial: {{ $row['serial'] ?? 'Sin serial' }}</span>
-                                    <span class="mt-1 block text-xs text-slate-400">Network: {{ $row['network_id'] ?? 'Sin network_id' }}</span>
-                                    @if($row['reported_latitude'] !== null && $row['reported_longitude'] !== null)
-                                        <span class="mt-1 block text-xs text-slate-400">Meraki lat/lng: {{ $row['reported_latitude'] }}, {{ $row['reported_longitude'] }}</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <span class="status-badge status-{{ $row['status_class'] }}">{{ $row['status_label'] }}</span>
-                                    <span class="mt-2 block text-sm text-slate-700">{{ $row['location_label'] }}</span>
-                                </td>
-                                <td>
-                                    <strong class="block text-sm text-slate-800">{{ number_format($row['clients_count']) }}</strong>
-                                    <span class="text-xs text-slate-400">MAC cliente distintas observadas por este AP</span>
-                                </td>
-                                <td>
-                                    <span class="text-sm text-slate-700">{{ $row['last_observed_at']?->diffForHumans() ?? 'Sin senal' }}</span>
-                                    @if($row['last_observed_at'])
-                                        <span class="mt-1 block text-xs text-slate-400">{{ $row['last_observed_at']->format('d-m-Y H:i') }}</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            <div class="border-t border-slate-200 p-4">
-                {{ $accessPointRows->links() }}
-            </div>
-        @endif
+        <div class="border-t border-slate-200 p-4">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500" for="meraki-ap-search">Buscar AP</label>
+            <input id="meraki-ap-search" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-accent focus:outline-none" type="search" autocomplete="off" placeholder="Nombre, MAC, serial o network" data-meraki-access-point-search>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>AP</th>
+                        <th>Meraki</th>
+                        <th>Ubicacion</th>
+                        <th>Clientes vistos</th>
+                        <th>Ultima actividad</th>
+                    </tr>
+                </thead>
+                <tbody data-meraki-access-point-rows>
+                    <tr><td colspan="5">Cargando AP Meraki...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="border-t border-slate-200 p-4" data-meraki-access-point-pagination aria-live="polite"></div>
     </section>
 @endsection

@@ -20,7 +20,11 @@ class MerakiAccessPointRegistrar
 
         $device = Device::query()->firstOrNew(['identifier' => $identifier]);
         if ($device->exists && $device->type !== 'scanner') {
-            return $device;
+            $hasActiveUsage = $device->assignments()->whereNull('ended_at')->exists()
+                || $device->installations()->whereNull('ended_at')->exists();
+            if ($hasActiveUsage) {
+                return $device;
+            }
         }
 
         $metadata = $device->metadata ?? [];

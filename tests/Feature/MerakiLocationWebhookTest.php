@@ -418,6 +418,97 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertCount(1, $event->fresh()->signalObservations);
     }
 
+    public function test_meraki_ap_reading_promotes_unassigned_existing_device_to_scanner(): void
+    {
+        Queue::fake();
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'promote-ap']);
+        $connector = $this->connector($organization, '3');
+        Device::query()->create([
+            'organization_id' => $organization->id,
+            'identifier' => 'E455A815A3B2',
+            'name' => 'Dispositivo observado previamente',
+            'type' => 'beacon',
+        ]);
+        $payload = [
+            'version' => '3.0',
+            'secret' => 'meraki-shared-secret-value',
+            'type' => 'Bluetooth',
+            'data' => [
+                'networkId' => 'L_123',
+                'observations' => [[
+                    'clientMac' => 'aa:bb:cc:dd:ee:ff',
+                    'locations' => [[
+                        'time' => now()->subMinute()->toIso8601String(),
+                        'rssiRecords' => [[
+                            'apMac' => 'e4:55:a8:15:a3:b2',
+                            'rssi' => -63,
+                            'apName' => 'ANF-AP-THER-2-3',
+                            'apSerial' => 'Q3AE-TGJL-V7HD',
+                        ]],
+                    ]],
+                ]],
+            ],
+        ];
+
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertAccepted();
+        $event = TelemetryEvent::query()->firstOrFail();
+        $this->process($event);
+
+        $device = Device::query()->where('identifier', 'E455A815A3B2')->firstOrFail();
+        $this->assertSame('scanner', $device->type);
+        $this->assertSame('access_point_scanner', data_get($device->metadata, 'meraki.role'));
+        $this->assertSame('Q3AE-TGJL-V7HD', data_get($device->metadata, 'meraki.serial'));
+    }
+
+    public function test_meraki_access_point_backfill_registers_aps_from_processed_normalized_payloads(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'backfill-aps']);
+        $connector = $this->connector($organization, '3');
+        TelemetryEvent::query()->create([
+            'organization_id' => $organization->id,
+            'connector_id' => $connector->id,
+            'external_event_id' => 'backfill-meraki-aps',
+            'event_type' => 'meraki_location',
+            'observed_at' => now()->subMinute(),
+            'received_at' => now(),
+            'raw_payload' => ['source_summary' => ['payload_checksum' => 'backfill']],
+            'normalized_payload' => [
+                'network_id' => 'L_123',
+                'rssi_records' => [
+                    [
+                        'apMac' => 'e4:55:a8:15:a3:b2',
+                        'rssi' => -63,
+                        'apName' => 'ANF-AP-THER-2-3',
+                        'apSerial' => 'Q3AE-TGJL-V7HD',
+                    ],
+                    [
+                        'apMac' => 'e4:55:a8:15:a2:ff',
+                        'rssi' => -65,
+                        'apName' => 'ANF-AP-THER-1-3',
+                        'apSerial' => 'Q3AE-TX6J-MQAL',
+                    ],
+                ],
+            ],
+            'processing_status' => 'processed',
+        ]);
+
+        $this->artisan('loratrack:backfill-meraki-access-points')
+            ->expectsOutput('AP Meraki detectables en eventos revisados: 2.')
+            ->expectsOutput('AP Meraki creados o actualizados como scanner: 2.')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('devices', [
+            'organization_id' => $organization->id,
+            'identifier' => 'E455A815A3B2',
+            'type' => 'scanner',
+        ]);
+        $this->assertDatabaseHas('devices', [
+            'organization_id' => $organization->id,
+            'identifier' => 'E455A815A2FF',
+            'type' => 'scanner',
+        ]);
+    }
+
     public function test_older_meraki_observation_does_not_move_scanner_last_seen_backwards(): void
     {
         $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'scanner-last-seen']);
