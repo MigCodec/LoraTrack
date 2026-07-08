@@ -535,7 +535,7 @@ class MerakiLocationWebhookTest extends TestCase
         }
     }
 
-    public function test_meraki_history_keeps_only_latest_ten_events_per_device(): void
+    public function test_meraki_history_prunes_events_older_than_six_days_per_device(): void
     {
         $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'history-acme']);
         $connector = $this->connector($organization, '3');
@@ -546,34 +546,35 @@ class MerakiLocationWebhookTest extends TestCase
             'type' => 'beacon',
         ]);
 
-        for ($index = 0; $index < 12; $index++) {
-            $event = TelemetryEvent::query()->create([
-                'organization_id' => $organization->id,
-                'connector_id' => $connector->id,
-                'device_id' => $device->id,
-                'external_event_id' => hash('sha256', 'meraki-history-'.$index),
-                'event_type' => 'meraki_location',
-                'observed_at' => now()->subMinutes(12 - $index),
-                'received_at' => now()->subMinutes(12 - $index),
-                'raw_payload' => ['client_mac' => $device->identifier],
-                'processing_status' => 'processed',
-            ]);
-            app(MerakiEventRetention::class)->prune($event);
-        }
+        $oldEvent = TelemetryEvent::query()->create([
+            'organization_id' => $organization->id,
+            'connector_id' => $connector->id,
+            'device_id' => $device->id,
+            'external_event_id' => hash('sha256', 'meraki-history-old'),
+            'event_type' => 'meraki_location',
+            'observed_at' => now()->subDays(7),
+            'received_at' => now()->subDays(7),
+            'raw_payload' => ['client_mac' => $device->identifier],
+            'processing_status' => 'processed',
+        ]);
+        $recentEvent = TelemetryEvent::query()->create([
+            'organization_id' => $organization->id,
+            'connector_id' => $connector->id,
+            'device_id' => $device->id,
+            'external_event_id' => hash('sha256', 'meraki-history-recent'),
+            'event_type' => 'meraki_location',
+            'observed_at' => now()->subDays(2),
+            'received_at' => now()->subDays(2),
+            'raw_payload' => ['client_mac' => $device->identifier],
+            'processing_status' => 'processed',
+        ]);
 
-        $events = TelemetryEvent::query()
-            ->where('connector_id', $connector->id)
-            ->where('device_id', $device->id)
-            ->orderBy('observed_at')
-            ->get();
-        $this->assertCount(10, $events);
-        $this->assertSame(
-            hash('sha256', 'meraki-history-2'),
-            $events->first()->external_event_id,
-        );
+        $this->assertSame(1, app(MerakiEventRetention::class)->prune($recentEvent));
+        $this->assertDatabaseMissing('telemetry_events', ['id' => $oldEvent->id]);
+        $this->assertDatabaseHas('telemetry_events', ['id' => $recentEvent->id]);
     }
 
-    public function test_scheduled_pruner_corrects_existing_meraki_history(): void
+    public function test_scheduled_pruner_deletes_meraki_history_older_than_six_days(): void
     {
         $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'pruner-acme']);
         $connector = $this->connector($organization, '3');
@@ -583,29 +584,50 @@ class MerakiLocationWebhookTest extends TestCase
             'name' => 'Beacon',
             'type' => 'beacon',
         ]);
-        for ($index = 0; $index < 14; $index++) {
+        for ($index = 0; $index < 3; $index++) {
+            $event = TelemetryEvent::query()->create([
+                'organization_id' => $organization->id,
+                'connector_id' => $connector->id,
+                'device_id' => $device->id,
+                'external_event_id' => hash('sha256', 'scheduled-history-old-'.$index),
+                'event_type' => 'meraki_location',
+                'observed_at' => now()->subDays(7)->subMinutes($index),
+                'received_at' => now()->subDays(7)->subMinutes($index),
+                'raw_payload' => ['client_mac' => $device->identifier],
+                'processing_status' => 'processed',
+            ]);
+            $event->signalObservations()->create([
+                'organization_id' => $organization->id,
+                'transmitter_mac' => $device->identifier,
+                'receiver_identifier' => '001122334455',
+                'rssi' => -60,
+                'observed_at' => $event->observed_at,
+            ]);
+        }
+        for ($index = 0; $index < 2; $index++) {
             TelemetryEvent::query()->create([
                 'organization_id' => $organization->id,
                 'connector_id' => $connector->id,
                 'device_id' => $device->id,
-                'external_event_id' => hash('sha256', 'scheduled-history-'.$index),
+                'external_event_id' => hash('sha256', 'scheduled-history-recent-'.$index),
                 'event_type' => 'meraki_location',
-                'observed_at' => now()->subMinutes(14 - $index),
-                'received_at' => now()->subMinutes(14 - $index),
+                'observed_at' => now()->subDays($index + 1),
+                'received_at' => now()->subDays($index + 1),
                 'raw_payload' => ['client_mac' => $device->identifier],
                 'processing_status' => 'processed',
             ]);
         }
 
         $this->artisan('loratrack:prune-meraki-history')
-            ->expectsOutput('Eventos Meraki que exceden la retención: 4.')
-            ->expectsOutput('Eventos Meraki antiguos eliminados: 4.')
+            ->expectsOutput('Eventos Meraki vencidos por retencion de 6 dias: 3.')
+            ->expectsOutput('Eventos Meraki antiguos eliminados: 3.')
             ->expectsOutput('Pendientes aproximados: 0.')
             ->assertSuccessful();
-        $this->assertSame(10, TelemetryEvent::query()
+        $this->assertSame(2, TelemetryEvent::query()
             ->where('connector_id', $connector->id)
             ->where('device_id', $device->id)
             ->count());
+        $this->assertDatabaseCount('signal_observations', 0);
     }
 
     public function test_meraki_pruner_supports_dry_run_and_delete_limits(): void
@@ -618,29 +640,29 @@ class MerakiLocationWebhookTest extends TestCase
             'name' => 'Beacon',
             'type' => 'beacon',
         ]);
-        for ($index = 0; $index < 15; $index++) {
+        for ($index = 0; $index < 5; $index++) {
             TelemetryEvent::query()->create([
                 'organization_id' => $organization->id,
                 'connector_id' => $connector->id,
                 'device_id' => $device->id,
                 'external_event_id' => hash('sha256', 'limited-history-'.$index),
                 'event_type' => 'meraki_location',
-                'observed_at' => now()->subMinutes(15 - $index),
-                'received_at' => now()->subMinutes(15 - $index),
+                'observed_at' => now()->subDays(7)->subMinutes($index),
+                'received_at' => now()->subDays(7)->subMinutes($index),
                 'raw_payload' => ['client_mac' => $device->identifier],
             ]);
         }
 
         $this->artisan('loratrack:prune-meraki-history', ['--dry-run' => true])
-            ->expectsOutput('Eventos Meraki que exceden la retención: 5.')
+            ->expectsOutput('Eventos Meraki vencidos por retencion de 6 dias: 5.')
             ->assertSuccessful();
-        $this->assertSame(15, TelemetryEvent::query()->where('device_id', $device->id)->count());
+        $this->assertSame(5, TelemetryEvent::query()->where('device_id', $device->id)->count());
 
         $this->artisan('loratrack:prune-meraki-history', ['--max-delete' => 2])
             ->expectsOutput('Eventos Meraki antiguos eliminados: 2.')
             ->expectsOutput('Pendientes aproximados: 3.')
             ->assertSuccessful();
-        $this->assertSame(13, TelemetryEvent::query()->where('device_id', $device->id)->count());
+        $this->assertSame(3, TelemetryEvent::query()->where('device_id', $device->id)->count());
     }
 
     private function connector(Organization $organization, string $version): Connector

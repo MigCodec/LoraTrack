@@ -166,6 +166,94 @@ a.text-brand-primary:hover {
     background: color-mix(in srgb, var(--color-brand-primary) 4%, #fff);
 }
 
+.device-ap-history-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    margin-top: .65rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-brand-primary);
+    cursor: pointer;
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.device-ap-history-toggle::before {
+    content: "+";
+    display: grid;
+    width: 1rem;
+    height: 1rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--color-brand-primary) 34%, #cbd5e1);
+    border-radius: 999px;
+    font-size: .72rem;
+}
+
+.device-ap-history-toggle[aria-expanded="true"]::before {
+    content: "-";
+}
+
+.device-ap-history-toggle:hover,
+.device-ap-history-toggle:focus-visible {
+    color: var(--color-brand-accent);
+    outline: none;
+}
+
+.device-ap-history-row[hidden] {
+    display: none;
+}
+
+.device-ap-history-row > td {
+    padding: 0;
+    background: #f8fafc;
+}
+
+.device-ap-history-panel {
+    display: grid;
+    gap: .8rem;
+    border-top: 1px solid var(--brand-border);
+    padding: 1rem;
+}
+
+.device-ap-history-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.device-ap-history-header strong {
+    display: block;
+    color: #0f172a;
+    font-size: .9rem;
+}
+
+.device-ap-history-header span,
+.device-ap-history-status {
+    color: #64748b;
+    font-size: .78rem;
+}
+
+.device-ap-history-table-wrap {
+    border-radius: .5rem;
+    background: #fff;
+}
+
+.device-ap-history-table th,
+.device-ap-history-table td {
+    font-size: .8rem;
+}
+
+.device-ap-history-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+}
+
 .empty-state {
     border-color: color-mix(in srgb, var(--color-brand-primary) 20%, #e2e8f0);
     background: linear-gradient(135deg, var(--brand-surface-primary), #fff);

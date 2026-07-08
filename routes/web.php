@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/assets/{asset}/track', [AssetTrackController::class, 'show'])->name('assets.track');
     Route::get('/assets/{asset}/track/data', [AssetTrackController::class, 'data'])->name('assets.track.data');
     Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
+    Route::get('/devices/{device}/ap-history', [DeviceController::class, 'apHistory'])->name('devices.ap-history');
     Route::get('/meraki-access-points', MerakiAccessPointController::class)->name('meraki-access-points.index');
     Route::get('/api/v1/meraki-access-points', MerakiAccessPointIndexController::class)->name('api.meraki-access-points.index');
     Route::middleware('permission:assets.manage')->group(function (): void {

@@ -10,16 +10,16 @@ use Illuminate\Console\Command;
 class PruneMerakiHistory extends Command
 {
     protected $signature = 'loratrack:prune-meraki-history
-        {--dry-run : Contar eventos excedentes sin eliminarlos}
-        {--max-delete=10000 : Máximo de eventos a eliminar en esta ejecución}';
+        {--dry-run : Contar eventos vencidos sin eliminarlos}
+        {--max-delete=10000 : Maximo de eventos a eliminar en esta ejecucion}';
 
-    protected $description = 'Conserva los últimos diez eventos Meraki por tenant, conector y dispositivo.';
+    protected $description = 'Elimina eventos Meraki y observaciones asociadas anteriores a la retencion de seis dias.';
 
     public function handle(MerakiEventRetention $retention): int
     {
-        $excess = $retention->excessCount();
-        $this->info("Eventos Meraki que exceden la retención: {$excess}.");
-        if ($this->option('dry-run') || $excess === 0) {
+        $stale = $retention->staleCount();
+        $this->info('Eventos Meraki vencidos por retencion de '.MerakiEventRetention::RETENTION_DAYS." dias: {$stale}.");
+        if ($this->option('dry-run') || $stale === 0) {
             return self::SUCCESS;
         }
 
@@ -34,7 +34,7 @@ class PruneMerakiHistory extends Command
 
         $deleted = $retention->pruneAll($maxDeletes);
         $this->info("Eventos Meraki antiguos eliminados: {$deleted}.");
-        $this->info('Pendientes aproximados: '.max(0, $excess - $deleted).'.');
+        $this->info('Pendientes aproximados: '.max(0, $stale - $deleted).'.');
 
         return self::SUCCESS;
     }

@@ -63,12 +63,52 @@
                                         </div>
                                         <span class="mt-1 block text-xs text-slate-400">Ultimas anclas receptoras del dispositivo.</span>
                                     @endif
+                                    <button
+                                        class="device-ap-history-toggle"
+                                        type="button"
+                                        data-device-ap-history-toggle
+                                        data-target="device-ap-history-{{ $device->id }}"
+                                        data-endpoint="{{ route('devices.ap-history', $device) }}"
+                                        aria-expanded="false"
+                                        aria-controls="device-ap-history-{{ $device->id }}"
+                                    >
+                                        Ver historial AP MAC
+                                    </button>
                                 </td>
                                 <td>
                                     <span class="text-sm text-slate-700">{{ $row['last_seen_at']?->diffForHumans() ?? 'Sin senal' }}</span>
                                     @if($row['last_seen_at'])
                                         <span class="mt-1 block text-xs text-slate-400">{{ $row['last_seen_at']->format('d-m-Y H:i') }}</span>
                                     @endif
+                                </td>
+                            </tr>
+                            <tr id="device-ap-history-{{ $device->id }}" class="device-ap-history-row" data-device-ap-history-panel hidden>
+                                <td colspan="5">
+                                    <div class="device-ap-history-panel">
+                                        <div class="device-ap-history-header">
+                                            <div>
+                                                <strong>Historial de AP MAC alrededor</strong>
+                                                <span>Retencion maxima: 6 dias. Se carga bajo demanda para no ralentizar la lista.</span>
+                                            </div>
+                                            <span class="device-ap-history-status" data-device-ap-history-status>Sin cargar</span>
+                                        </div>
+                                        <div class="table-wrap device-ap-history-table-wrap">
+                                            <table class="data-table device-ap-history-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>AP MAC</th>
+                                                        <th>RSSI</th>
+                                                        <th>Tiempo observado</th>
+                                                        <th>Origen</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody data-device-ap-history-rows>
+                                                    <tr><td colspan="4">Cargando historial...</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="device-ap-history-pagination" data-device-ap-history-pagination aria-live="polite"></div>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

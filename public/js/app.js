@@ -567,6 +567,113 @@ if (realtimeMap) {
     refresh(); setInterval(refresh, 10000);
 }
 
+document.querySelectorAll('[data-device-ap-history-toggle]').forEach((button) => {
+    const panel = document.getElementById(button.dataset.target || '');
+    if (!panel) return;
+    const rows = panel.querySelector('[data-device-ap-history-rows]');
+    const status = panel.querySelector('[data-device-ap-history-status]');
+    const pagination = panel.querySelector('[data-device-ap-history-pagination]');
+    let loaded = false;
+    let controller = null;
+
+    const setMessage = (message) => {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.textContent = message;
+        row.appendChild(cell);
+        rows?.replaceChildren(row);
+    };
+    const appendText = (parent, tag, text, className = null) => {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        element.textContent = text;
+        parent.appendChild(element);
+        return element;
+    };
+    const renderRows = (items) => {
+        if (!rows) return;
+        if (!items.length) {
+            setMessage('Sin AP MAC detectadas dentro de la retencion vigente.');
+            return;
+        }
+        rows.replaceChildren(...items.map((item) => {
+            const row = document.createElement('tr');
+            const ap = document.createElement('td');
+            appendText(ap, 'code', item.ap_mac || 'Sin AP MAC', 'text-xs');
+            const rssi = document.createElement('td');
+            rssi.textContent = item.rssi === null || item.rssi === undefined ? 'Sin RSSI' : `${item.rssi} dBm`;
+            const observed = document.createElement('td');
+            appendText(observed, 'span', item.observed_at_human || 'Sin fecha', 'block text-sm text-slate-700');
+            appendText(observed, 'span', item.observed_at_label || '', 'mt-1 block text-xs text-slate-400');
+            const source = document.createElement('td');
+            source.textContent = item.source || 'telemetria';
+            row.append(ap, rssi, observed, source);
+            return row;
+        }));
+    };
+    const pageButton = (label, page, disabled = false, active = false) => {
+        const pageControl = document.createElement('button');
+        pageControl.type = 'button';
+        pageControl.className = active ? 'btn-primary' : 'btn-secondary';
+        pageControl.textContent = label;
+        pageControl.disabled = disabled;
+        pageControl.addEventListener('click', () => load(page));
+        return pageControl;
+    };
+    const renderPagination = (meta) => {
+        if (!pagination) return;
+        const summary = document.createElement('span');
+        summary.className = 'text-sm text-slate-500';
+        summary.textContent = meta.total
+            ? `Mostrando ${meta.from}-${meta.to} de ${meta.total} detecciones`
+            : `Sin detecciones en los ultimos ${meta.retention_days || 6} dias`;
+
+        const controls = document.createElement('div');
+        controls.className = 'flex flex-wrap gap-2';
+        const current = Number(meta.current_page || 1);
+        const last = Number(meta.last_page || 1);
+        controls.appendChild(pageButton('Anterior', Math.max(1, current - 1), current <= 1));
+        for (let page = Math.max(1, current - 2); page <= Math.min(last, current + 2); page += 1) {
+            controls.appendChild(pageButton(String(page), page, false, page === current));
+        }
+        controls.appendChild(pageButton('Siguiente', Math.min(last, current + 1), current >= last));
+        pagination.replaceChildren(summary, controls);
+    };
+    async function load(page = 1) {
+        if (!button.dataset.endpoint) return;
+        if (controller) controller.abort();
+        controller = new AbortController();
+        setMessage('Cargando historial AP MAC...');
+        if (status) status.textContent = 'Cargando';
+        const url = new URL(button.dataset.endpoint, window.location.origin);
+        url.searchParams.set('page', String(page));
+        try {
+            const response = await fetch(url, {headers: {Accept: 'application/json'}, signal: controller.signal});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const payload = await response.json();
+            renderRows(payload.data || []);
+            renderPagination(payload.meta || {current_page: 1, last_page: 1, total: 0, retention_days: 6});
+            loaded = true;
+            if (status) status.textContent = `Retencion ${payload.meta?.retention_days || 6} dias`;
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                setMessage('No fue posible cargar el historial AP MAC.');
+                pagination?.replaceChildren();
+                if (status) status.textContent = 'Error';
+            }
+        }
+    }
+
+    button.addEventListener('click', () => {
+        const expanded = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        panel.hidden = expanded;
+        button.textContent = expanded ? 'Ver historial AP MAC' : 'Ocultar historial AP MAC';
+        if (!expanded && !loaded) load(1);
+    });
+});
+
 document.querySelectorAll('[data-meraki-access-points]').forEach((container) => {
     const endpoint = container.dataset.endpoint;
     const search = container.querySelector('[data-meraki-access-point-search]');

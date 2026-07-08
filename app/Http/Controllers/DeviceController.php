@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Connectors\Meraki\MerakiEventRetention;
 use App\Http\Requests\UpdateDeviceInstallationRequest;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
@@ -103,6 +104,56 @@ class DeviceController extends Controller
         $devices->setCollection($rows);
 
         return view('devices.index', ['deviceRows' => $devices]);
+    }
+
+    public function apHistory(Request $request, Device $device): JsonResponse
+    {
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $normalizedIdentifier = BleObservationExtractor::normalizeMac($device->identifier);
+        if ($normalizedIdentifier === '') {
+            return response()->json([
+                'data' => [],
+                'meta' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'from' => null,
+                    'to' => null,
+                    'total' => 0,
+                    'retention_days' => MerakiEventRetention::RETENTION_DAYS,
+                ],
+            ]);
+        }
+
+        $history = SignalObservation::query()
+            ->select(['receiver_identifier', 'rssi', 'observed_at', 'metadata'])
+            ->where('transmitter_mac', $normalizedIdentifier)
+            ->whereNotNull('receiver_identifier')
+            ->where('observed_at', '>=', now()->subDays(MerakiEventRetention::RETENTION_DAYS))
+            ->latest('observed_at')
+            ->paginate(25, ['*'], 'page', (int) ($validated['page'] ?? 1))
+            ->withQueryString();
+
+        return response()->json([
+            'data' => $history->getCollection()->map(fn (SignalObservation $observation): array => [
+                'ap_mac' => $observation->receiver_identifier,
+                'rssi' => $observation->rssi,
+                'observed_at' => $observation->observed_at?->toIso8601String(),
+                'observed_at_label' => $observation->observed_at?->format('d-m-Y H:i:s'),
+                'observed_at_human' => $observation->observed_at?->diffForHumans(),
+                'source' => data_get($observation->metadata, 'source'),
+            ]),
+            'meta' => [
+                'current_page' => $history->currentPage(),
+                'last_page' => $history->lastPage(),
+                'from' => $history->firstItem(),
+                'to' => $history->lastItem(),
+                'total' => $history->total(),
+                'retention_days' => MerakiEventRetention::RETENTION_DAYS,
+            ],
+        ]);
     }
 
     public function installationDeviceOptions(Request $request, FloorPlan $floorPlan): JsonResponse

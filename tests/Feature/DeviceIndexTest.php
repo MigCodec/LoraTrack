@@ -97,7 +97,9 @@ class DeviceIndexTest extends TestCase
             ->assertSee('Piso 1 - Bodega - X 5.00 m, Y 3.00 m')
             ->assertSee('Beacon movil')
             ->assertSee('Sin area/zona establecida')
-            ->assertSee('AP0011223344');
+            ->assertSee('AP0011223344')
+            ->assertSee('Ver historial AP MAC')
+            ->assertSee(route('devices.ap-history', $beacon), false);
     }
 
     public function test_device_inventory_is_paginated(): void
@@ -121,5 +123,68 @@ class DeviceIndexTest extends TestCase
         $this->actingAs($admin)->get(route('devices.index', ['page' => 2]))
             ->assertOk()
             ->assertSee('Device 0055');
+    }
+
+    public function test_device_ap_history_is_paginated_and_limited_to_retention_window(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $device = Device::query()->create([
+            'identifier' => 'AA:BB:CC:DD:EE:01',
+            'name' => 'Beacon movil',
+            'type' => 'beacon',
+        ]);
+        $connector = Connector::query()->create(['name' => 'Meraki', 'kind' => 'telemetry', 'provider' => 'meraki_location', 'status' => 'active']);
+
+        for ($index = 1; $index <= 27; $index++) {
+            $event = TelemetryEvent::query()->create([
+                'connector_id' => $connector->id,
+                'device_id' => $device->id,
+                'external_event_id' => 'device-ap-history-'.$index,
+                'event_type' => 'meraki_location',
+                'observed_at' => now()->subMinutes($index),
+                'received_at' => now()->subMinutes($index),
+                'raw_payload' => ['client_mac' => $device->identifier],
+                'processing_status' => 'processed',
+            ]);
+            SignalObservation::query()->create([
+                'telemetry_event_id' => $event->id,
+                'transmitter_mac' => 'AABBCCDDEE01',
+                'receiver_identifier' => sprintf('AP%010d', $index),
+                'rssi' => -50 - $index,
+                'observed_at' => now()->subMinutes($index),
+                'metadata' => ['source' => 'meraki'],
+            ]);
+        }
+
+        $oldEvent = TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'device_id' => $device->id,
+            'external_event_id' => 'device-ap-history-old',
+            'event_type' => 'meraki_location',
+            'observed_at' => now()->subDays(7),
+            'received_at' => now()->subDays(7),
+            'raw_payload' => ['client_mac' => $device->identifier],
+            'processing_status' => 'processed',
+        ]);
+        SignalObservation::query()->create([
+            'telemetry_event_id' => $oldEvent->id,
+            'transmitter_mac' => 'AABBCCDDEE01',
+            'receiver_identifier' => 'APOLD000001',
+            'rssi' => -80,
+            'observed_at' => now()->subDays(7),
+        ]);
+
+        $this->actingAs($admin)->getJson(route('devices.ap-history', $device))
+            ->assertOk()
+            ->assertJsonCount(25, 'data')
+            ->assertJsonPath('meta.total', 27)
+            ->assertJsonPath('meta.retention_days', 6)
+            ->assertJsonPath('data.0.ap_mac', 'AP0000000001')
+            ->assertJsonMissing(['ap_mac' => 'APOLD000001']);
+
+        $this->actingAs($admin)->getJson(route('devices.ap-history', [$device, 'page' => 2]))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.1.ap_mac', 'AP0000000027');
     }
 }

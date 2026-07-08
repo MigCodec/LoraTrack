@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Connectors\Meraki;
 
 use App\Models\TelemetryEvent;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class MerakiEventRetention
 {
-    public const HISTORY_LIMIT = 10;
+    public const RETENTION_DAYS = 6;
 
     public function prune(TelemetryEvent $event, int $limit = 1000): int
     {
@@ -17,73 +17,66 @@ class MerakiEventRetention
             return 0;
         }
 
-        $obsoleteIds = TelemetryEvent::query()
+        return $this->deleteStaleQuery($this->cutoff(), $limit)
             ->where('organization_id', $event->organization_id)
             ->where('connector_id', $event->connector_id)
             ->where('device_id', $event->device_id)
-            ->where('event_type', 'meraki_location')
-            ->orderByDesc('observed_at')
-            ->orderByDesc('received_at')
-            ->orderByDesc('id')
-            ->skip(self::HISTORY_LIMIT)
-            ->take(max(1, min(1000, $limit)))
-            ->pluck('id');
-
-        if ($obsoleteIds->isEmpty()) {
-            return 0;
-        }
-
-        return TelemetryEvent::query()
-            ->where('organization_id', $event->organization_id)
-            ->whereIn('id', $obsoleteIds)
+            ->whereKeyNot($event->id)
             ->delete();
     }
 
     public function pruneAll(int $maxDeletes = 10000): int
     {
         $deleted = 0;
-        foreach ($this->oversizedGroups() as $group) {
-            if ($deleted >= $maxDeletes) {
+        $cutoff = $this->cutoff();
+        do {
+            $remaining = $maxDeletes - $deleted;
+            if ($remaining <= 0) {
                 break;
             }
-            $latest = TelemetryEvent::query()
-                ->withoutGlobalScopes()
-                ->where('organization_id', $group->organization_id)
-                ->where('connector_id', $group->connector_id)
-                ->where('device_id', $group->device_id)
-                ->where('event_type', 'meraki_location')
-                ->latest('observed_at')
-                ->latest('received_at')
-                ->first();
-            if (! $latest) {
-                continue;
-            }
 
-            do {
-                $remaining = $maxDeletes - $deleted;
-                $batchDeleted = $this->prune($latest, min(1000, $remaining));
-                $deleted += $batchDeleted;
-            } while ($batchDeleted > 0 && $deleted < $maxDeletes);
-        }
+            $batchDeleted = $this->deleteStaleQuery($cutoff, min(1000, $remaining))->delete();
+            $deleted += $batchDeleted;
+        } while ($batchDeleted > 0 && $deleted < $maxDeletes);
 
         return $deleted;
     }
 
-    public function excessCount(): int
+    public function staleCount(): int
     {
-        return $this->oversizedGroups()
-            ->sum(fn (object $group): int => max(0, (int) $group->event_count - self::HISTORY_LIMIT));
+        return $this->staleQuery($this->cutoff())->count();
     }
 
-    private function oversizedGroups()
+    public function cutoff(): Carbon
     {
-        return DB::table('telemetry_events')
-            ->select(['organization_id', 'connector_id', 'device_id'])
-            ->selectRaw('COUNT(*) AS event_count')
+        return now()->subDays(self::RETENTION_DAYS);
+    }
+
+    private function deleteStaleQuery(Carbon $cutoff, int $limit)
+    {
+        $ids = $this->staleQuery($cutoff)
+            ->orderBy('observed_at')
+            ->orderBy('received_at')
+            ->orderBy('id')
+            ->limit(max(1, min(1000, $limit)))
+            ->pluck('id');
+
+        return TelemetryEvent::query()
+            ->withoutGlobalScopes()
+            ->whereIn('id', $ids);
+    }
+
+    private function staleQuery(Carbon $cutoff)
+    {
+        return TelemetryEvent::query()
+            ->withoutGlobalScopes()
             ->where('event_type', 'meraki_location')
-            ->whereNotNull('device_id')
-            ->groupBy(['organization_id', 'connector_id', 'device_id'])
-            ->havingRaw('COUNT(*) > ?', [self::HISTORY_LIMIT])
-            ->get();
+            ->where(function ($query) use ($cutoff): void {
+                $query->where('observed_at', '<', $cutoff)
+                    ->orWhere(function ($receivedQuery) use ($cutoff): void {
+                        $receivedQuery->whereNull('observed_at')
+                            ->where('received_at', '<', $cutoff);
+                    });
+            });
     }
 }
