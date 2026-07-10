@@ -330,7 +330,7 @@
                                 <span class="plan-asset" style="left: {{ min(100, max(0, (float) $position->x / (float) $selectedPlan->width_meters * 100)) }}%; top: {{ min(100, max(0, (float) $position->y / (float) $selectedPlan->height_meters * 100)) }}%" title="{{ $position->asset->name }}"><x-spatial-marker-icon type="asset"/><small class="sr-only">{{ $position->asset->name }}</small></span>
                             @endforeach
                         </div>
-                        <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>
+                        <canvas id="zone-canvas" class="absolute left-0 top-0 touch-none"></canvas>
                         <div class="plan-ruler plan-ruler-x" aria-hidden="true">
                             @foreach($rulerTicks as $tick)
                                 @php($tickValue = rtrim(rtrim(number_format((float) $selectedPlan->width_meters * $tick / 100, 3, '.', ''), '0'), '.'))

@@ -15,8 +15,18 @@
             @endif
         </div>
 
+        <form class="mb-4 flex flex-wrap items-end gap-3" method="GET" action="{{ route('devices.index') }}">
+            <label class="field-label min-w-72 flex-1">Buscar dispositivo
+                <input class="field-input" type="search" name="q" value="{{ $search }}" placeholder="Nombre, MAC, identificador, modelo o tipo">
+            </label>
+            <button class="btn-primary" type="submit">Buscar</button>
+            @if($search !== '')
+                <a class="btn-secondary" href="{{ route('devices.index') }}">Limpiar</a>
+            @endif
+        </form>
+
         @if($deviceRows->isEmpty())
-            <div class="empty-state">Aun no hay dispositivos registrados.</div>
+            <div class="empty-state">{{ $search !== '' ? 'No hay dispositivos para la busqueda indicada.' : 'Aun no hay dispositivos registrados.' }}</div>
         @else
             <div class="table-wrap">
                 <table class="data-table">

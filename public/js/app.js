@@ -223,7 +223,7 @@ if (editor && !editor.dataset.editorInitialized) {
     };
 
     const pointer = (event) => {
-        const rect = canvas.getBoundingClientRect();
+        const rect = image.getBoundingClientRect();
         return {
             x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
             y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
@@ -260,10 +260,12 @@ if (editor && !editor.dataset.editorInitialized) {
 
     const redraw = () => {
         const ratio = window.devicePixelRatio || 1;
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
+        const width = image.clientWidth;
+        const height = image.clientHeight;
         canvas.width = Math.round(width * ratio);
         canvas.height = Math.round(height * ratio);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
         context.setTransform(ratio, 0, 0, ratio, 0, 0);
         context.clearRect(0, 0, width, height);
         zoneData.forEach((zone) => drawRectangle(zone, zone.color, zone.name));

@@ -50,6 +50,7 @@ class TtiWebhookTest extends TestCase
             ->assertJsonPath('duplicate', true);
 
         $this->assertSame(1, TelemetryEvent::query()->count());
+        $this->assertSame('2026-06-18 16:00:00', TelemetryEvent::query()->firstOrFail()->observed_at->format('Y-m-d H:i:s'));
         Queue::assertPushed(ProcessTtiUplink::class, 1);
     }
 

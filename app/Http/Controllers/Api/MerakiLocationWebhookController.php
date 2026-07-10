@@ -11,11 +11,11 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessMerakiLocationObservation;
 use App\Models\Connector;
 use App\Models\TelemetryEvent;
+use App\Support\TelemetryTimestamp;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -93,7 +93,7 @@ class MerakiLocationWebhookController extends Controller
                         [
                             'event_type' => 'meraki_location',
                             'observed_at' => filled($record['observed_at'])
-                                ? Carbon::parse((string) $record['observed_at'])
+                                ? TelemetryTimestamp::parseProviderTime($record['observed_at'])
                                 : null,
                             'received_at' => now(),
                             'raw_payload' => $record,

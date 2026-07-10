@@ -67,7 +67,7 @@
                                         <span class="block text-xs text-slate-400">Requiere tracker, uplink BLE y 3 anclas.</span>
                                     @endif
                                 </td>
-                                @php($lastSeenAt = $asset->last_seen_at ?? $asset->latestPosition?->telemetryEvent?->observed_at ?? $asset->latestPosition?->telemetryEvent?->received_at)
+                                @php($lastSeenAt = \App\Support\TelemetryTimestamp::forDisplay($asset->last_seen_at ?? $asset->latestPosition?->telemetryEvent?->observed_at ?? $asset->latestPosition?->telemetryEvent?->received_at))
                                 <td class="whitespace-nowrap">
                                     @if($lastSeenAt)
                                         <time datetime="{{ $lastSeenAt->toIso8601String() }}" title="{{ $lastSeenAt->format('d/m/Y H:i:s') }}">{{ $lastSeenAt->diffForHumans() }}</time>

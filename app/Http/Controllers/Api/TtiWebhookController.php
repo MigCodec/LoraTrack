@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessTtiUplink;
 use App\Models\Connector;
 use App\Models\TelemetryEvent;
+use App\Support\TelemetryTimestamp;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,7 +60,7 @@ class TtiWebhookController extends Controller
                 ['connector_id' => $connector->id, 'external_event_id' => $externalEventId],
                 [
                     'event_type' => 'uplink',
-                    'observed_at' => Arr::get($payload, 'uplink_message.received_at') ?? Arr::get($payload, 'received_at'),
+                    'observed_at' => TelemetryTimestamp::parseProviderTime(Arr::get($payload, 'uplink_message.received_at') ?? Arr::get($payload, 'received_at')),
                     'received_at' => now(),
                     'raw_payload' => $payload,
                     'processing_status' => 'pending',

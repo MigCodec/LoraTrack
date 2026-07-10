@@ -125,6 +125,33 @@ class DeviceIndexTest extends TestCase
             ->assertSee('Device 0055');
     }
 
+    public function test_device_inventory_can_be_searched_by_name_or_identifier(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        Device::query()->create([
+            'identifier' => 'AA:BB:CC:DD:EE:01',
+            'name' => 'Beacon sala norte',
+            'type' => 'beacon',
+            'model' => 'B1000',
+        ]);
+        Device::query()->create([
+            'identifier' => '112233445566',
+            'name' => 'Tracker bodega sur',
+            'type' => 'lorawan_tracker',
+        ]);
+
+        $this->actingAs($admin)->get(route('devices.index', ['q' => 'sala norte']))
+            ->assertOk()
+            ->assertSee('Beacon sala norte')
+            ->assertDontSee('Tracker bodega sur')
+            ->assertSee('value="sala norte"', false);
+
+        $this->actingAs($admin)->get(route('devices.index', ['q' => 'aa-bb-cc-dd-ee-01']))
+            ->assertOk()
+            ->assertSee('Beacon sala norte')
+            ->assertDontSee('Tracker bodega sur');
+    }
+
     public function test_device_ap_history_is_paginated_and_limited_to_retention_window(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

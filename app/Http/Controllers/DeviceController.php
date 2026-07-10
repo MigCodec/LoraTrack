@@ -28,8 +28,16 @@ use Throwable;
 
 class DeviceController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:80'],
+        ]);
+        $term = trim((string) ($validated['q'] ?? ''));
+        $like = '%'.addcslashes($term, '\%_').'%';
+        $normalized = mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $term) ?? '');
+        $normalizedLike = '%'.addcslashes($normalized, '\%_').'%';
+
         $devices = Device::query()
             ->with([
                 'installations' => fn ($query) => $query
@@ -41,6 +49,18 @@ class DeviceController extends Controller
                     ->whereNull('ended_at')
                     ->latest('started_at'),
             ])
+            ->when($term !== '', function ($query) use ($like, $normalized, $normalizedLike): void {
+                $query->where(function ($search) use ($like, $normalized, $normalizedLike): void {
+                    $search->where('name', 'like', $like)
+                        ->orWhere('identifier', 'like', $like)
+                        ->orWhere('model', 'like', $like)
+                        ->orWhere('type', 'like', $like);
+
+                    if ($normalized !== '') {
+                        $search->orWhereRaw("UPPER(REPLACE(REPLACE(REPLACE(identifier, ':', ''), '-', ''), ' ', '')) LIKE ?", [$normalizedLike]);
+                    }
+                });
+            })
             ->orderBy('name')
             ->paginate(50)
             ->withQueryString();
@@ -103,7 +123,7 @@ class DeviceController extends Controller
 
         $devices->setCollection($rows);
 
-        return view('devices.index', ['deviceRows' => $devices]);
+        return view('devices.index', ['deviceRows' => $devices, 'search' => $term]);
     }
 
     public function apHistory(Request $request, Device $device): JsonResponse
