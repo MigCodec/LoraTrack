@@ -54,6 +54,40 @@ class TtiWebhookTest extends TestCase
         Queue::assertPushed(ProcessTtiUplink::class, 1);
     }
 
+    public function test_tti_uplink_identity_uses_nested_received_at(): void
+    {
+        Queue::fake();
+        $connector = Connector::query()->create([
+            'name' => 'TTI',
+            'kind' => ConnectorKind::Telemetry,
+            'provider' => ConnectorProvider::TtiWebhook,
+            'status' => ConnectorStatus::Active,
+            'credentials' => ['webhook_token' => 'a-secure-token-with-24-characters'],
+        ]);
+        $payload = [
+            'end_device_ids' => ['device_id' => 'tracker-01', 'dev_eui' => '0011223344556677'],
+            'uplink_message' => [
+                'f_cnt' => 42,
+                'f_port' => 1,
+                'received_at' => '2026-07-10T11:18:02Z',
+                'decoded_payload' => ['battery' => 89],
+            ],
+        ];
+        $headers = ['Authorization' => 'Bearer a-secure-token-with-24-characters'];
+
+        $this->postJson(route('api.tti.ingest', $connector), $payload, $headers)
+            ->assertAccepted()
+            ->assertJsonPath('duplicate', false);
+
+        $payload['uplink_message']['received_at'] = '2026-07-10T11:24:49Z';
+        $this->postJson(route('api.tti.ingest', $connector), $payload, $headers)
+            ->assertAccepted()
+            ->assertJsonPath('duplicate', false);
+
+        $this->assertSame(2, TelemetryEvent::query()->count());
+        Queue::assertPushed(ProcessTtiUplink::class, 2);
+    }
+
     public function test_tti_uplink_rejects_invalid_token(): void
     {
         $connector = Connector::query()->create([

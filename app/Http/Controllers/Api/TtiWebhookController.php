@@ -44,15 +44,17 @@ class TtiWebhookController extends Controller
                 'uplink_message.f_port' => ['nullable', 'integer', 'between:1,255'],
                 'uplink_message.f_cnt' => ['nullable', 'integer', 'min:0'],
                 'uplink_message.decoded_payload' => ['nullable', 'array'],
+                'uplink_message.received_at' => ['nullable', 'date'],
                 'received_at' => ['nullable', 'date'],
             ]);
+            $providerReceivedAt = Arr::get($payload, 'uplink_message.received_at') ?? Arr::get($payload, 'received_at');
 
             $identityParts = [
                 Arr::get($payload, 'end_device_ids.dev_eui'),
                 Arr::get($payload, 'end_device_ids.device_id'),
                 Arr::get($payload, 'uplink_message.session_key_id'),
                 Arr::get($payload, 'uplink_message.f_cnt'),
-                Arr::get($payload, 'received_at'),
+                $providerReceivedAt,
             ];
             $externalEventId = hash('sha256', implode('|', array_map('strval', $identityParts)));
 
@@ -60,7 +62,7 @@ class TtiWebhookController extends Controller
                 ['connector_id' => $connector->id, 'external_event_id' => $externalEventId],
                 [
                     'event_type' => 'uplink',
-                    'observed_at' => TelemetryTimestamp::parseProviderTime(Arr::get($payload, 'uplink_message.received_at') ?? Arr::get($payload, 'received_at')),
+                    'observed_at' => TelemetryTimestamp::parseProviderTime($providerReceivedAt),
                     'received_at' => now(),
                     'raw_payload' => $payload,
                     'processing_status' => 'pending',

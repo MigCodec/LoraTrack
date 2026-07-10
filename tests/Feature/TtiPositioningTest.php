@@ -141,6 +141,38 @@ class TtiPositioningTest extends TestCase
             ->assertSee('Última señal')
             ->assertSee('Ver en mapa');
 
+        $secondEvent = TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'external_event_id' => hash('sha256', 'second-position-test'),
+            'observed_at' => now()->addMinute(),
+            'received_at' => now()->addMinute(),
+            'raw_payload' => [
+                'end_device_ids' => ['device_id' => 'Tracker 01', 'dev_eui' => 'TRACKER01'],
+                'uplink_message' => ['decoded_payload' => ['beacons' => [
+                    ['mac' => 'AA:BB:CC:DD:EE:01', 'rssi' => -76],
+                    ['mac' => 'AA:BB:CC:DD:EE:02', 'rssi' => -76],
+                    ['mac' => 'AA:BB:CC:DD:EE:03', 'rssi' => -76],
+                ]]],
+            ],
+        ]);
+
+        (new ProcessTtiUplink($secondEvent->id))->handle(
+            app(BleObservationExtractor::class),
+            app(PayloadProfileDecoder::class),
+            app(TelemetryPositioningService::class),
+            app(AssetLastSeenUpdater::class),
+        );
+
+        $this->assertDatabaseHas('position_estimates', [
+            'asset_id' => $asset->id,
+            'telemetry_event_id' => $event->id,
+        ]);
+        $this->assertDatabaseHas('position_estimates', [
+            'asset_id' => $asset->id,
+            'telemetry_event_id' => $secondEvent->id,
+        ]);
+        $this->assertSame(2, PositionEstimate::query()->where('asset_id', $asset->id)->count());
+
         $asset->deviceAssignments()->whereNull('ended_at')->update(['ended_at' => now()]);
         PositionEstimate::query()->delete();
         $newerUnusableEvent = TelemetryEvent::query()->create([
@@ -173,7 +205,7 @@ class TtiPositioningTest extends TestCase
         ])->assertRedirect();
         $this->assertDatabaseHas('position_estimates', [
             'asset_id' => $lateAsset->id,
-            'telemetry_event_id' => $event->id,
+            'telemetry_event_id' => $secondEvent->id,
             'floor_plan_id' => $plan->id,
         ]);
     }

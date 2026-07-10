@@ -39,7 +39,31 @@
         return url;
     };
 
-    const point = (position) => `${position.x * 1000},${position.y * 1000}`;
+    const displayPoint = (position) => `${position.displayX ?? position.x * 1000},${position.displayY ?? position.y * 1000}`;
+
+    const spreadOverlappingPoints = () => {
+        const groups = new Map();
+        positions.forEach((position) => {
+            const key = `${Number(position.x).toFixed(4)}:${Number(position.y).toFixed(4)}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(position);
+        });
+
+        groups.forEach((group) => {
+            if (group.length < 2) {
+                delete group[0].displayX;
+                delete group[0].displayY;
+                return;
+            }
+
+            const radius = Math.min(26, 10 + group.length * 1.5);
+            group.forEach((position, index) => {
+                const angle = (Math.PI * 2 * index) / group.length - Math.PI / 2;
+                position.displayX = Math.min(992, Math.max(8, position.x * 1000 + Math.cos(angle) * radius));
+                position.displayY = Math.min(992, Math.max(8, position.y * 1000 + Math.sin(angle) * radius));
+            });
+        });
+    };
 
     const make = (name, attrs = {}) => {
         const node = document.createElementNS(ns, name);
@@ -72,6 +96,7 @@
     const render = () => {
         svg.replaceChildren();
         hideTooltip();
+        spreadOverlappingPoints();
 
         if (count) count.textContent = String(positions.length);
         if (!positions.length) {
@@ -94,7 +119,7 @@
         groups.forEach((group) => {
             if (group.length < 2) return;
             svg.appendChild(make('polyline', {
-                points: group.map(point).join(' '),
+                points: group.map(displayPoint).join(' '),
                 class: `asset-track-segment${qualityIsLow(group[group.length - 1]) ? ' is-low-confidence' : ''}`,
             }));
         });
@@ -112,8 +137,8 @@
 
         positions.forEach((position, index) => {
             const node = make('circle', {
-                cx: position.x * 1000,
-                cy: position.y * 1000,
+                cx: position.displayX ?? position.x * 1000,
+                cy: position.displayY ?? position.y * 1000,
                 r: index === positions.length - 1 ? 8 : 5,
                 class: [
                     'asset-track-point',
