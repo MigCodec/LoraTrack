@@ -171,6 +171,22 @@
                 <div class="ribbon-group"><span class="ribbon-label">Dibujar</span><details id="zone-command" class="ribbon-command"><summary id="zone-mode"><x-nav-icon name="plans"/><span>Crear área</span></summary><div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Crear área</h2>@include('floor-plans.partials.zone-creation-form')</div></details></div>
                 <div class="ribbon-group"><span class="ribbon-label">Referencias fijas</span><details id="anchor-command" class="ribbon-command"><summary id="ribbon-anchor-mode"><x-nav-icon name="map"/><span>Agregar punto</span></summary><div class="ribbon-command-panel ribbon-command-panel-wide"><h2>Agregar punto de referencia fijo</h2>@include('floor-plans.partials.anchor-placement-form')</div></details></div>
                 <div class="ribbon-group"><span class="ribbon-label">Medición</span><a class="ribbon-button" href="{{ route('calibration.index', $selectedPlan) }}"><x-nav-icon name="calibration"/><span>Calibrar RSSI</span></a></div>
+                <div class="ribbon-group">
+                    <span class="ribbon-label">Escala</span>
+                    <details class="ribbon-command" @if($errors->hasAny(['width_meters', 'height_meters'])) open @endif>
+                        <summary><x-nav-icon name="calibration"/><span>Dimensiones</span></summary>
+                        <div class="ribbon-command-panel">
+                            <h2>Dimensiones reales</h2>
+                            <form method="POST" action="{{ route('floor-plans.update', $selectedPlan) }}" class="mt-4 grid gap-4">
+                                @csrf @method('PUT')
+                                <label class="field-label">Ancho horizontal (m)<input class="field-input" type="number" name="width_meters" value="{{ old('width_meters', $selectedPlan->width_meters) }}" min="0.001" step="0.001" required></label>
+                                <label class="field-label">Alto vertical (m)<input class="field-input" type="number" name="height_meters" value="{{ old('height_meters', $selectedPlan->height_meters) }}" min="0.001" step="0.001" required></label>
+                                <p class="text-xs leading-relaxed text-slate-500">Ajusta la conversión entre el plano y las coordenadas en metros.</p>
+                                <div><button class="btn-primary" type="submit">Guardar escala</button></div>
+                            </form>
+                        </div>
+                    </details>
+                </div>
                 @endif
                 <div class="ribbon-group">
                     <span class="ribbon-label">Vista</span>
@@ -271,6 +287,7 @@
                         <span class="plan-viewer-help">Rueda para zoom · activa Mover para desplazar</span>
                     </div>
                     <div id="plan-2d-viewport" class="plan-2d-viewport">
+                    @php($rulerTicks = [0, 25, 50, 75, 100])
                     <div id="zone-editor" class="relative inline-block max-w-full overflow-hidden rounded-xl border border-slate-300 bg-slate-100 select-none" data-width-meters="{{ $selectedPlan->width_meters }}" data-height-meters="{{ $selectedPlan->height_meters }}">
                         <img id="floor-plan-image" class="block max-h-[70vh] max-w-full" src="{{ route('floor-plans.file', $selectedPlan) }}" alt="Plano {{ $selectedPlan->name }}" draggable="false">
                         <div id="saved-zone-overlay" class="absolute inset-0" aria-label="Áreas guardadas">
@@ -314,6 +331,18 @@
                             @endforeach
                         </div>
                         <canvas id="zone-canvas" class="absolute inset-0 h-full w-full touch-none"></canvas>
+                        <div class="plan-ruler plan-ruler-x" aria-hidden="true">
+                            @foreach($rulerTicks as $tick)
+                                @php($tickValue = rtrim(rtrim(number_format((float) $selectedPlan->width_meters * $tick / 100, 3, '.', ''), '0'), '.'))
+                                <span style="left: {{ $tick }}%"><i></i><b>{{ $tickValue }} m</b></span>
+                            @endforeach
+                        </div>
+                        <div class="plan-ruler plan-ruler-y" aria-hidden="true">
+                            @foreach($rulerTicks as $tick)
+                                @php($tickValue = rtrim(rtrim(number_format((float) $selectedPlan->height_meters * $tick / 100, 3, '.', ''), '0'), '.'))
+                                <span style="top: {{ $tick }}%"><i></i><b>{{ $tickValue }} m</b></span>
+                            @endforeach
+                        </div>
                     </div>
                     </div>
                     <script id="zone-data" type="application/json">{!! Illuminate\Support\Js::encode($selectedPlan->zones->map(fn($zone) => ['id' => $zone->id, 'name' => $zone->name, 'color' => $zone->color, 'x_min' => (float) $zone->x_min, 'y_min' => (float) $zone->y_min, 'x_max' => (float) $zone->x_max, 'y_max' => (float) $zone->y_max])->values()) !!}</script>

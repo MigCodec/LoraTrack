@@ -209,6 +209,9 @@ class FloorPlanZoneTest extends TestCase
             ->assertSee('Cambiar nombre…')
             ->assertSee('Color de pestaña…')
             ->assertSee('Eliminar hoja…')
+            ->assertSee('Dimensiones')
+            ->assertSee('class="plan-ruler plan-ruler-x"', false)
+            ->assertSee('class="plan-ruler plan-ruler-y"', false)
             ->assertDontSee('Eliminar plano');
 
         $this->put(route('floor-plans.update', $plan), ['name' => 'Planta renombrada'])
@@ -324,6 +327,10 @@ class FloorPlanZoneTest extends TestCase
 
         $this->delete(route('installations.destroy', $relocatedInstallation))->assertRedirect();
         $this->assertNotNull($relocatedInstallation->fresh()->ended_at);
+
+        $this->put(route('floor-plans.update', $plan), ['width_meters' => 25.5, 'height_meters' => 12.75])
+            ->assertRedirect(route('floor-plans.index', ['plan' => $plan]));
+        $this->assertDatabaseHas('floor_plans', ['id' => $plan->id, 'width_meters' => 25.5, 'height_meters' => 12.75]);
     }
 
     public function test_reported_sensecap_macs_can_be_selected_or_entered_when_placing_beacon(): void

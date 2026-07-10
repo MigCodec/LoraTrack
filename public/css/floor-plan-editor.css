@@ -211,6 +211,7 @@
 .plan-viewer-badge { flex: 0 0 auto; border-radius: 999px; background: var(--color-brand-primary); padding: .32rem .65rem; color: #fff; font-size: .65rem; font-weight: 800; }
 .plan-viewer-help { margin-left: auto; color: #64748b; font-size: .65rem; white-space: nowrap; }
 .plan-2d-viewport { position: relative; display: flex; width: 100%; min-height: 24rem; max-height: 72vh; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #dbe2e8; border-radius: .45rem; background-color: #e9eef3; background-image: linear-gradient(45deg, #dce4eb 25%, transparent 25%), linear-gradient(-45deg, #dce4eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #dce4eb 75%), linear-gradient(-45deg, transparent 75%, #dce4eb 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; touch-action: none; }
+.plan-2d-viewport { box-sizing: border-box; padding: 1.25rem 1.25rem 3.25rem 4rem; }
 .plan-2d-viewport #zone-editor { flex: 0 0 auto; transform-origin: center center; will-change: transform; }
 .plan-2d-viewport.is-pannable { cursor: grab; }
 .plan-2d-viewport.is-panning { cursor: grabbing; }
@@ -223,6 +224,93 @@
 .plan-2d-companion[open] > summary { border-bottom: 1px solid #dbe2e8; }
 .plan-2d-companion > .plan-editor-layout { margin: .75rem; }
 #zone-editor { overflow: visible; }
+.plan-ruler {
+    position: absolute;
+    z-index: 1;
+    color: #334155;
+    font-size: .65rem;
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+}
+.plan-ruler::before {
+    content: "";
+    position: absolute;
+    background: #475569;
+}
+.plan-ruler span {
+    position: absolute;
+    display: block;
+}
+.plan-ruler i {
+    position: absolute;
+    display: block;
+    background: #475569;
+}
+.plan-ruler b {
+    position: absolute;
+    display: block;
+    color: #334155;
+    white-space: nowrap;
+}
+.plan-ruler-x {
+    top: calc(100% + .55rem);
+    right: 0;
+    left: 0;
+    height: 1.75rem;
+}
+.plan-ruler-x::before {
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 1px;
+}
+.plan-ruler-x span {
+    top: 0;
+    width: 0;
+}
+.plan-ruler-x i {
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: .5rem;
+}
+.plan-ruler-x b {
+    top: .7rem;
+    transform: translateX(-50%);
+}
+.plan-ruler-x span:first-child b { transform: translateX(0); }
+.plan-ruler-x span:last-child b { transform: translateX(-100%); }
+.plan-ruler-y {
+    top: 0;
+    bottom: 0;
+    left: -3.25rem;
+    width: 2.7rem;
+}
+.plan-ruler-y::before {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 1px;
+}
+.plan-ruler-y span {
+    right: 0;
+    height: 0;
+}
+.plan-ruler-y i {
+    top: 0;
+    right: 0;
+    width: .5rem;
+    height: 1px;
+}
+.plan-ruler-y b {
+    top: 0;
+    right: .7rem;
+    transform: translateY(-50%);
+}
+.plan-ruler-y span:first-child b { transform: translateY(0); }
+.plan-ruler-y span:last-child b { transform: translateY(-100%); }
 #zone-editor.is-selecting-geometry { outline: 3px solid color-mix(in srgb, var(--color-brand-accent) 70%, #fff); outline-offset: 3px; }
 #zone-editor.is-selecting-geometry::after { content: attr(data-selection-instruction); position: absolute; z-index: 30; top: .6rem; left: 50%; transform: translateX(-50%); border-radius: 999px; background: #0f172ae8; padding: .4rem .75rem; color: #fff; font-size: .7rem; font-weight: 700; line-height: 1; pointer-events: none; white-space: nowrap; }
 #saved-zone-overlay { z-index: 2; }

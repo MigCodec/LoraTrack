@@ -475,7 +475,7 @@ if (realtimeMap) {
     let loading = false;
     const spatialMarkerIcon = (type) => {
         const symbols = {
-            asset: '<path class="spatial-marker-symbol" d="M9 11.5h10v7H9zM11.5 11.5v-2h5v2M9 14.5h10M12 14.5v1.5h4v-1.5"/>',
+            asset: '<path class="spatial-marker-symbol" d="M14 8.5 19 11.3v6.1l-5 2.8-5-2.8v-6.1L14 8.5ZM9 11.3l5 2.8 5-2.8M14 14.1v6.1"/>',
             scanner: '<circle class="spatial-marker-symbol" cx="14" cy="14" r="2"/><path class="spatial-marker-symbol" d="M10.5 10.5a5 5 0 0 0 0 7M17.5 10.5a5 5 0 0 1 0 7"/>',
             anchor: '<path class="spatial-marker-symbol" d="M14 9v10M10.5 12.5 14 9l3.5 3.5M10 19h8"/>',
         };

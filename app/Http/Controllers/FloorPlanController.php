@@ -117,6 +117,9 @@ class FloorPlanController extends Controller
     public function update(UpdateFloorPlanRequest $request, FloorPlan $floorPlan): RedirectResponse
     {
         $floorPlan->update($request->validated());
+        if ($request->exists('width_meters') || $request->exists('height_meters')) {
+            return redirect()->route('floor-plans.index', ['plan' => $floorPlan])->with('status', 'Escala del plano actualizada.');
+        }
         $status = $request->exists('name') ? 'Nombre del plano actualizado.' : 'Color de la pestaña actualizado.';
 
         return redirect()->route('floor-plans.index', ['plan' => $floorPlan])->with('status', $status);
