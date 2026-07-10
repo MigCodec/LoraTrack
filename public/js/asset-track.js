@@ -16,9 +16,11 @@
     if (!endpoint || !svg || !planSelect) return;
 
     const ns = 'http://www.w3.org/2000/svg';
+    const liveRefreshMs = 30000;
     let positions = [];
     let timer = null;
     let loading = false;
+    let liveRefreshQueued = false;
 
     const formatDate = (value) => {
         if (!value) return '—';
@@ -156,9 +158,22 @@
     };
 
     const restartLive = () => {
-        if (timer) window.clearInterval(timer);
+        if (timer) window.clearTimeout(timer);
         timer = null;
-        if (liveToggle?.checked) timer = window.setInterval(() => load(true), 5000);
+        liveRefreshQueued = false;
+        if (!liveToggle?.checked) return;
+
+        const schedule = () => {
+            if (!liveToggle?.checked || liveRefreshQueued) return;
+            liveRefreshQueued = true;
+            timer = window.setTimeout(async () => {
+                liveRefreshQueued = false;
+                if (!document.hidden) await load(true);
+                schedule();
+            }, liveRefreshMs);
+        };
+
+        schedule();
     };
 
     planSelect.addEventListener('change', () => {
@@ -178,6 +193,9 @@
         restartLive();
     });
     liveToggle?.addEventListener('change', restartLive);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && liveToggle?.checked) load(true);
+    });
 
     load(false);
     restartLive();

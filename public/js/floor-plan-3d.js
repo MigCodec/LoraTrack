@@ -3,6 +3,31 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 const container = document.querySelector('#floor-plan-3d');
+const pollWhenVisible = window.LoraTrack?.pollWhenVisible || ((callback, intervalMs) => {
+    let timer = null;
+    let stopped = false;
+
+    const run = async () => {
+        if (stopped) return;
+        if (!document.hidden) await callback();
+        if (!stopped) timer = window.setTimeout(run, intervalMs);
+    };
+
+    const restartOnVisible = () => {
+        if (document.hidden || stopped) return;
+        window.clearTimeout(timer);
+        run();
+    };
+
+    document.addEventListener('visibilitychange', restartOnVisible);
+    run();
+
+    return () => {
+        stopped = true;
+        window.clearTimeout(timer);
+        document.removeEventListener('visibilitychange', restartOnVisible);
+    };
+});
 
 if (container) {
     const status = container.querySelector('[data-3d-status]');
@@ -223,7 +248,10 @@ if (container) {
         homeView();
 
         if (container.dataset.endpoint) {
+            let loadingMarkers = false;
             const refreshMarkers = async () => {
+                if (loadingMarkers) return;
+                loadingMarkers = true;
                 try {
                     const response = await fetch(container.dataset.endpoint, {headers: {Accept: 'application/json'}});
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -251,10 +279,11 @@ if (container) {
                 } catch (error) {
                     const updated = document.querySelector('#map-updated');
                     if (updated) updated.textContent = 'No fue posible actualizar las posiciones';
+                } finally {
+                    loadingMarkers = false;
                 }
             };
-            refreshMarkers();
-            window.setInterval(refreshMarkers, 10000);
+            pollWhenVisible(refreshMarkers, 30000);
         }
     }, (event) => {
         if (!event.total) return;

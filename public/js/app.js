@@ -1,3 +1,30 @@
+window.LoraTrack = window.LoraTrack || {};
+window.LoraTrack.pollWhenVisible = (callback, intervalMs) => {
+    let timer = null;
+    let stopped = false;
+
+    const run = async () => {
+        if (stopped) return;
+        if (!document.hidden) await callback();
+        if (!stopped) timer = window.setTimeout(run, intervalMs);
+    };
+
+    const restartOnVisible = () => {
+        if (document.hidden || stopped) return;
+        window.clearTimeout(timer);
+        run();
+    };
+
+    document.addEventListener('visibilitychange', restartOnVisible);
+    run();
+
+    return () => {
+        stopped = true;
+        window.clearTimeout(timer);
+        document.removeEventListener('visibilitychange', restartOnVisible);
+    };
+};
+
 document.querySelectorAll('[data-toast]').forEach((toast) => {
     const close = () => {
         toast.classList.add('is-dismissing');
@@ -445,6 +472,7 @@ if (realtimeMap) {
     const evidenceBody = document.querySelector('#asset-detail-evidence');
     const circleColors = ['#2563eb', '#dc2626', '#7c3aed', '#d97706', '#059669', '#0891b2'];
     let selectedAssetId = null;
+    let loading = false;
     const spatialMarkerIcon = (type) => {
         const symbols = {
             asset: '<path class="spatial-marker-symbol" d="M9 11.5h10v7H9zM11.5 11.5v-2h5v2M9 14.5h10M12 14.5v1.5h4v-1.5"/>',
@@ -544,6 +572,8 @@ if (realtimeMap) {
         if (technicalDialog?.open && !technicalDialog.contains(event.target) && !event.target.closest('.asset-marker')) technicalDialog.close();
     });
     const refresh = async () => {
+        if (loading) return;
+        loading = true;
         try {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
             markers.querySelectorAll('.map-anchor,.asset-marker,.asset-uncertainty,.asset-detection-circle').forEach((node) => node.remove());
@@ -563,8 +593,9 @@ if (realtimeMap) {
                 : 'Sin posiciones calculadas para este plano. Verifica tracker asignado, uplink BLE procesado y al menos 3 beacons instalados.';
             updated.textContent=`Actualizado ${new Date(data.generated_at).toLocaleTimeString()}`;
         } catch { updated.textContent='No fue posible actualizar'; if (positionStatus) positionStatus.textContent='Falló la consulta de posiciones del mapa.'; }
+        finally { loading = false; }
     };
-    refresh(); setInterval(refresh, 10000);
+    window.LoraTrack.pollWhenVisible(refresh, 30000);
 }
 
 document.querySelectorAll('[data-device-ap-history-toggle]').forEach((button) => {

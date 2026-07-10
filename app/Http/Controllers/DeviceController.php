@@ -468,11 +468,16 @@ class DeviceController extends Controller
     private function telemetryPayloadMacOptions(BleObservationExtractor $extractor, string $normalized, Collection $excluded, int $limit): Collection
     {
         $reported = collect();
-        $events = TelemetryEvent::query()->with(['device', 'connector'])->latest('received_at')->limit(250)->get();
+        $events = TelemetryEvent::query()
+            ->select(['id', 'connector_id', 'device_id', 'received_at', 'normalized_payload'])
+            ->with(['device:id,name', 'connector:id,name'])
+            ->whereNotNull('normalized_payload')
+            ->latest('received_at')
+            ->limit(250)
+            ->get();
 
         foreach ($events as $event) {
-            $decoded = data_get($event->normalized_payload, 'decoded')
-                ?? data_get($event->raw_payload, 'uplink_message.decoded_payload', []);
+            $decoded = data_get($event->normalized_payload, 'decoded', []);
 
             foreach ($extractor->extract($decoded) as $observation) {
                 $normalizedMac = BleObservationExtractor::normalizeMac($observation['mac']);
@@ -485,7 +490,7 @@ class DeviceController extends Controller
 
                 $mac = implode(':', str_split($normalizedMac, 2));
                 $source = $event->device?->name
-                    ?? data_get($event->raw_payload, 'end_device_ids.device_id', 'sensor sin nombre');
+                    ?? data_get($event->normalized_payload, 'device_identifier', 'sensor sin nombre');
                 $connector = $event->connector?->name;
                 $rssi = $observation['rssi'] ?? null;
 

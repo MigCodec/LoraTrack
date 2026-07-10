@@ -47,8 +47,8 @@
                 </select>
             </label>
             <label class="asset-track-live-toggle">
-                <input type="checkbox" data-track-live checked>
-                <span>Actualizar en vivo cada 5 segundos</span>
+                <input type="checkbox" data-track-live>
+                <span>Actualizar en vivo cada 30 segundos</span>
             </label>
         </form>
 

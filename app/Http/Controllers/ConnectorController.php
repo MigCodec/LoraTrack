@@ -47,7 +47,21 @@ class ConnectorController extends Controller
         return view('connectors.show', [
             'connector' => $connector,
             'definition' => $registry->get($connector->provider),
-            'events' => $connector->telemetryEvents()->with('device')->latest('received_at')->limit(100)->get(),
+            'events' => $connector->telemetryEvents()
+                ->select([
+                    'id',
+                    'connector_id',
+                    'device_id',
+                    'event_type',
+                    'received_at',
+                    'processing_status',
+                    'processing_error',
+                    'normalized_payload',
+                ])
+                ->with('device:id,name')
+                ->latest('received_at')
+                ->limit(100)
+                ->get(),
             'logs' => $connector->activityLogs()->latest()->limit(100)->get(),
             'merakiMappings' => $connector->provider === ConnectorProvider::MerakiLocation
                 ? $connector->merakiFloorPlanMappings()->with('floorPlan.location')->get()

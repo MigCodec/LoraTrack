@@ -57,7 +57,7 @@
                     <tr>
                         <td class="whitespace-nowrap"><a class="font-semibold text-brand-primary" href="{{ route('connectors.events.show', [$connector, $event]) }}">{{ $event->received_at->format('d-m-Y H:i:s') }}</a></td>
                         <td><span class="status-badge status-{{ $event->processing_status === 'processed' ? 'active' : ($event->processing_status === 'failed' ? 'error' : 'disabled') }}">{{ $event->processing_status }}</span></td>
-                        <td>{{ $event->device?->name ?? data_get($event->raw_payload, 'end_device_ids.device_id', '—') }}</td>
+                        <td>{{ $event->device?->name ?? data_get($event->normalized_payload, 'device_identifier', '—') }}</td>
                         <td class="text-xs text-red-600">{{ Str::limit($event->processing_error, 100) }}</td>
                     </tr>
                 @empty

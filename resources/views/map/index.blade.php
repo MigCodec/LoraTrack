@@ -24,7 +24,7 @@
         <div class="panel empty-state">Carga un plano para activar el mapa.</div>
     @elseif($plan->isThreeDimensional())
         <div class="panel p-4">
-            <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Modelo 3D · actualización cada 10 segundos · arrastra para navegar</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
+            <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Modelo 3D · actualización cada 30 segundos con la pestaña activa · arrastra para navegar</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
             <div class="plan-viewer-toolbar" role="toolbar" aria-label="Navegación del mapa 3D">
                 <span class="plan-viewer-badge">Vista 3D</span>
                 <button type="button" data-3d-view="home">Restablecer</button>
@@ -48,7 +48,7 @@
         <div class="panel empty-state">El plano necesita una vista previa raster.</div>
     @else
         <div class="panel p-4">
-            <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Actualización cada 10 segundos · {{ $plan->zones->count() }} áreas definidas · el círculo representa el error estimado</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
+            <div class="mb-3 flex justify-between"><div><strong>{{ $plan->name }}</strong><p class="text-xs text-slate-500">Actualización cada 30 segundos con la pestaña activa · {{ $plan->zones->count() }} áreas definidas · el círculo representa el error estimado</p></div><span id="map-updated" class="text-xs text-slate-500">Esperando datos…</span></div>
             <div class="plan-ribbon mb-3" role="toolbar" aria-label="Capas del mapa">
                 <div class="ribbon-group">
                     <span class="ribbon-label">Vista</span>
