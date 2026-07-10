@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiEventRetention;
+use App\Enums\ConnectorStatus;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
 use App\Models\MerakiFloorPlanMapping;
@@ -59,6 +60,15 @@ class ProcessMerakiLocationObservation implements ShouldQueue
 
         try {
             if ($event->processing_status === 'processed') {
+                return;
+            }
+            if ($event->connector?->status === ConnectorStatus::Disabled) {
+                $event->forceFill([
+                    'processing_status' => 'ignored',
+                    'processed_at' => now(),
+                    'processing_error' => 'Conector desactivado; telemetría no procesada.',
+                ])->save();
+
                 return;
             }
 

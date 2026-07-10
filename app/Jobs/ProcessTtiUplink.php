@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\ConnectorStatus;
 use App\Models\Device;
 use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
@@ -46,6 +47,15 @@ class ProcessTtiUplink implements ShouldQueue
 
         try {
             if ($event->processing_status === 'processed') {
+                return;
+            }
+            if ($event->connector?->status === ConnectorStatus::Disabled) {
+                $event->forceFill([
+                    'processing_status' => 'ignored',
+                    'processed_at' => now(),
+                    'processing_error' => 'Conector desactivado; telemetría no procesada.',
+                ])->save();
+
                 return;
             }
             $payload = $event->raw_payload;

@@ -246,6 +246,36 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertDatabaseCount('telemetry_events', 0);
     }
 
+    public function test_disabled_meraki_connector_does_not_process_queued_telemetry(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'disabled-meraki']);
+        $connector = $this->connector($organization, '3');
+        $connector->update(['status' => ConnectorStatus::Disabled]);
+        $event = TelemetryEvent::query()->create([
+            'organization_id' => $organization->id,
+            'connector_id' => $connector->id,
+            'external_event_id' => hash('sha256', 'disabled-meraki-event'),
+            'event_type' => 'meraki_location',
+            'observed_at' => now(),
+            'received_at' => now(),
+            'raw_payload' => [
+                'version' => '3.0',
+                'type' => 'BLE',
+                'network_id' => 'L_123',
+                'client_mac' => 'aa:bb:cc:dd:ee:ff',
+                'client_name' => 'Beacon detenido',
+                'rssi_records' => [['apMac' => '00:11:22:33:44:55', 'rssi' => -60]],
+            ],
+            'processing_status' => 'pending',
+        ]);
+
+        $this->process($event);
+
+        $this->assertSame('ignored', $event->fresh()->processing_status);
+        $this->assertSame(0, Device::query()->where('identifier', 'AABBCCDDEEFF')->count());
+        $this->assertSame(0, $event->fresh()->signalObservations()->count());
+    }
+
     public function test_real_expanded_meraki_record_is_compacted_into_normalized_payload(): void
     {
         $payload = json_decode((string) file_get_contents(

@@ -7,7 +7,12 @@ use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Jobs\ProcessTtiUplink;
 use App\Models\Connector;
+use App\Models\Device;
 use App\Models\TelemetryEvent;
+use App\Positioning\BleObservationExtractor;
+use App\Positioning\PayloadProfileDecoder;
+use App\Positioning\TelemetryPositioningService;
+use App\Telemetry\AssetLastSeenUpdater;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -59,5 +64,37 @@ class TtiWebhookTest extends TestCase
         ]);
 
         $this->postJson(route('api.tti.ingest', $connector), [])->assertUnauthorized();
+    }
+
+    public function test_disabled_tti_connector_does_not_process_queued_telemetry(): void
+    {
+        $connector = Connector::query()->create([
+            'name' => 'TTI desactivado',
+            'kind' => ConnectorKind::Telemetry,
+            'provider' => ConnectorProvider::TtiWebhook,
+            'status' => ConnectorStatus::Disabled,
+        ]);
+        $event = TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'external_event_id' => hash('sha256', 'disabled-tti-event'),
+            'event_type' => 'uplink',
+            'received_at' => now(),
+            'raw_payload' => [
+                'end_device_ids' => ['device_id' => 'tracker-disabled', 'dev_eui' => '0011223344556677'],
+                'uplink_message' => ['decoded_payload' => ['battery' => 90]],
+            ],
+            'processing_status' => 'pending',
+        ]);
+
+        (new ProcessTtiUplink($event->id))->handle(
+            app(BleObservationExtractor::class),
+            app(PayloadProfileDecoder::class),
+            app(TelemetryPositioningService::class),
+            app(AssetLastSeenUpdater::class),
+        );
+
+        $this->assertSame('ignored', $event->fresh()->processing_status);
+        $this->assertSame(0, Device::query()->where('identifier', '0011223344556677')->count());
+        $this->assertSame(0, $event->fresh()->signalObservations()->count());
     }
 }
