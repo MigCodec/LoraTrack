@@ -1,28 +1,28 @@
-# ADR 0002: Integración de Cisco Meraki Location API
+# ADR 0002: Cisco Meraki Location API Integration
 
-## Contexto
+## Context
 
-Meraki Scanning/Location API v2.1 y v3.x entregan observaciones WiFi/BLE, RSSI y posiciones calculadas. Sus identificadores de planos y su sistema de coordenadas no pertenecen al dominio interno de LoraTrack.
+Meraki Scanning/Location API v2.1 and v3.x provide WiFi/BLE observations, RSSI, and calculated positions. Their floor plan identifiers and coordinate system do not belong to the internal LoraTrack domain.
 
-## Decisión
+## Decision
 
-- Implementar Meraki como proveedor de telemetría independiente.
-- Seleccionar el major de contrato por instancia de conector y aceptar versiones menores compatibles.
-- Autenticar cada POST mediante el shared secret del payload y exponer el GET de validación exigido por Meraki.
-- Persistir una observación auditable por cliente/posición y procesarla de forma idempotente mediante cola.
-- Registrar dispositivos por MAC normalizada y generar posiciones sólo cuando exista una vinculación temporal con un activo.
-- Mantener una tabla de mapeo por conector entre el identificador de plano Meraki y el plano LoraTrack.
-- Convertir por defecto el eje Y de origen inferior de Meraki al origen superior del editor web.
-- Conservar `variance`/`unc` como precisión reportada por el proveedor, sin presentarla como precisión calculada por LoraTrack.
-- Compactar payloads v3 después de procesarlos: conservar checksum, conteos, identidad BLE, última lectura y AP que aportaron RSSI, sin duplicar `reportingAps` ni todas las ubicaciones originales.
-- Retener los últimos diez eventos Meraki por organización, conector y dispositivo. Las posiciones derivadas permanecen como historial independiente.
+- Implement Meraki as an independent telemetry provider.
+- Select contract major version per connector instance and accept compatible minor versions.
+- Authenticate each POST through the shared secret in the payload and expose the validation GET required by Meraki.
+- Persist an auditable observation per client/position and process it idempotently through the queue.
+- Register devices by normalized MAC and generate positions only when a time-bound asset assignment exists.
+- Maintain a connector-scoped mapping table between Meraki floor plan IDs and LoraTrack floor plans.
+- Convert Meraki's bottom-origin Y axis to the web editor's top-origin axis by default.
+- Preserve `variance`/`unc` as provider-reported accuracy, without presenting it as accuracy calculated by LoraTrack.
+- Compact v3 payloads after processing: keep checksum, counts, BLE identity, last reading, and APs contributing RSSI, without duplicating all original `reportingAps` or locations.
+- Retain the last ten Meraki events per organization, connector, and device. Derived positions remain independent history.
 
-## Alternativas consideradas
+## Alternatives Considered
 
-- Asociar planos por nombre: descartado por ambigüedad y cambios de nombre.
-- Guardar el ID Meraki directamente en `floor_plans`: descartado porque un plano puede relacionarse con varios conectores.
-- Recalcular siempre la posición desde RSSI: descartado porque perdería la estimación y precisión proporcionadas por Meraki.
+- Map floor plans by name: rejected because of ambiguity and name changes.
+- Store the Meraki ID directly on `floor_plans`: rejected because a floor plan can relate to multiple connectors.
+- Always recalculate position from RSSI: rejected because it would lose the provider estimate and reported accuracy.
 
-## Consecuencias
+## Consequences
 
-Cada plano Meraki debe mapearse antes de mostrar coordenadas locales. Sin mapeo todavía se registran la MAC, las observaciones y las coordenadas geográficas disponibles.
+Each Meraki floor plan must be mapped before local coordinates can be displayed. Without mapping, LoraTrack still records MAC, observations, and available geographic coordinates.

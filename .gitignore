@@ -14,6 +14,7 @@
 *.tar
 *.tar.gz
 *.zip
+__pycache__/
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -23,6 +24,7 @@
 /.vscode
 /.zed
 /auth.json
+/dist
 /node_modules
 /public/build
 /public/hot

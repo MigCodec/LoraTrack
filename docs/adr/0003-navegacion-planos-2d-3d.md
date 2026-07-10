@@ -1,32 +1,32 @@
-# ADR 0003: navegación de planos 2D y modelos 3D
+# ADR 0003: 2D Floor Plan and 3D Model Navigation
 
-## Contexto
+## Context
 
-LoraTrack almacenaba imágenes, PDF y DXF, pero el editor sólo podía representar una vista previa raster sin desplazamiento ni zoom. Se requiere navegar planos 2D y modelos 3D manteniendo las coordenadas métricas usadas por zonas, instalaciones y posiciones estimadas.
+LoraTrack stored images, PDFs, and DXF files, but the editor could only display a raster preview without pan or zoom. The system needs to navigate 2D plans and 3D models while preserving the metric coordinates used by zones, installations, and position estimates.
 
-El proyecto no usa npm ni un proceso de compilación. Los archivos de cada organización permanecen en almacenamiento privado.
+The project does not use npm or a frontend build pipeline. Files for each organization remain in private storage.
 
-## Decisión
+## Decision
 
-- `floor_plans.view_mode` distingue explícitamente `2d` de `3d`.
-- Los modelos 3D admitidos son GLB y glTF autocontenido. GLB es el formato recomendado porque empaqueta geometría, materiales y texturas en un archivo.
-- El archivo original se sirve mediante una ruta autenticada y con alcance tenant. Una vista previa raster opcional permite seguir editando zonas y anclas en 2D.
-- Las dimensiones `width_meters` y `height_meters` representan los ejes locales X/Y del piso. `depth_meters` representa la extensión vertical disponible para normalizar el modelo.
-- `model_transform` conserva escala, rotación vertical y desplazamiento. Cuando no se declara escala, el visor ajusta el modelo al volumen métrico del plano sin modificar el archivo.
-- Las coordenadas del dominio se proyectan en Three.js como `(x - width/2, z, y - height/2)`. El proveedor del modelo no filtra su sistema de coordenadas al posicionamiento.
-- El visor 2D usa JavaScript nativo para zoom y desplazamiento sin cambiar las geometrías normalizadas.
-- El visor 3D usa Three.js `0.184.0`, `GLTFLoader` y `OrbitControls`, cargados con un import map fijado a esa versión.
+- `floor_plans.view_mode` explicitly distinguishes `2d` from `3d`.
+- Supported 3D models are GLB and self-contained glTF. GLB is recommended because it packages geometry, materials, and textures in one file.
+- The original file is served through an authenticated, tenant-scoped route. An optional raster preview keeps 2D zone and anchor editing available.
+- `width_meters` and `height_meters` represent local X/Y floor axes. `depth_meters` represents vertical extent available for model normalization.
+- `model_transform` stores scale, vertical rotation, and offset. If no scale is declared, the viewer fits the model to the metric floor volume without modifying the file.
+- Domain coordinates are projected in Three.js as `(x - width/2, z, y - height/2)`. Model provider coordinate systems do not leak into positioning.
+- The 2D viewer uses native JavaScript for zoom and pan without changing normalized geometries.
+- The 3D viewer uses Three.js `0.184.0`, `GLTFLoader`, and `OrbitControls`, loaded through an import map pinned to that version.
 
-## Alternativas consideradas
+## Alternatives Considered
 
-- Rasterizar siempre los modelos 3D: no permite inspección espacial ni navegación orbital.
-- Incorporar una SPA o un pipeline npm: contradice la arquitectura Blade/JavaScript nativo vigente.
-- Aceptar glTF con recursos externos: complica almacenamiento privado, autorización y resolución segura de múltiples archivos.
-- Convertir modelos en PHP: las conversiones CAD/3D requieren herramientas especializadas y no deben ejecutarse dentro de una petición web.
+- Always rasterize 3D models: rejected because it prevents spatial inspection and orbit navigation.
+- Add a SPA or npm pipeline: rejected because it contradicts the current Blade/native JavaScript architecture.
+- Accept glTF with external resources: rejected because it complicates private storage, authorization, and safe resolution of multiple files.
+- Convert models in PHP: rejected because CAD/3D conversion requires specialized tooling and should not run inside a web request.
 
-## Consecuencias
+## Consequences
 
-- El navegador necesita WebGL para la vista 3D.
-- La disponibilidad del visor 3D depende del recurso versionado de Three.js; para instalaciones sin salida a Internet se deberá vendorizar exactamente esa versión bajo `public/vendor`.
-- La edición geométrica continúa en la representación 2D. La colocación directa mediante raycast sobre superficies 3D queda fuera de esta decisión.
-- El sistema conserva un único marco métrico local para vistas 2D y 3D, evitando reinterpretar observaciones históricas.
+- The browser requires WebGL for 3D view.
+- The 3D viewer depends on a versioned Three.js resource. Offline installations must vendor exactly that version under `public/vendor`.
+- Geometric editing remains in 2D. Direct placement through raycast on 3D surfaces is outside this decision.
+- The system keeps a single local metric frame for 2D and 3D, avoiding reinterpretation of historical observations.

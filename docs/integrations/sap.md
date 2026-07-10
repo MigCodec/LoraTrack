@@ -1,19 +1,19 @@
-# Integración SAP S/4HANA
+# SAP S/4HANA Integration
 
-El conector inicial consume Product Master mediante OData (`API_PRODUCT_SRV`). La URL base y ruta son configurables para admitir diferentes deployments.
+The initial connector consumes Product Master through OData (`API_PRODUCT_SRV`). The base URL and path are configurable to support different deployments.
 
-## Normalización
+## Normalization
 
 | SAP | LoraTrack |
 | --- | --- |
-| `Product` | referencia externa y código SKU |
-| `ProductDescription` | nombre del producto/SKU |
-| `BaseUnit` | unidad base |
-| `ProductType` | atributo |
-| `ProductGroup` | atributo |
+| `Product` | external reference and SKU code |
+| `ProductDescription` | product/SKU name |
+| `BaseUnit` | base unit |
+| `ProductType` | attribute |
+| `ProductGroup` | attribute |
 
-Los códigos se guardan como texto y no pierden ceros iniciales. Cada referencia es única por conector e identificador SAP. Un checksum evita escrituras innecesarias.
+Codes are stored as text and preserve leading zeroes. Each reference is unique by connector and SAP identifier. A checksum avoids unnecessary writes.
 
-Product Master no representa existencias por centro o almacén. Esa capacidad requiere una API y sincronizador separados.
+Product Master does not represent stock by plant or warehouse. That capability requires a separate API and synchronizer.
 
-Referencia: <https://api.sap.com/api/API_PRODUCT_SRV/overview>
+Reference: <https://api.sap.com/api/API_PRODUCT_SRV/overview>

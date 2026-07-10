@@ -1,12 +1,12 @@
-# Iconos de conectores
+# Connector Icons
 
-Los iconos se almacenan dentro del componente Blade para no depender de un CDN durante la operación.
+Connector icons are stored inside the Blade component to avoid CDN dependency during operation.
 
-| Conector | Fuente |
+| Connector | Source |
 | --- | --- |
-| TTI Webhook | Favicon oficial de [The Things Industries](https://www.thethingsindustries.com/static/common/images/favicon.png) |
-| MQTT, SAP, Shopify y Odoo | [Simple Icons](https://simpleicons.org/) |
-| Business Central | Glifo `microsoft-dynamics-365` de [Material Design Icons en Iconify](https://icon-sets.iconify.design/mdi/microsoft-dynamics-365/) |
-| CSV | Glifo `csv` de [Tabler Icons en Iconify](https://icon-sets.iconify.design/tabler/csv/) |
+| TTI Webhook | Official favicon from [The Things Industries](https://www.thethingsindustries.com/static/common/images/favicon.png) |
+| MQTT, SAP, Shopify, and Odoo | [Simple Icons](https://simpleicons.org/) |
+| Business Central | `microsoft-dynamics-365` glyph from [Material Design Icons on Iconify](https://icon-sets.iconify.design/mdi/microsoft-dynamics-365/) |
+| CSV | `csv` glyph from [Tabler Icons on Iconify](https://icon-sets.iconify.design/tabler/csv/) |
 
-Las marcas pertenecen a sus respectivos titulares y se muestran únicamente para identificar el proveedor del conector. No forman parte de la identidad de LoraTrack.
+Trademarks belong to their respective owners and are displayed only to identify the connector provider. They are not part of the LoraTrack brand identity.

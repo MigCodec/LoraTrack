@@ -1,0 +1,79 @@
+name: Documentation package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Documentation version label
+        required: false
+        default: ''
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'tools/build_docs_pdf.py'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'tools/build_docs_pdf.py'
+      - '.github/workflows/docs.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    name: Build versioned PDF documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Configure Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install documentation renderer
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install markdown playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Resolve documentation version
+        id: doc_version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [ -n "${{ github.event.inputs.version || '' }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            VERSION="pr-${{ github.event.pull_request.number }}-${GITHUB_SHA::7}"
+          else
+            VERSION="${GITHUB_REF_NAME}-${GITHUB_SHA::7}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build documentation package
+        run: |
+          python tools/build_docs_pdf.py \
+            --version "${{ steps.doc_version.outputs.version }}" \
+            --engine playwright
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: loratrack-docs-${{ steps.doc_version.outputs.version }}
+          path: dist/docs/
+          if-no-files-found: error
+          retention-days: 30
