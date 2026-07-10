@@ -20,7 +20,8 @@ class Connector extends Model
     protected $fillable = [
         'name', 'kind', 'provider', 'status', 'configuration', 'credentials',
         'contract_version', 'sync_cursor', 'last_activity_at', 'last_success_at',
-        'last_tested_at', 'last_error',
+        'last_tested_at', 'last_error', 'telemetry_events_count', 'pending_events_count',
+        'processed_events_count', 'failed_events_count',
     ];
 
     protected $hidden = ['credentials', 'sync_cursor'];
@@ -36,6 +37,10 @@ class Connector extends Model
             'last_activity_at' => 'datetime',
             'last_success_at' => 'datetime',
             'last_tested_at' => 'datetime',
+            'telemetry_events_count' => 'integer',
+            'pending_events_count' => 'integer',
+            'processed_events_count' => 'integer',
+            'failed_events_count' => 'integer',
         ];
     }
 

@@ -27,23 +27,12 @@ class ConnectorController extends Controller
     {
         return view('connectors.index', [
             'definitions' => collect($registry->all())->groupBy(fn (array $item) => $item['kind']->value),
-            'connectors' => Connector::query()->withCount([
-                'telemetryEvents',
-                'telemetryEvents as processed_events_count' => fn ($query) => $query->where('processing_status', 'processed'),
-                'telemetryEvents as failed_events_count' => fn ($query) => $query->where('processing_status', 'failed'),
-            ])->latest()->get(),
+            'connectors' => Connector::query()->latest()->get(),
         ]);
     }
 
     public function show(Connector $connector, ConnectorRegistry $registry): View
     {
-        $connector->loadCount([
-            'telemetryEvents',
-            'telemetryEvents as pending_events_count' => fn ($query) => $query->where('processing_status', 'pending'),
-            'telemetryEvents as processed_events_count' => fn ($query) => $query->where('processing_status', 'processed'),
-            'telemetryEvents as failed_events_count' => fn ($query) => $query->where('processing_status', 'failed'),
-        ]);
-
         return view('connectors.show', [
             'connector' => $connector,
             'definition' => $registry->get($connector->provider),

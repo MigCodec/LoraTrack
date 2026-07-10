@@ -195,4 +195,39 @@ class ConnectorManagementTest extends TestCase
         ]);
         $this->actingAs($admin)->get(route('connectors.events.show', [$otherConnector, $event]))->assertNotFound();
     }
+
+    public function test_connector_telemetry_counters_are_persisted_from_event_status_changes(): void
+    {
+        $connector = Connector::query()->create([
+            'name' => 'TTI contadores',
+            'provider' => 'tti_webhook',
+            'kind' => 'telemetry',
+            'status' => 'active',
+        ]);
+
+        $event = TelemetryEvent::query()->create([
+            'connector_id' => $connector->id,
+            'external_event_id' => hash('sha256', 'counter-event'),
+            'event_type' => 'uplink',
+            'received_at' => now(),
+            'raw_payload' => [],
+            'processing_status' => 'pending',
+        ]);
+
+        $this->assertSame(1, $connector->fresh()->telemetry_events_count);
+        $this->assertSame(1, $connector->fresh()->pending_events_count);
+
+        $event->update(['processing_status' => 'processed']);
+        $connector->refresh();
+        $this->assertSame(0, $connector->pending_events_count);
+        $this->assertSame(1, $connector->processed_events_count);
+        $this->assertSame(0, $connector->failed_events_count);
+
+        $event->update(['processing_status' => 'failed']);
+        $connector->refresh();
+        $this->assertSame(1, $connector->telemetry_events_count);
+        $this->assertSame(0, $connector->pending_events_count);
+        $this->assertSame(0, $connector->processed_events_count);
+        $this->assertSame(1, $connector->failed_events_count);
+    }
 }

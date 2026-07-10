@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganization;
+use App\Telemetry\TelemetryCounterUpdater;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,19 @@ class TelemetryEvent extends Model
             'observed_at' => 'datetime', 'received_at' => 'datetime', 'processed_at' => 'datetime',
             'normalized_payload' => 'array', 'raw_payload' => 'array',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (TelemetryEvent $event): void {
+            app(TelemetryCounterUpdater::class)->recordCreated($event);
+        });
+
+        static::updated(function (TelemetryEvent $event): void {
+            if ($event->wasChanged('processing_status')) {
+                app(TelemetryCounterUpdater::class)->recordStatusChanged($event);
+            }
+        });
     }
 
     public function connector(): BelongsTo
