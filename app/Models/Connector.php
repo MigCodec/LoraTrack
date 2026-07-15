@@ -64,6 +64,11 @@ class Connector extends Model
         return $this->hasMany(MerakiFloorPlanMapping::class);
     }
 
+    public function rejectedRequests(): HasMany
+    {
+        return $this->hasMany(ConnectorRejectedRequest::class);
+    }
+
     public function logActivity(string $event, string $message, string $level = 'info', array $context = []): ConnectorActivityLog
     {
         return $this->activityLogs()->create(compact('event', 'message', 'level', 'context'));

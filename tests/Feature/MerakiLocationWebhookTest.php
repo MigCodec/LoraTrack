@@ -195,6 +195,38 @@ class MerakiLocationWebhookTest extends TestCase
             'version' => '2.1',
             'secret' => 'meraki-shared-secret-value',
         ])->assertStatus(422);
+
+        $this->assertDatabaseHas('connector_rejected_requests', [
+            'connector_id' => $connector->id,
+            'http_status' => 401,
+            'reason' => 'authentication_failed',
+            'declared_version' => '3.0',
+        ]);
+        $this->assertDatabaseHas('connector_rejected_requests', [
+            'connector_id' => $connector->id,
+            'http_status' => 422,
+            'reason' => 'unsupported_version',
+            'declared_version' => '2.1',
+        ]);
+        $this->assertDatabaseCount('telemetry_events', 0);
+    }
+
+    public function test_meraki_keeps_only_the_ten_most_recent_rejected_requests_without_secrets(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'rejected-retention']);
+        $connector = $this->connector($organization, '3');
+
+        for ($index = 0; $index < 12; $index++) {
+            $this->postJson(route('api.meraki.ingest', $connector), [
+                'version' => '3.0',
+                'secret' => 'secret-that-must-not-be-stored-'.$index,
+                'type' => 'WiFi',
+            ])->assertUnauthorized();
+        }
+
+        $this->assertSame(10, $connector->rejectedRequests()->count());
+        $serialized = $connector->rejectedRequests()->get()->toJson();
+        $this->assertStringNotContainsString('secret-that-must-not-be-stored', $serialized);
     }
 
     public function test_same_mac_is_isolated_between_organizations(): void

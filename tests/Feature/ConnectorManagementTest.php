@@ -186,7 +186,15 @@ class ConnectorManagementTest extends TestCase
         ]);
 
         $this->actingAs($admin)->get(route('connectors.show', $connector))
-            ->assertOk()->assertSee(route('connectors.events.show', [$connector, $event]));
+            ->assertOk()
+            ->assertSee(route('connectors.events.show', [$connector, $event]))
+            ->assertSee('Últimos intentos de recepción rechazados')
+            ->assertSee(route('connectors.show', ['connector' => $connector, 'events' => 'processed']).'#telemetry', false)
+            ->assertSee(route('connectors.show', ['connector' => $connector, 'events' => 'rejected']).'#rejected-requests', false);
+        $this->actingAs($admin)->get(route('connectors.show', ['connector' => $connector, 'events' => 'failed']))
+            ->assertOk()
+            ->assertSee('Telemetría: fallida')
+            ->assertSee('No hay telemetría para este filtro.');
         $this->actingAs($admin)->get(route('connectors.events.show', [$connector, $event]))
             ->assertOk()->assertSee('JSON original')->assertSee('tracker-visible')->assertSee('AABBCCDD');
 
