@@ -64,6 +64,11 @@ class Connector extends Model
         return $this->hasMany(MerakiFloorPlanMapping::class);
     }
 
+    public function merakiWebhookBatches(): HasMany
+    {
+        return $this->hasMany(MerakiWebhookBatch::class);
+    }
+
     public function rejectedRequests(): HasMany
     {
         return $this->hasMany(ConnectorRejectedRequest::class);

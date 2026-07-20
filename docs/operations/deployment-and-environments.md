@@ -70,6 +70,8 @@ Scheduled tasks:
 
 ## Queue Worker
 
+The Laravel scheduler must run every minute. It drains the durable Meraki webhook inbox through `loratrack:process-meraki-webhooks`; without `schedule:run`, Meraki batches remain pending and no telemetry events are created.
+
 Persistent worker:
 
 ```bash

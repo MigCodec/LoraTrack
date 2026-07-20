@@ -24,6 +24,7 @@ use App\Models\TelemetryEvent;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -111,11 +112,18 @@ class MerakiLocationWebhookTest extends TestCase
         ];
 
         $this->postJson(route('api.meraki.ingest', $connector), $payload)
-            ->assertAccepted()
-            ->assertJsonPath('observations_queued', 1);
+            ->assertOk()
+            ->assertJsonPath('duplicate', false);
         $this->postJson(route('api.meraki.ingest', $connector), $payload)
-            ->assertAccepted()
-            ->assertJsonPath('duplicates', 1);
+            ->assertOk()
+            ->assertJsonPath('duplicate', true);
+
+        $this->assertDatabaseCount('meraki_webhook_batches', 1);
+        $this->assertDatabaseCount('telemetry_events', 0);
+        $storedPayload = json_decode((string) DB::table('meraki_webhook_batches')->value('payload'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertArrayNotHasKey('secret', $storedPayload);
+
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
         Queue::assertPushed(ProcessMerakiLocationObservation::class, 1);
         $event = TelemetryEvent::query()->firstOrFail();
@@ -164,7 +172,8 @@ class MerakiLocationWebhookTest extends TestCase
             ],
         ];
 
-        $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertAccepted();
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertOk();
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
         $event = TelemetryEvent::query()->firstOrFail();
         $this->process($event);
 
@@ -238,8 +247,9 @@ class MerakiLocationWebhookTest extends TestCase
         $secondConnector = $this->connector($secondOrganization, '3');
         $payload = $this->versionThreePayload('aa:bb:cc:dd:ee:ff');
 
-        $this->postJson(route('api.meraki.ingest', $firstConnector), $payload)->assertAccepted();
-        $this->postJson(route('api.meraki.ingest', $secondConnector), $payload)->assertAccepted();
+        $this->postJson(route('api.meraki.ingest', $firstConnector), $payload)->assertOk();
+        $this->postJson(route('api.meraki.ingest', $secondConnector), $payload)->assertOk();
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
         foreach (TelemetryEvent::query()->orderBy('id')->get() as $event) {
             $this->process($event);
@@ -418,8 +428,10 @@ class MerakiLocationWebhookTest extends TestCase
         $payload['secret'] = 'meraki-shared-secret-value';
 
         $this->postJson(route('api.meraki.ingest', $connector), $payload)
-            ->assertAccepted()
-            ->assertJsonPath('observations_queued', 1);
+            ->assertOk()
+            ->assertJsonPath('duplicate', false);
+
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
         $event = TelemetryEvent::query()->firstOrFail();
         $this->assertLessThan(5000, strlen(json_encode($event->raw_payload, JSON_THROW_ON_ERROR)));
@@ -466,8 +478,10 @@ class MerakiLocationWebhookTest extends TestCase
         ];
 
         $this->postJson(route('api.meraki.ingest', $connector), $payload)
-            ->assertAccepted()
-            ->assertJsonPath('observations_queued', 1);
+            ->assertOk()
+            ->assertJsonPath('duplicate', false);
+
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
         $event = TelemetryEvent::query()->firstOrFail();
         $this->process($event);
@@ -512,7 +526,8 @@ class MerakiLocationWebhookTest extends TestCase
             ],
         ];
 
-        $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertAccepted();
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertOk();
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
         $event = TelemetryEvent::query()->firstOrFail();
         $this->process($event);
 

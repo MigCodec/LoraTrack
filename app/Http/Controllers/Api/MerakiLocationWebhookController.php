@@ -5,22 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Connectors\ConnectorRejectedRequestRecorder;
-use App\Connectors\Meraki\MerakiPayloadNormalizer;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Controllers\Controller;
-use App\Jobs\ProcessMerakiLocationObservation;
 use App\Models\Connector;
-use App\Models\TelemetryEvent;
-use App\Support\TelemetryTimestamp;
-use App\Tenancy\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class MerakiLocationWebhookController extends Controller
 {
@@ -40,7 +34,6 @@ class MerakiLocationWebhookController extends Controller
     public function receive(
         Request $request,
         Connector $connector,
-        MerakiPayloadNormalizer $normalizer,
         ConnectorRejectedRequestRecorder $rejections,
     ): JsonResponse
     {
@@ -79,85 +72,33 @@ class MerakiLocationWebhookController extends Controller
         if (! in_array($payload['type'] ?? null, $allowedTypes, true)) {
             $this->reject($rejections, $connector, $request, 422, 'invalid_observation_type', 'Tipo de observación Meraki inválido.');
         }
-
-        try {
-            $records = $normalizer->records($payload, $majorVersion);
-        } catch (ValidationException $exception) {
-            $this->reject($rejections, $connector, $request, 422, 'invalid_payload', 'Payload Meraki inválido.', [
-                'invalid_fields' => array_keys($exception->errors()),
-            ]);
-        }
-        if ($records === []) {
+        $hasObservationList = is_array(data_get($payload, 'data.observations'))
+            && data_get($payload, 'data.observations') !== [];
+        $isExpandedRecord = is_string($payload['client_mac'] ?? null)
+            && is_array($payload['raw'] ?? null);
+        if (! $hasObservationList && ! $isExpandedRecord) {
             $this->reject($rejections, $connector, $request, 422, 'empty_observations', 'El payload no contiene observaciones Meraki válidas.');
         }
-        $configuredNetwork = trim((string) ($connector->configuration['network_id'] ?? ''));
-        if ($configuredNetwork !== '') {
-            if (! collect($records)->every(
-                fn (array $record): bool => ($record['network_id'] ?? '') === $configuredNetwork,
-            )) {
-                $this->reject($rejections, $connector, $request, 422, 'network_mismatch', 'El networkId no corresponde al configurado.');
-            }
-        }
 
-        $context = app(OrganizationContext::class);
-        $context->set($connector->organization);
+        unset($payload['secret']);
+        $now = now();
+        $inserted = DB::table('meraki_webhook_batches')->insertOrIgnore([
+            'id' => (string) Str::ulid(),
+            'organization_id' => $connector->organization_id,
+            'connector_id' => $connector->id,
+            'request_hash' => hash('sha256', $request->getContent()),
+            'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+            'processing_status' => 'pending',
+            'attempts' => 0,
+            'received_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
-        try {
-            [$accepted, $duplicates] = DB::transaction(function () use ($connector, $records): array {
-                $accepted = 0;
-                $duplicates = 0;
-
-                foreach ($records as $record) {
-                    $externalEventId = hash('sha256', implode('|', [
-                        $record['version'],
-                        $record['type'],
-                        $record['network_id'],
-                        $record['client_mac'],
-                        $record['observed_at'],
-                        $record['external_floor_plan_id'],
-                        $record['x'],
-                        $record['y'],
-                    ]));
-                    $event = TelemetryEvent::query()->firstOrCreate(
-                        ['connector_id' => $connector->id, 'external_event_id' => $externalEventId],
-                        [
-                            'event_type' => 'meraki_location',
-                            'observed_at' => filled($record['observed_at'])
-                                ? TelemetryTimestamp::parseProviderTime($record['observed_at'])
-                                : null,
-                            'received_at' => now(),
-                            'raw_payload' => $record,
-                            'processing_status' => 'pending',
-                        ],
-                    );
-
-                    if ($event->wasRecentlyCreated) {
-                        ProcessMerakiLocationObservation::dispatch($event->id)->afterCommit();
-                        $accepted++;
-                    } else {
-                        $duplicates++;
-                    }
-                }
-
-                return [$accepted, $duplicates];
-            });
-
-            $connector->forceFill(['last_activity_at' => now(), 'last_error' => null])->save();
-            $connector->logActivity('meraki_payload_received', 'Observaciones recibidas desde Cisco Meraki.', 'info', [
-                'accepted' => $accepted,
-                'duplicates' => $duplicates,
-                'version' => $version,
-                'request_id' => (string) Str::uuid(),
-            ]);
-
-            return response()->json([
-                'accepted' => true,
-                'observations_queued' => $accepted,
-                'duplicates' => $duplicates,
-            ], 202);
-        } finally {
-            $context->set(null);
-        }
+        return response()->json([
+            'accepted' => true,
+            'duplicate' => $inserted === 0,
+        ], 200);
     }
 
     /** @param array<string, mixed> $context */
