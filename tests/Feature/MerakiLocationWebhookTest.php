@@ -143,6 +143,33 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertCount(3, $event->fresh()->normalized_payload['rssi_records']);
     }
 
+    public function test_scheduler_recovers_failed_batch_with_double_encoded_payload(): void
+    {
+        Queue::fake();
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'acme-retry']);
+        $connector = $this->connector($organization, '3');
+
+        $this->postJson(
+            route('api.meraki.ingest', $connector),
+            $this->versionThreePayload('aa:bb:cc:dd:ee:01'),
+        )->assertOk();
+
+        $storedPayload = (string) DB::table('meraki_webhook_batches')->value('payload');
+        DB::table('meraki_webhook_batches')->update([
+            'payload' => json_encode($storedPayload, JSON_THROW_ON_ERROR),
+            'processing_status' => 'failed',
+            'attempts' => 1,
+        ]);
+
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
+
+        $this->assertDatabaseHas('meraki_webhook_batches', [
+            'processing_status' => 'processed',
+            'attempts' => 2,
+        ]);
+        $this->assertDatabaseCount('telemetry_events', 1);
+    }
+
     public function test_meraki_v2_registers_unassigned_ble_device_and_validator_is_available_in_draft(): void
     {
         Queue::fake();

@@ -37,7 +37,13 @@ class ProcessMerakiWebhookBatches extends Command
 
         $batchIds = MerakiWebhookBatch::query()
             ->withoutGlobalScope('organization')
-            ->where('processing_status', 'pending')
+            ->where(function ($query): void {
+                $query->where('processing_status', 'pending')
+                    ->orWhere(function ($failed): void {
+                        $failed->where('processing_status', 'failed')
+                            ->where('attempts', '<', 3);
+                    });
+            })
             ->orderBy('received_at')
             ->limit($limit)
             ->pluck('id');
@@ -61,7 +67,10 @@ class ProcessMerakiWebhookBatches extends Command
                 ->withoutGlobalScope('organization')
                 ->lockForUpdate()
                 ->find($batchId);
-            if (! $candidate || $candidate->processing_status !== 'pending') {
+            if (! $candidate
+                || ! in_array($candidate->processing_status, ['pending', 'failed'], true)
+                || $candidate->attempts >= 3
+            ) {
                 return null;
             }
             $candidate->forceFill([
@@ -93,7 +102,7 @@ class ProcessMerakiWebhookBatches extends Command
                 return true;
             }
 
-            $payload = $batch->payload;
+            $payload = $this->payload($batch);
             $majorVersion = (int) explode('.', (string) ($payload['version'] ?? ''))[0];
             $records = $normalizer->records($payload, $majorVersion);
             if ($records === []) {
@@ -169,5 +178,25 @@ class ProcessMerakiWebhookBatches extends Command
         } finally {
             $context->set(null);
         }
+    }
+
+    /** @return array<string, mixed> */
+    private function payload(MerakiWebhookBatch $batch): array
+    {
+        $payload = $batch->payload;
+        if (is_array($payload)) {
+            return $payload;
+        }
+
+        $payload = $batch->getRawOriginal('payload');
+        for ($level = 0; $level < 2 && is_string($payload); $level++) {
+            $payload = json_decode($payload, true);
+        }
+
+        if (! is_array($payload)) {
+            throw new \UnexpectedValueException('El lote Meraki no contiene un payload JSON valido.');
+        }
+
+        return $payload;
     }
 }
