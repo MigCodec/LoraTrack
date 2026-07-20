@@ -55,7 +55,14 @@ class RoleAccessTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
         $this->actingAs($admin)->get(route('dashboard'))
-            ->assertOk()->assertSee('Administración')->assertSee('Conectores')->assertSee('Usuarios y grupos');
+            ->assertOk()
+            ->assertSee('Administración')
+            ->assertSee('Conectores')
+            ->assertSee('Usuarios y grupos')
+            ->assertSee('data-responsive-nav', false)
+            ->assertSee('data-nav-toggle', false)
+            ->assertSee('aria-controls="sidebar-navigation"', false)
+            ->assertSee('aria-expanded="false"', false);
         $this->actingAs($admin)->get(route('connectors.index'))->assertOk();
         $this->actingAs($admin)->get(route('users.index'))->assertOk()->assertSee('Usuarios, grupos y permisos');
     }

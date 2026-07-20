@@ -16,11 +16,18 @@
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 @yield('body_class')" style="{{ App\Support\BrandPalette::cssVariables($tenant) }}">
     <div class="min-h-screen lg:flex">
-        <aside class="brand-sidebar sidebar-shell px-5 py-6 text-white lg:fixed lg:inset-y-0 lg:w-64">
-            <a href="{{ route('dashboard') }}" class="flex items-center gap-3" aria-label="LoraTrack, inicio">
-                @if($tenant?->logo_path)<img src="{{ route('organizations.logo') }}" alt="Logo de {{ $tenant->name }}" class="h-11 w-11 rounded bg-white object-contain p-1">@else<img src="{{ asset('images/loratrack-default-logo.png') }}" alt="Logo de LoraTrack" class="h-11 w-11 rounded object-contain">@endif
-                <span><strong class="block max-w-36 truncate text-lg tracking-wide">{{ $tenant?->name ?? 'LoraTrack' }}</strong><span class="text-xs text-white/65">Asset intelligence</span></span>
-            </a>
+        <aside class="brand-sidebar sidebar-shell px-5 py-4 text-white lg:fixed lg:inset-y-0 lg:w-64 lg:py-6" data-responsive-nav>
+            <div class="sidebar-brand-row">
+                <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3" aria-label="LoraTrack, inicio">
+                    @if($tenant?->logo_path)<img src="{{ route('organizations.logo') }}" alt="Logo de {{ $tenant->name }}" class="h-11 w-11 rounded bg-white object-contain p-1">@else<img src="{{ asset('images/loratrack-default-logo.png') }}" alt="Logo de LoraTrack" class="h-11 w-11 rounded object-contain">@endif
+                    <span class="min-w-0"><strong class="block max-w-36 truncate text-lg tracking-wide">{{ $tenant?->name ?? 'LoraTrack' }}</strong><span class="text-xs text-white/65">Asset intelligence</span></span>
+                </a>
+                <button type="button" class="sidebar-menu-toggle" aria-expanded="false" aria-controls="sidebar-navigation" aria-label="Abrir menú principal" data-nav-toggle>
+                    <span class="sidebar-menu-icon" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <div id="sidebar-navigation" class="sidebar-collapsible" data-nav-panel>
 
             <nav class="sidebar-nav mt-8 grid gap-1" aria-label="Navegación principal">
                 <p class="nav-section-label">Operación</p>
@@ -66,6 +73,7 @@
                 <p class="mt-1 truncate text-xs text-white/75">{{ app(App\Tenancy\OrganizationContext::class)->organization()?->name }}</p>
                 <p class="mt-1 text-xs text-white/60">{{ auth()->user()->effectiveRole()->label() }}</p>
                 <form method="POST" action="{{ route('logout') }}" class="mt-3">@csrf<button class="text-sm text-white/75 hover:text-white">Cerrar sesión</button></form>
+            </div>
             </div>
         </aside>
 

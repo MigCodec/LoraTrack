@@ -1,4 +1,30 @@
 window.LoraTrack = window.LoraTrack || {};
+
+document.querySelectorAll('[data-responsive-nav]').forEach((sidebar) => {
+    sidebar.classList.add('nav-enhanced');
+    const toggle = sidebar.querySelector('[data-nav-toggle]');
+    const panel = sidebar.querySelector('[data-nav-panel]');
+    if (!toggle || !panel) return;
+
+    const setOpen = (open, restoreFocus = false) => {
+        sidebar.classList.toggle('is-nav-open', open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.setAttribute('aria-label', open ? 'Cerrar menú principal' : 'Abrir menú principal');
+        if (restoreFocus) toggle.focus();
+    };
+
+    toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+    panel.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setOpen(false)));
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+            setOpen(false, true);
+        }
+    });
+    window.addEventListener('resize', () => {
+        if (window.matchMedia('(min-width: 64rem)').matches) setOpen(false);
+    });
+});
+
 window.LoraTrack.pollWhenVisible = (callback, intervalMs) => {
     let timer = null;
     let stopped = false;
