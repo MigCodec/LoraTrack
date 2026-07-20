@@ -12,31 +12,12 @@ use App\Positioning\PayloadProfileDecoder;
 use App\Positioning\TelemetryPositioningService;
 use App\Telemetry\AssetLastSeenUpdater;
 use App\Tenancy\OrganizationContext;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class ProcessTtiUplink implements ShouldQueue
+class ProcessTtiUplink
 {
-    use Queueable;
-
-    public int $tries = 3;
-
-    /** @return array<int, object> */
-    public function middleware(): array
-    {
-        return [(new WithoutOverlapping('telemetry:'.$this->telemetryEventId))->releaseAfter(5)->expireAfter(120)];
-    }
-
-    /** @return list<int> */
-    public function backoff(): array
-    {
-        return [5, 30, 120];
-    }
-
     public function __construct(public readonly string $telemetryEventId) {}
 
     public function handle(BleObservationExtractor $extractor, PayloadProfileDecoder $profileDecoder, TelemetryPositioningService $positioning, AssetLastSeenUpdater $lastSeenUpdater): void

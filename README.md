@@ -26,10 +26,10 @@ Para desarrollo:
 composer dev
 ```
 
-La interfaz usa Blade, CSS estático y JavaScript nativo; no requiere Node.js ni npm. Ejecuta el worker en otra consola porque las importaciones SAP y el procesamiento de uplinks usan colas:
+La interfaz usa Blade, CSS estático y JavaScript nativo; no requiere Node.js ni npm. El procesamiento diferido se ejecuta mediante el scheduler:
 
 ```bash
-php artisan queue:work
+php artisan schedule:run
 ```
 
 Los planos se guardan exclusivamente en `storage/app/private` y se entregan mediante una ruta autenticada. No debe crearse `public/storage` en el servidor.
@@ -157,11 +157,10 @@ Los administradores disponen de `/operations/health`, que muestra trabajos pendi
 
 Las mutaciones web generan una auditoría con usuario, ruta, resultado y `X-Request-ID`; nunca se almacenan contraseñas, tokens ni credenciales. Los uplinks aceptan un máximo de 1 MB. Los trabajos de un mismo evento o conector no se ejecutan en paralelo y aplican reintentos escalonados.
 
-Procesos que deben quedar supervisados en producción:
+Procesos que deben quedar configurados en producción:
 
 ```bash
-php artisan queue:work --tries=3 --timeout=300
-php artisan schedule:work
+* * * * * cd /ruta/a/loratrack && php artisan schedule:run
 php artisan loratrack:mqtt-listen
 ```
 

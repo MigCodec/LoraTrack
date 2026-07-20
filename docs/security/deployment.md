@@ -40,6 +40,6 @@ The server must already contain a protected `.env` with `APP_ENV=production`, `A
 
 ## Deployment Behavior
 
-The workflow connects directly to `DEPLOY_PATH`, initializes Git there on first deployment, and uses `git pull --ff-only origin main` afterwards. It preserves ignored `.env` and `storage` data, runs migrations, rebuilds Laravel caches, and restarts queue workers.
+The workflow connects directly to `DEPLOY_PATH`, initializes Git there on first deployment, and uses `git pull --ff-only origin main` afterwards. It preserves ignored `.env` and `storage` data, runs migrations, and rebuilds Laravel caches. Background processing continues through the minute scheduler cron.
 
 Database migrations are not automatically reversible. A tested backup and rollback decision are mandatory before changes that alter or delete production data.

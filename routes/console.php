@@ -9,6 +9,15 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('loratrack:evaluate-alerts')->everyTenMinutes()->withoutOverlapping();
-Schedule::command('loratrack:process-meraki-webhooks')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:process-meraki-webhooks --limit=3')
+    ->everyMinute()
+    ->onOneServer()
+    ->withoutOverlapping(10)
+    ->runInBackground();
+Schedule::command('loratrack:process-meraki-observations')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:process-tti-uplinks')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:process-mqtt-telemetry')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:process-catalog-syncs')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:sync-telemetry-counters')->everyFiveMinutes()->onOneServer()->withoutOverlapping();
 Schedule::command('loratrack:manage-telemetry-storage')->hourly()->onOneServer()->withoutOverlapping();
 Schedule::command('loratrack:prune-meraki-history')->hourly()->onOneServer()->withoutOverlapping();

@@ -6,22 +6,6 @@ Define the minimum tasks required to operate LoraTrack in an enterprise environm
 
 ## Required Processes
 
-### Queue Worker
-
-Processes TTI, Meraki, catalog synchronization, and other jobs.
-
-Persistent mode:
-
-```bash
-php artisan queue:work --tries=3 --timeout=300
-```
-
-Cron-friendly mode:
-
-```bash
-php artisan queue:work --stop-when-empty --sleep=1 --tries=3 --timeout=120 --max-time=55
-```
-
 ### Scheduler
 
 Run every minute:
@@ -29,6 +13,8 @@ Run every minute:
 ```bash
 php artisan schedule:run
 ```
+
+The scheduler is the only required background executor. It processes Meraki batches and observations, TTI/MQTT telemetry, and requested catalog synchronizations without Laravel Queue. TTI and MQTT commands process at most three pending events per execution.
 
 Scheduled tasks:
 
@@ -56,7 +42,6 @@ Route:
 
 Review:
 
-- pending or failed jobs;
 - stuck telemetry;
 - connector errors;
 - private storage state;
@@ -71,29 +56,23 @@ Laravel log:
 storage/logs/laravel.log
 ```
 
-Queue cron output example:
+Scheduler cron output example:
 
 ```bash
-php artisan queue:work --stop-when-empty --sleep=1 --tries=3 --timeout=120 --max-time=55 >> storage/logs/queue.log 2>&1
+php artisan schedule:run >> storage/logs/schedule.log 2>&1
 ```
 
 Do not enable tracing that prints credentials.
 
 ## Runbook: Telemetry Stays Pending
 
-1. Confirm worker execution:
+1. Confirm scheduler execution:
 
 ```bash
-php artisan queue:work --stop-when-empty -v
+php artisan schedule:run -v
 ```
 
-2. Review failed jobs:
-
-```bash
-php artisan queue:failed
-```
-
-3. Review recent events:
+2. Review recent events:
 
 ```sql
 select id, connector_id, device_id, processing_status, processing_error,
@@ -103,9 +82,9 @@ order by received_at desc
 limit 20;
 ```
 
-4. Check database connection limits if `max_user_connections` appears.
+3. Check database connection limits if `max_user_connections` appears.
 
-5. Confirm cron is not starting overlapping workers.
+4. Confirm there is only one cron entry invoking the scheduler each minute.
 
 ## Runbook: TTI Arrives but Asset Time Does Not Update
 
@@ -167,9 +146,8 @@ SQLSTATE[42000] [1226] User has exceeded the max_user_connections resource
 
 Actions:
 
-- stop duplicate workers;
+- remove duplicate scheduler cron entries;
 - review cron overlap;
-- use `--stop-when-empty` and `--max-time` in shared hosting;
 - review persistent connections;
 - increase database limits if load justifies it.
 

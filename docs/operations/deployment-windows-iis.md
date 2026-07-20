@@ -250,13 +250,7 @@ Scheduler task:
 - Start in: `C:\inetpub\loratrack`
 - Repeat every minute.
 
-Queue task command:
-
-```text
-artisan queue:work --stop-when-empty --sleep=1 --tries=3 --timeout=120 --max-time=55
-```
-
-For production, prefer a Windows service wrapper such as WinSW, NSSM, or an approved service manager for persistent workers.
+No Laravel Queue task or persistent queue service is required.
 
 ## 13. Optional Microsoft Login
 
@@ -279,7 +273,6 @@ iisreset
 ```powershell
 Invoke-WebRequest https://loratrack.example.com/login -UseBasicParsing
 php artisan about
-php artisan queue:work --stop-when-empty -v
 php artisan schedule:run
 ```
 
@@ -291,4 +284,4 @@ Validate login, dashboard, `/operations/health`, floor plan access, connector cr
 - Laravel routes return 404: verify URL Rewrite and `web.config`.
 - Permission errors: reapply permissions on `storage` and `bootstrap\cache`.
 - `.env` changes do not apply: run `php artisan config:clear`, `php artisan config:cache`, and `iisreset`.
-- Queue does not process: run `php artisan queue:work --stop-when-empty -v` manually and inspect Task Scheduler history.
+- Telemetry does not process: run `php artisan schedule:run -v` manually and inspect Task Scheduler history.

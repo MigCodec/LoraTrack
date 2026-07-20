@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Api;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Controllers\Controller;
-use App\Jobs\ProcessTtiUplink;
 use App\Models\Connector;
 use App\Models\TelemetryEvent;
 use App\Support\TelemetryTimestamp;
@@ -70,9 +69,8 @@ class TtiWebhookController extends Controller
             );
 
             if ($event->wasRecentlyCreated) {
-                ProcessTtiUplink::dispatch($event->id);
                 $connector->forceFill(['last_activity_at' => now(), 'last_error' => null])->save();
-                $connector->logActivity('uplink_received', 'Uplink recibido desde The Things Stack y enviado a procesamiento.', 'info', [
+                $connector->logActivity('uplink_received', 'Uplink recibido desde The Things Stack y pendiente de procesamiento programado.', 'info', [
                     'event_id' => $event->id,
                     'device_id' => Arr::get($payload, 'end_device_ids.device_id'),
                     'f_port' => Arr::get($payload, 'uplink_message.f_port'),

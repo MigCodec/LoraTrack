@@ -51,7 +51,10 @@ class TtiWebhookTest extends TestCase
 
         $this->assertSame(1, TelemetryEvent::query()->count());
         $this->assertSame('2026-06-18 16:00:00', TelemetryEvent::query()->firstOrFail()->observed_at->format('Y-m-d H:i:s'));
-        Queue::assertPushed(ProcessTtiUplink::class, 1);
+        Queue::assertNotPushed(ProcessTtiUplink::class);
+        $this->assertSame('pending', TelemetryEvent::query()->firstOrFail()->processing_status);
+        $this->artisan('loratrack:process-tti-uplinks')->assertSuccessful();
+        $this->assertSame('processed', TelemetryEvent::query()->firstOrFail()->processing_status);
     }
 
     public function test_tti_uplink_identity_uses_nested_received_at(): void
@@ -85,7 +88,40 @@ class TtiWebhookTest extends TestCase
             ->assertJsonPath('duplicate', false);
 
         $this->assertSame(2, TelemetryEvent::query()->count());
-        Queue::assertPushed(ProcessTtiUplink::class, 2);
+        Queue::assertNotPushed(ProcessTtiUplink::class);
+        $this->artisan('loratrack:process-tti-uplinks')->assertSuccessful();
+        $this->assertSame(2, TelemetryEvent::query()->where('processing_status', 'processed')->count());
+    }
+
+    public function test_tti_scheduler_processes_at_most_three_uplinks_per_execution(): void
+    {
+        Queue::fake();
+        $connector = Connector::query()->create([
+            'name' => 'TTI',
+            'kind' => ConnectorKind::Telemetry,
+            'provider' => ConnectorProvider::TtiWebhook,
+            'status' => ConnectorStatus::Active,
+            'credentials' => ['webhook_token' => 'a-secure-token-with-24-characters'],
+        ]);
+        $headers = ['Authorization' => 'Bearer a-secure-token-with-24-characters'];
+
+        foreach (range(1, 4) as $counter) {
+            $this->postJson(route('api.tti.ingest', $connector), [
+                'end_device_ids' => ['device_id' => 'tracker-'.$counter, 'dev_eui' => str_pad((string) $counter, 16, '0', STR_PAD_LEFT)],
+                'received_at' => "2026-07-20T18:00:0{$counter}Z",
+                'uplink_message' => [
+                    'f_cnt' => $counter,
+                    'f_port' => 1,
+                    'decoded_payload' => ['battery' => 90],
+                ],
+            ], $headers)->assertAccepted();
+        }
+
+        $this->artisan('loratrack:process-tti-uplinks')->assertSuccessful();
+
+        $this->assertSame(3, TelemetryEvent::query()->where('processing_status', 'processed')->count());
+        $this->assertSame(1, TelemetryEvent::query()->where('processing_status', 'pending')->count());
+        Queue::assertNotPushed(ProcessTtiUplink::class);
     }
 
     public function test_tti_uplink_rejects_invalid_token(): void

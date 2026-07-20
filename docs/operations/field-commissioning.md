@@ -30,8 +30,8 @@ Define a baseline procedure for installing, validating, and calibrating LoraTrac
 
 1. Confirm deployed version or commit.
 2. Confirm `APP_DEBUG=false`.
-3. Confirm queue worker operation.
-4. Confirm scheduler operation.
+3. Confirm scheduler operation every minute.
+4. Confirm scheduled telemetry processing.
 5. Confirm SMTP if alerts are used.
 6. Confirm backups.
 7. Confirm basic monitoring.

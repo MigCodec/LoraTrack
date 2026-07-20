@@ -39,19 +39,14 @@ For LoRaWAN, The Things Industries manages devices, gateways, the network server
 
 ## Critical Runtime Processes
 
-Recommended persistent processes:
+Required background execution:
 
 ```bash
-php artisan queue:work --tries=3 --timeout=300
 php artisan schedule:run
 php artisan loratrack:mqtt-listen
 ```
 
-For hosting environments where persistent workers are not available:
-
-```bash
-php artisan queue:work --stop-when-empty --sleep=1 --tries=3 --timeout=120 --max-time=55
-```
+Run `schedule:run` from cron every minute. The MQTT listener is only needed when MQTT connectors are enabled.
 
 ## Relevant Design Controls
 

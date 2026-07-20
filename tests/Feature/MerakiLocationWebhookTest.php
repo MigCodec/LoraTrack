@@ -125,9 +125,9 @@ class MerakiLocationWebhookTest extends TestCase
 
         $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
-        Queue::assertPushed(ProcessMerakiLocationObservation::class, 1);
+        Queue::assertNotPushed(ProcessMerakiLocationObservation::class);
+        $this->artisan('loratrack:process-meraki-observations', ['--limit' => 1])->assertSuccessful();
         $event = TelemetryEvent::query()->firstOrFail();
-        $this->process($event);
 
         $this->assertSame(1, Device::query()->where('identifier', 'AABBCCDDEEFF')->count());
         $this->assertCount(3, $event->fresh()->signalObservations);
@@ -168,6 +168,56 @@ class MerakiLocationWebhookTest extends TestCase
             'attempts' => 2,
         ]);
         $this->assertDatabaseCount('telemetry_events', 1);
+    }
+
+    public function test_scheduler_bulk_inserts_large_batch_without_repeating_access_point_inventory(): void
+    {
+        Queue::fake();
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'acme-bulk']);
+        $connector = $this->connector($organization, '3');
+        $accessPoints = collect(range(1, 40))->map(fn (int $index): array => [
+            'mac' => sprintf('00:11:22:33:%02x:%02x', intdiv($index, 256), $index % 256),
+            'serial' => 'AP-'.$index,
+            'name' => 'Access point '.$index,
+        ])->all();
+        $observations = collect(range(1, 120))->map(fn (int $index): array => [
+            'clientMac' => sprintf('aa:bb:cc:dd:%02x:%02x', intdiv($index, 256), $index % 256),
+            'latestRecord' => [
+                'time' => '2026-07-20T18:00:00Z',
+                'nearestApMac' => $accessPoints[0]['mac'],
+                'nearestApRssi' => -55,
+            ],
+        ])->all();
+
+        $this->postJson(route('api.meraki.ingest', $connector), [
+            'version' => '3.0',
+            'secret' => 'meraki-shared-secret-value',
+            'type' => 'Bluetooth',
+            'data' => [
+                'networkId' => 'L_123',
+                'endTime' => '2026-07-20T18:00:00Z',
+                'reportingAps' => $accessPoints,
+                'observations' => $observations,
+            ],
+        ])->assertOk();
+
+        $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
+
+        $this->assertDatabaseCount('telemetry_events', 120);
+        Queue::assertNotPushed(ProcessMerakiLocationObservation::class);
+        $this->artisan('loratrack:sync-telemetry-counters', ['--connector' => $connector->id])->assertSuccessful();
+        $connector->refresh();
+        $this->assertSame(120, $connector->telemetry_events_count);
+        $this->assertSame(120, $connector->pending_events_count);
+        $this->assertSame(1, TelemetryEvent::query()->get()->filter(
+            fn (TelemetryEvent $event): bool => ($event->raw_payload['reporting_aps'] ?? []) !== [],
+        )->count());
+
+        TelemetryEvent::query()->update(['processing_status' => 'processed']);
+        $this->artisan('loratrack:sync-telemetry-counters', ['--connector' => $connector->id])->assertSuccessful();
+        $connector->refresh();
+        $this->assertSame(0, $connector->pending_events_count);
+        $this->assertSame(120, $connector->processed_events_count);
     }
 
     public function test_meraki_v2_registers_unassigned_ble_device_and_validator_is_available_in_draft(): void

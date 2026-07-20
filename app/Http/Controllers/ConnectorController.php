@@ -10,7 +10,6 @@ use App\Connectors\ConnectorRegistry;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Requests\StoreConnectorRequest;
-use App\Jobs\SyncCatalogConnector;
 use App\Models\Connector;
 use App\Models\FloorPlan;
 use App\Models\TelemetryEvent;
@@ -143,9 +142,10 @@ class ConnectorController extends Controller
     public function sync(Connector $connector): RedirectResponse
     {
         abort_unless($connector->kind->value === 'catalog', 422);
-        SyncCatalogConnector::dispatch($connector->id);
+        $connector->forceFill(['sync_requested_at' => now(), 'sync_started_at' => null])->save();
+        $connector->logActivity('sync_requested', 'Sincronización de catálogo pendiente de ejecución programada.');
 
-        return back()->with('status', 'Sincronización enviada a la cola.');
+        return back()->with('status', 'Sincronización programada para la próxima ejecución del scheduler.');
     }
 
     public function importCsv(Request $request, Connector $connector, CatalogProductImporter $importer): RedirectResponse

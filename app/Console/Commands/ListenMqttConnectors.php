@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
-use App\Jobs\ProcessTtiUplink;
 use App\Models\Connector;
 use App\Models\TelemetryEvent;
 use App\Tenancy\OrganizationContext;
@@ -60,8 +59,7 @@ class ListenMqttConnectors extends Command
                 );
                 $connector->forceFill(['last_activity_at' => $received, 'last_error' => null])->save();
                 if ($event->wasRecentlyCreated) {
-                    $connector->logActivity('message_received', "Mensaje recibido en {$topic} y enviado a procesamiento.", 'info', ['topic' => $topic, 'event_id' => $event->id, 'bytes' => strlen($message)]);
-                    ProcessTtiUplink::dispatch($event->id);
+                    $connector->logActivity('message_received', "Mensaje recibido en {$topic} y pendiente de procesamiento programado.", 'info', ['topic' => $topic, 'event_id' => $event->id, 'bytes' => strlen($message)]);
                 } else {
                     $connector->logActivity('duplicate_ignored', "Mensaje duplicado ignorado en {$topic}.", 'warning', ['topic' => $topic, 'event_id' => $event->id]);
                 }

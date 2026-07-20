@@ -7,30 +7,29 @@ namespace App\Console\Commands;
 use App\Connectors\Meraki\MerakiPayloadNormalizer;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
-use App\Jobs\ProcessMerakiLocationObservation;
 use App\Models\MerakiWebhookBatch;
-use App\Models\TelemetryEvent;
 use App\Support\TelemetryTimestamp;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class ProcessMerakiWebhookBatches extends Command
 {
-    protected $signature = 'loratrack:process-meraki-webhooks {--limit=100 : Cantidad maxima de lotes a procesar}';
+    protected $signature = 'loratrack:process-meraki-webhooks {--limit=3 : Cantidad maxima de lotes a procesar}';
 
     protected $description = 'Normaliza los lotes Meraki recibidos y crea eventos de telemetria idempotentes.';
 
     public function handle(MerakiPayloadNormalizer $normalizer): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 1000],
+            'options' => ['min_range' => 1, 'max_range' => 100],
         ]);
         if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 1000.');
+            $this->error('--limit debe ser un entero entre 1 y 100.');
 
             return self::FAILURE;
         }
@@ -60,7 +59,10 @@ class ProcessMerakiWebhookBatches extends Command
         return self::SUCCESS;
     }
 
-    private function processBatch(string $batchId, MerakiPayloadNormalizer $normalizer): bool
+    private function processBatch(
+        string $batchId,
+        MerakiPayloadNormalizer $normalizer,
+    ): bool
     {
         $batch = DB::transaction(function () use ($batchId): ?MerakiWebhookBatch {
             $candidate = MerakiWebhookBatch::query()
@@ -108,6 +110,7 @@ class ProcessMerakiWebhookBatches extends Command
             if ($records === []) {
                 throw ValidationException::withMessages(['data.observations' => 'El lote no contiene observaciones validas.']);
             }
+            $records = $this->avoidRepeatedAccessPoints($records);
 
             $configuredNetwork = trim((string) ($connector->configuration['network_id'] ?? ''));
             if ($configuredNetwork !== '' && ! collect($records)->every(
@@ -116,36 +119,12 @@ class ProcessMerakiWebhookBatches extends Command
                 throw ValidationException::withMessages(['network_id' => 'El networkId no corresponde al configurado.']);
             }
 
-            [$accepted, $duplicates] = DB::transaction(function () use ($batch, $connector, $records): array {
-                $accepted = 0;
-                $duplicates = 0;
-                foreach ($records as $record) {
-                    $externalEventId = hash('sha256', implode('|', [
-                        $record['version'], $record['type'], $record['network_id'], $record['client_mac'],
-                        $record['observed_at'], $record['external_floor_plan_id'], $record['x'], $record['y'],
-                    ]));
-                    $event = TelemetryEvent::query()->firstOrCreate(
-                        ['connector_id' => $connector->id, 'external_event_id' => $externalEventId],
-                        [
-                            'event_type' => 'meraki_location',
-                            'observed_at' => filled($record['observed_at'])
-                                ? TelemetryTimestamp::parseProviderTime($record['observed_at'])
-                                : null,
-                            'received_at' => $batch->received_at,
-                            'raw_payload' => $record,
-                            'processing_status' => 'pending',
-                        ],
-                    );
-                    if ($event->wasRecentlyCreated) {
-                        ProcessMerakiLocationObservation::dispatch($event->id)->afterCommit();
-                        $accepted++;
-                    } else {
-                        $duplicates++;
-                    }
-                }
-
-                return [$accepted, $duplicates];
-            });
+            [$accepted, $duplicates] = $this->storeEvents(
+                $batch,
+                $connector->id,
+                $connector->organization_id,
+                $records,
+            );
 
             $connector->forceFill(['last_activity_at' => now(), 'last_error' => null])->save();
             $connector->logActivity('meraki_payload_received', 'Observaciones recibidas desde Cisco Meraki.', 'info', [
@@ -167,7 +146,15 @@ class ProcessMerakiWebhookBatches extends Command
                 'processed_at' => now(),
                 'processing_error' => mb_substr($exception->getMessage(), 0, 1000),
             ])->save();
-            $connector?->forceFill(['last_error' => mb_substr($exception->getMessage(), 0, 1000)])->save();
+            try {
+                $connector?->forceFill(['last_error' => mb_substr($exception->getMessage(), 0, 1000)])->save();
+            } catch (Throwable $connectorException) {
+                Log::warning('No fue posible actualizar el ultimo error del conector Meraki.', [
+                    'batch_id' => $batch->id,
+                    'connector_id' => $batch->connector_id,
+                    'exception' => $connectorException::class,
+                ]);
+            }
             Log::error('Fallo el procesamiento de un lote webhook Meraki.', [
                 'batch_id' => $batch->id,
                 'connector_id' => $batch->connector_id,
@@ -198,5 +185,108 @@ class ProcessMerakiWebhookBatches extends Command
         }
 
         return $payload;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $records
+     * @return array{int, int}
+     */
+    private function storeEvents(
+        MerakiWebhookBatch $batch,
+        string $connectorId,
+        string $organizationId,
+        array $records,
+    ): array
+    {
+        $uniqueRecords = [];
+        foreach ($records as $record) {
+            $uniqueRecords[$this->externalEventId($record)] = $record;
+        }
+
+        $existingEventIds = collect(array_keys($uniqueRecords))
+            ->chunk(500)
+            ->flatMap(fn ($ids) => DB::table('telemetry_events')
+                ->where('connector_id', $connectorId)
+                ->whereIn('external_event_id', $ids)
+                ->pluck('external_event_id'))
+            ->mapWithKeys(fn ($id): array => [(string) $id => true])
+            ->all();
+
+        $now = now();
+        $candidateRows = [];
+        foreach ($uniqueRecords as $externalEventId => $record) {
+            if (isset($existingEventIds[$externalEventId])) {
+                continue;
+            }
+            $candidateRows[] = [
+                'id' => (string) Str::ulid(),
+                'organization_id' => $organizationId,
+                'connector_id' => $connectorId,
+                'device_id' => null,
+                'external_event_id' => $externalEventId,
+                'event_type' => 'meraki_location',
+                'observed_at' => filled($record['observed_at'] ?? null)
+                    ? TelemetryTimestamp::parseProviderTime($record['observed_at'])
+                    : null,
+                'received_at' => $batch->received_at,
+                'processed_at' => null,
+                'normalized_payload' => null,
+                'raw_payload' => json_encode($record, JSON_THROW_ON_ERROR),
+                'processing_status' => 'pending',
+                'processing_error' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        // Each chunk commits independently. A transaction around the entire payload kept
+        // foreign-key locks on the connector while new Meraki webhooks were arriving.
+        foreach (array_chunk($candidateRows, 100) as $rows) {
+            DB::table('telemetry_events')->insertOrIgnore($rows);
+        }
+
+        $candidateIds = array_column($candidateRows, 'id');
+        $insertedIds = collect($candidateIds)
+            ->chunk(500)
+            ->flatMap(fn ($ids) => DB::table('telemetry_events')->whereIn('id', $ids)->pluck('id'))
+            ->map(fn ($id): string => (string) $id)
+            ->values()
+            ->all();
+        $accepted = count($insertedIds);
+        return [$accepted, count($records) - $accepted];
+    }
+
+    /** @param array<string, mixed> $record */
+    private function externalEventId(array $record): string
+    {
+        return hash('sha256', implode('|', [
+            $record['version'], $record['type'], $record['network_id'], $record['client_mac'],
+            $record['observed_at'], $record['external_floor_plan_id'], $record['x'], $record['y'],
+        ]));
+    }
+
+    /**
+     * Meraki includes the same global AP inventory in every normalized observation.
+     * Keeping it once per batch avoids multiplying a megabyte-sized payload hundreds of times.
+     *
+     * @param list<array<string, mixed>> $records
+     * @return list<array<string, mixed>>
+     */
+    private function avoidRepeatedAccessPoints(array $records): array
+    {
+        $keptInventory = false;
+        foreach ($records as &$record) {
+            if (($record['reporting_aps'] ?? []) === []) {
+                continue;
+            }
+            if ($keptInventory) {
+                $record['reporting_aps'] = [];
+            } else {
+                $keptInventory = true;
+            }
+        }
+        unset($record);
+
+        return $records;
     }
 }

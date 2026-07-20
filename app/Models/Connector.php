@@ -19,7 +19,7 @@ class Connector extends Model
 
     protected $fillable = [
         'name', 'kind', 'provider', 'status', 'configuration', 'credentials',
-        'contract_version', 'sync_cursor', 'last_activity_at', 'last_success_at',
+        'contract_version', 'sync_cursor', 'sync_requested_at', 'sync_started_at', 'last_activity_at', 'last_success_at',
         'last_tested_at', 'last_error', 'telemetry_events_count', 'pending_events_count',
         'processed_events_count', 'failed_events_count',
     ];
@@ -35,6 +35,8 @@ class Connector extends Model
             'configuration' => 'array',
             'credentials' => 'encrypted:array',
             'last_activity_at' => 'datetime',
+            'sync_requested_at' => 'datetime',
+            'sync_started_at' => 'datetime',
             'last_success_at' => 'datetime',
             'last_tested_at' => 'datetime',
             'telemetry_events_count' => 'integer',

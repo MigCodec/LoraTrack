@@ -70,23 +70,9 @@ Scheduled tasks:
 - `loratrack:manage-telemetry-storage` hourly.
 - `loratrack:prune-meraki-history` hourly.
 
-## Queue Worker
+## Scheduler
 
-The Laravel scheduler must run every minute. It drains the durable Meraki webhook inbox through `loratrack:process-meraki-webhooks`; without `schedule:run`, Meraki batches remain pending and no telemetry events are created.
-
-Persistent worker:
-
-```bash
-php artisan queue:work --tries=3 --timeout=300
-```
-
-Cron-friendly worker:
-
-```bash
-php artisan queue:work --stop-when-empty --sleep=1 --tries=3 --timeout=120 --max-time=55
-```
-
-Avoid overlapping cron workers when the database has low connection limits.
+The Laravel scheduler must run every minute. It drains the durable webhook inboxes and processes observations, TTI/MQTT events, and requested catalog synchronizations. Laravel Queue is not required. Avoid duplicate scheduler cron entries when the database has low connection limits.
 
 ## Recommended Environments
 

@@ -116,8 +116,8 @@ Relevant classes:
 2. `TtiWebhookController` validates size, token, minimum schema, and active connector status.
 3. `external_event_id` is calculated from device, session, frame counter, and provider timestamp.
 4. A `telemetry_events` row is created in `pending` state.
-5. `ProcessTtiUplink` is dispatched.
-6. The job creates or updates the tracker device, normalizes the payload, extracts BLE observations, and updates `signal_observations`.
+5. `schedule:run` invokes `loratrack:process-tti-uplinks`, which claims at most three pending uplinks per execution.
+6. The command runs `ProcessTtiUplink` synchronously; it creates or updates the tracker device, normalizes the payload, extracts BLE observations, and updates `signal_observations` without requiring `queue:work`.
 7. `AssetLastSeenUpdater` updates the assigned asset when applicable.
 8. `TelemetryPositioningService` attempts to create `position_estimates`.
 9. The event becomes `processed`, `failed`, or `ignored`.

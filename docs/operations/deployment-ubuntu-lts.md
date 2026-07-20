@@ -2,7 +2,7 @@
 
 ## Scope
 
-Tutorial for deploying LoraTrack on Ubuntu Server LTS with Nginx, PHP-FPM, Composer, cron, and a queue worker. The recommended Microsoft database backend is SQL Server 2022/2025 on a dedicated server, certified Linux host, Windows Server, or Azure SQL service under the ISO/CIS baseline.
+Tutorial for deploying LoraTrack on Ubuntu Server LTS with Nginx, PHP-FPM, Composer, and cron. The recommended Microsoft database backend is SQL Server 2022/2025 on a dedicated server, certified Linux host, Windows Server, or Azure SQL service under the ISO/CIS baseline.
 
 Project versions:
 
@@ -207,7 +207,7 @@ Adjust the PHP-FPM socket to the installed version.
 
 Use an approved PKI certificate or Let's Encrypt where allowed.
 
-## 11. Scheduler and Queue
+## 11. Scheduler
 
 Scheduler cron:
 
@@ -215,24 +215,7 @@ Scheduler cron:
 * * * * * cd /var/www/loratrack/current && php artisan schedule:run >> storage/logs/schedule.log 2>&1
 ```
 
-Recommended systemd queue worker:
-
-```ini
-[Unit]
-Description=LoraTrack Laravel Queue Worker
-After=network.target
-
-[Service]
-User=loratrack
-Group=www-data
-WorkingDirectory=/var/www/loratrack/current
-ExecStart=/usr/bin/php artisan queue:work --tries=3 --timeout=300
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+No Laravel Queue systemd service is required.
 
 ## 12. Optional Microsoft Login
 
@@ -254,8 +237,7 @@ sudo -u loratrack php artisan config:cache
 ```bash
 curl -I https://loratrack.example.com/login
 sudo -u loratrack php artisan about
-sudo -u loratrack php artisan queue:work --stop-when-empty -v
 sudo -u loratrack php artisan schedule:run
 ```
 
-Validate login, dashboard, `/operations/health`, connector creation, TTI ingestion, private floor plan access, and queue processing.
+Validate login, dashboard, `/operations/health`, connector creation, TTI ingestion, private floor plan access, and scheduled processing.

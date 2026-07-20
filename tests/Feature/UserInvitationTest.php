@@ -51,7 +51,7 @@ class UserInvitationTest extends TestCase
         ]);
         $this->assertSame('2030-12-31', $invitedUser->memberships()->firstOrFail()->expires_at?->toDateString());
 
-        Mail::assertQueued(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use ($invitation): bool {
+        Mail::assertSent(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use ($invitation): bool {
             $this->assertTrue($mail->hasTo('invitado@example.test'));
             $this->assertSame('Empresa Búsqueda', $mail->organizationName);
             $this->assertSame('Administradora Principal', $mail->administratorName);
@@ -79,7 +79,7 @@ class UserInvitationTest extends TestCase
         $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
         $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
             ->post(route('user-invitations.store'), ['email' => 'persona@example.test', 'role' => UserRole::Viewer->value, 'access_type' => 'permanent']);
-        $mail = Mail::queued(OrganizationInvitationMail::class)->first();
+        $mail = Mail::sent(OrganizationInvitationMail::class)->first();
         $token = basename((string) parse_url($mail->invitationUrl, PHP_URL_PATH));
         $this->post(route('logout'));
 
@@ -138,7 +138,7 @@ class UserInvitationTest extends TestCase
 
         $invitation = OrganizationInvitation::query()->where('email', 'eliminar@example.test')->firstOrFail();
         $invitedUser = User::query()->where('email', 'eliminar@example.test')->firstOrFail();
-        $mail = Mail::queued(OrganizationInvitationMail::class)->first();
+        $mail = Mail::sent(OrganizationInvitationMail::class)->first();
         $token = basename((string) parse_url($mail->invitationUrl, PHP_URL_PATH));
 
         $this->delete(route('user-invitations.destroy', $invitation))->assertRedirect()->assertSessionHas('status');
@@ -193,7 +193,7 @@ class UserInvitationTest extends TestCase
         $this->assertNotSame(hash('sha256', $oldToken), $invitation->token_hash);
         $this->assertTrue($invitation->expires_at->isFuture());
         $this->get(route('invitations.accept', $oldToken))->assertNotFound();
-        Mail::assertQueued(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use ($invitation): bool {
+        Mail::assertSent(OrganizationInvitationMail::class, function (OrganizationInvitationMail $mail) use ($invitation): bool {
             $token = basename((string) parse_url($mail->invitationUrl, PHP_URL_PATH));
 
             return $mail->hasTo('pendiente@example.test') && hash('sha256', $token) === $invitation->token_hash;

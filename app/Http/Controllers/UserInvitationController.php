@@ -117,7 +117,7 @@ class UserInvitationController extends Controller
 
     private function queueMail(Organization $organization, string $administratorName, string $email, UserRole $role, string $token, Carbon $expiresAt, ?Carbon $membershipExpiresAt): void
     {
-        Mail::to($email)->queue(new OrganizationInvitationMail(
+        Mail::to($email)->send(new OrganizationInvitationMail(
             organizationName: $organization->name,
             administratorName: $administratorName,
             roleLabel: $role->label(),

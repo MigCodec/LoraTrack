@@ -31,11 +31,11 @@ Main validations:
 - `end_device_ids` and `uplink_message` must be present.
 - `uplink_message.received_at` or `received_at` is used as provider time when available.
 
-The endpoint returns `202 Accepted` and dispatches asynchronous processing.
+The endpoint returns `202 Accepted` after durable persistence. Processing is deferred to the Laravel scheduler and is not dispatched to the queue worker.
 
 ## TTI Processing
 
-Job: `App\Jobs\ProcessTtiUplink`
+Scheduled command: `loratrack:process-tti-uplinks`. It processes at most three pending TTI events per execution and invokes `App\Jobs\ProcessTtiUplink` synchronously for the existing idempotent processing logic.
 
 Responsibilities:
 
