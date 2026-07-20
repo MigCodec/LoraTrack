@@ -21,6 +21,8 @@ Critical variables:
 - `APP_URL`
 - `DB_*`
 - `QUEUE_CONNECTION`
+- `MYSQL_ATTR_SSL_CA` for MySQL/MariaDB deployments that require TLS.
+- `MYSQL_ATTR_MAX_BUFFER_SIZE=6291456` when PDO uses `libmysql`, so Meraki payloads up to the 5 MiB HTTP limit are not truncated while being read.
 - `CACHE_STORE`
 - `SESSION_DRIVER`
 - `MAIL_*`

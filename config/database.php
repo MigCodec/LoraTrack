@@ -3,6 +3,24 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+$mysqlOptions = static function (): array {
+    if (! extension_loaded('pdo_mysql')) {
+        return [];
+    }
+
+    $sslCaAttribute = PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA;
+    $options = [$sslCaAttribute => env('MYSQL_ATTR_SSL_CA')];
+    $maxBufferSize = env('MYSQL_ATTR_MAX_BUFFER_SIZE');
+    $maxBufferConstant = PHP_VERSION_ID >= 80500
+        ? Mysql::class.'::ATTR_MAX_BUFFER_SIZE'
+        : PDO::class.'::MYSQL_ATTR_MAX_BUFFER_SIZE';
+    if ($maxBufferSize !== null && defined($maxBufferConstant)) {
+        $options[constant($maxBufferConstant)] = (int) $maxBufferSize;
+    }
+
+    return array_filter($options);
+};
+
 return [
 
     /*
@@ -59,9 +77,7 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            'options' => $mysqlOptions(),
         ],
 
         'mariadb' => [
@@ -79,9 +95,7 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            'options' => $mysqlOptions(),
         ],
 
         'pgsql' => [
