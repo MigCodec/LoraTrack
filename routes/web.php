@@ -28,12 +28,17 @@ use App\Http\Controllers\OperationalHealthController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PayloadDecoderProfileController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PublicDocumentationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ZoneController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/favicon.ico', FaviconController::class)->name('favicon');
+Route::get('/docs', [PublicDocumentationController::class, 'index'])->name('docs.index');
+Route::get('/docs/{document}/download', [PublicDocumentationController::class, 'download'])
+    ->whereIn('document', ['technical', 'deployment'])
+    ->name('docs.download');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');

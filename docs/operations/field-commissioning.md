@@ -28,7 +28,7 @@ Define a baseline procedure for installing, validating, and calibrating LoraTrac
 
 ## Step 1: Environment
 
-1. Confirm deployed version or commit.
+1. Confirm the deployed release version.
 2. Confirm `APP_DEBUG=false`.
 3. Confirm scheduler operation every minute.
 4. Confirm scheduled telemetry processing.
@@ -157,7 +157,7 @@ Deliver:
 Store:
 
 - date and time;
-- version or commit;
+- release version;
 - participants;
 - floor plan used;
 - test points;

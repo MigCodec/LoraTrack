@@ -43,6 +43,7 @@ class ProcessMerakiWebhookBatches extends Command
                             ->where('attempts', '<', 3);
                     });
             })
+            ->orderByRaw("CASE WHEN processing_status = 'pending' THEN 0 ELSE 1 END")
             ->orderBy('received_at')
             ->limit($limit)
             ->pluck('id');
@@ -133,11 +134,10 @@ class ProcessMerakiWebhookBatches extends Command
                 'version' => $payload['version'] ?? null,
                 'batch_id' => $batch->id,
             ]);
-            $batch->forceFill([
-                'processing_status' => 'processed',
-                'processed_at' => now(),
-                'processing_error' => null,
-            ])->save();
+            // This table is only a durable HTTP inbox. Once every normalized event
+            // has been persisted idempotently, retaining the original batch adds
+            // database growth without providing further processing value.
+            $batch->delete();
 
             return true;
         } catch (Throwable $exception) {

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Build a professional HTML/PDF documentation package from docs/.
+Build professional, repository-visible HTML/PDF documentation from docs/.
 
-The script always generates a versioned HTML file. For PDF output it can use one
+The script generates stable consumer-facing files under docs/. For PDF output it can use one
 of these optional engines:
 
 - WeasyPrint:  pip install markdown weasyprint
@@ -12,14 +12,13 @@ of these optional engines:
 Examples:
 
   python tools/build_docs_pdf.py
-  python tools/build_docs_pdf.py --version 1.0.0 --engine weasyprint
+  python tools/build_docs_pdf.py --version 1.0 --engine weasyprint
   python tools/build_docs_pdf.py --no-pdf
 """
 
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import html
 import os
 import re
@@ -34,10 +33,10 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-DIST = ROOT / "dist" / "docs"
+OUTPUT = DOCS
 
-DOCUMENT_ORDER = [
-    "docs/README.md",
+TECHNICAL_DOCUMENTS = [
+    "docs/user-guide.md",
     "docs/engineering/executive-technical-summary.md",
     "docs/engineering/architecture.md",
     "docs/engineering/domain-and-data-model.md",
@@ -45,50 +44,32 @@ DOCUMENT_ORDER = [
     "docs/engineering/integrations.md",
     "docs/engineering/api-contracts.md",
     "docs/engineering/security-and-identity.md",
+    "docs/operations/operations-runbook.md",
+    "docs/operations/field-commissioning.md",
+    "docs/integrations/tti.md",
+    "docs/integrations/sap.md",
+]
+
+DEPLOYMENT_DOCUMENTS = [
     "docs/operations/dependency-matrix.md",
-    "docs/operations/sql-server.md",
     "docs/operations/deployment-and-environments.md",
     "docs/operations/deployment-ubuntu-lts.md",
     "docs/operations/deployment-windows-iis.md",
+    "docs/operations/sql-server.md",
+    "docs/operations/compliance-baseline.md",
     "docs/operations/operations-runbook.md",
     "docs/operations/field-commissioning.md",
-    "docs/assurance/testing-and-quality.md",
-    "docs/assurance/enterprise-evidence-matrix.md",
-    "docs/engineering/risks-and-open-decisions.md",
-    "docs/integrations/tti.md",
-    "docs/integrations/sap.md",
-    "docs/security/deployment.md",
-    "docs/security/assurance.md",
-    "SECURITY.md",
+]
+
+PUBLICATIONS = [
+    ("LoraTrack-Technical-Documentation", "Technical Documentation and User Guide", TECHNICAL_DOCUMENTS),
+    ("LoraTrack-Deployment-Guide", "Professional Deployment and Operations Guide", DEPLOYMENT_DOCUMENTS),
 ]
 
 
 @dataclass(frozen=True)
 class BuildMeta:
     version: str
-    generated_at: str
-    git_commit: str
-    git_branch: str
-    source_root: Path
-
-
-def run(command: list[str], cwd: Path = ROOT) -> str:
-    return subprocess.check_output(command, cwd=str(cwd), text=True, stderr=subprocess.DEVNULL).strip()
-
-
-def git_value(command: list[str], fallback: str) -> str:
-    try:
-        value = run(command)
-    except Exception:
-        return fallback
-    return value or fallback
-
-
-def default_version() -> str:
-    tag = git_value(["git", "describe", "--tags", "--always", "--dirty"], "")
-    if tag:
-        return tag
-    return dt.datetime.now(dt.UTC).strftime("snapshot-%Y%m%d%H%M%S")
 
 
 def slugify(value: str) -> str:
@@ -120,7 +101,6 @@ def normalize_markdown(path: Path, markdown: str) -> str:
     return "\n\n".join(
         [
             f'<a id="{slugify(relative)}"></a>',
-            f'<p class="doc-source">Source: <code>{relative}</code></p>',
             body,
         ]
     )
@@ -133,49 +113,35 @@ def title_from_markdown(markdown: str) -> str | None:
     return None
 
 
-def build_combined_markdown(documents: list[tuple[Path, str]], meta: BuildMeta) -> str:
+def build_combined_markdown(documents: list[tuple[Path, str]], meta: BuildMeta, title: str) -> str:
     toc_items = []
     sections = []
     for path, content in documents:
         relative = path.relative_to(ROOT).as_posix()
-        title = title_from_markdown(content) or relative
-        toc_items.append(f"- [{title}](#{slugify(relative)})")
+        document_title = title_from_markdown(content) or relative
+        toc_items.append(f"- [{document_title}](#{slugify(relative)})")
         sections.append(normalize_markdown(path, content))
 
     title_page = f"""
 <section class="cover">
-
-# LoraTrack
-
-## Engineering Technical Documentation
-
-**Document version:** {meta.version}
-
-**Generated at:** {meta.generated_at}
-
-**Commit:** `{meta.git_commit}`
-
-**Branch:** `{meta.git_branch}`
-
-**Suggested classification:** Internal use / customer technical review
-
+<h1>LoraTrack</h1>
+<h2>{html.escape(title)}</h2>
+<p><strong>Document version:</strong> {html.escape(meta.version)}</p>
+<p><strong>Classification:</strong> Public product documentation</p>
 </section>
 
 <div class="page-break"></div>
 
 # Document Control
 
-| Campo | Valor |
+| Field | Value |
 | --- | --- |
 | Product | LoraTrack |
-| Type | Technical documentation package |
-| Version | {meta.version} |
-| Generation date | {meta.generated_at} |
-| Source commit | `{meta.git_commit}` |
-| Source branch | `{meta.git_branch}` |
-| Local repository | `{meta.source_root}` |
+| Document type | {title} |
+| Document version | {meta.version} |
+| Audience | Users, administrators, engineering, operations, and security teams |
 
-> This document describes the software state observed in the repository at generation time. It is not an ISO certification, independent cybersecurity approval, or formal customer acceptance.
+> This documentation describes product capabilities and procedures. References to practices or standards do not constitute certification, independent assurance, or formal customer acceptance.
 
 # Document Index
 
@@ -349,7 +315,7 @@ li { margin: 2pt 0; }
 """
 
 
-def build_html(body: str, meta: BuildMeta) -> str:
+def build_html(body: str, meta: BuildMeta, title: str) -> str:
     return f"""<!doctype html>
 <html lang="es">
 <head>
@@ -357,8 +323,7 @@ def build_html(body: str, meta: BuildMeta) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="generator" content="tools/build_docs_pdf.py">
   <meta name="doc-version" content="{html.escape(meta.version)}">
-  <meta name="git-commit" content="{html.escape(meta.git_commit)}">
-  <title>LoraTrack - Technical Documentation {html.escape(meta.version)}</title>
+  <title>LoraTrack - {html.escape(title)}</title>
   <style>{css()}</style>
 </head>
 <body>
@@ -366,28 +331,6 @@ def build_html(body: str, meta: BuildMeta) -> str:
 </body>
 </html>
 """
-
-
-def write_manifest(output_dir: Path, meta: BuildMeta, documents: list[tuple[Path, str]], html_path: Path, pdf_path: Path | None) -> None:
-    lines = [
-        "# Manifest",
-        "",
-        f"version: {meta.version}",
-        f"generated_at: {meta.generated_at}",
-        f"git_commit: {meta.git_commit}",
-        f"git_branch: {meta.git_branch}",
-        f"html: {html_path.name}",
-        f"pdf: {pdf_path.name if pdf_path else 'not generated'}",
-        "",
-        "documents:",
-    ]
-    for path, _ in documents:
-        lines.append(f"  - {path.relative_to(ROOT).as_posix()}")
-    (output_dir / f"loratrack-docs-{safe_filename(meta.version)}.manifest.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def safe_filename(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-") or "snapshot"
 
 
 def render_pdf_with_weasyprint(html_path: Path, pdf_path: Path) -> None:
@@ -400,7 +343,8 @@ def render_pdf_with_playwright(html_path: Path, pdf_path: Path) -> None:
     from playwright.sync_api import sync_playwright  # type: ignore
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        edge = Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft/Edge/Application/msedge.exe"
+        browser = playwright.chromium.launch(executable_path=str(edge) if edge.exists() else None)
         page = browser.new_page()
         page.goto(html_path.as_uri(), wait_until="networkidle")
         page.pdf(
@@ -459,9 +403,9 @@ def generate_pdf(engine: str, html_path: Path, markdown_path: Path, pdf_path: Pa
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build versioned LoraTrack documentation HTML/PDF.")
-    parser.add_argument("--version", default=default_version(), help="Document version. Defaults to git describe.")
-    parser.add_argument("--output-dir", default=str(DIST), help="Output directory.")
+    parser = argparse.ArgumentParser(description="Build public LoraTrack documentation HTML/PDF.")
+    parser.add_argument("--version", default="1.0", help="Public document version; never derived from Git metadata.")
+    parser.add_argument("--output-dir", default=str(OUTPUT), help="Output directory; defaults to docs/.")
     parser.add_argument("--engine", choices=["auto", "weasyprint", "playwright", "pandoc"], default="auto", help="PDF engine.")
     parser.add_argument("--no-pdf", action="store_true", help="Only generate Markdown/HTML/manifest.")
     return parser.parse_args()
@@ -472,42 +416,30 @@ def main() -> int:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    meta = BuildMeta(
-        version=args.version,
-        generated_at=dt.datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
-        git_commit=git_value(["git", "rev-parse", "HEAD"], "unknown"),
-        git_branch=git_value(["git", "rev-parse", "--abbrev-ref", "HEAD"], "unknown"),
-        source_root=ROOT,
-    )
+    meta = BuildMeta(version=args.version)
 
-    documents = read_documents(DOCUMENT_ORDER)
-    if not documents:
-        print("error: no documentation files found", file=sys.stderr)
-        return 1
+    for basename, title, document_paths in PUBLICATIONS:
+        documents = read_documents(document_paths)
+        if not documents:
+            print(f"error: no documentation files found for {basename}", file=sys.stderr)
+            return 1
 
-    basename = f"loratrack-docs-{safe_filename(meta.version)}"
-    markdown_path = output_dir / f"{basename}.md"
-    html_path = output_dir / f"{basename}.html"
-    pdf_path = output_dir / f"{basename}.pdf"
+        markdown_path = output_dir / f"{basename}.md"
+        html_path = output_dir / f"{basename}.html"
+        pdf_path = output_dir / f"{basename}.pdf"
+        combined_markdown = build_combined_markdown(documents, meta, title)
+        markdown_path.write_text(combined_markdown, encoding="utf-8")
+        html_body = markdown_to_html(combined_markdown)
+        html_path.write_text(build_html(html_body, meta, title), encoding="utf-8")
 
-    combined_markdown = build_combined_markdown(documents, meta)
-    markdown_path.write_text(combined_markdown, encoding="utf-8")
+        if not args.no_pdf:
+            engine = generate_pdf(args.engine, html_path, markdown_path, pdf_path, meta)
+            print(f"pdf generated with {engine}: {pdf_path}")
+        else:
+            print(f"pdf skipped for {basename}")
 
-    html_body = markdown_to_html(combined_markdown)
-    html_path.write_text(build_html(html_body, meta), encoding="utf-8")
-
-    generated_pdf: Path | None = None
-    if not args.no_pdf:
-        engine = generate_pdf(args.engine, html_path, markdown_path, pdf_path, meta)
-        generated_pdf = pdf_path
-        print(f"pdf generated with {engine}: {pdf_path}")
-    else:
-        print("pdf skipped by --no-pdf")
-
-    write_manifest(output_dir, meta, documents, html_path, generated_pdf)
-    print(f"markdown: {markdown_path}")
-    print(f"html: {html_path}")
-    print(f"manifest: {output_dir / f'{basename}.manifest.txt'}")
+        print(f"markdown: {markdown_path}")
+        print(f"html: {html_path}")
     return 0
 
 

@@ -93,7 +93,7 @@ The plan must cover:
 - `storage/app/private`;
 - production `.env`;
 - logs required by audit;
-- deployed version or commit.
+- deployed release version.
 
 Initial frequency recommendation:
 
@@ -118,7 +118,7 @@ Initial frequency recommendation:
 
 Define before each change:
 
-- previous commit;
+- previous release version;
 - migration compatibility;
 - pre-deploy backup;
 - worker pause procedure;

@@ -1,16 +1,16 @@
 # LoraTrack
 
-Dashboard Laravel para inventario y localización de activos mediante LoRaWAN y BLE. Normaliza catálogos externos —con SAP S/4HANA como integración prioritaria— y recibe telemetría desde TTI o MQTT.
+LoraTrack is a Laravel dashboard for asset inventory and indoor/outdoor location using LoRaWAN and BLE telemetry. It normalizes external product catalogs, with SAP S/4HANA as the primary integration, and receives telemetry through TTI, MQTT, and Cisco Meraki.
 
-La aplicación es multiempresa/multiproyecto sobre una base de datos compartida. Productos, SKU, activos, dispositivos, planos, zonas, telemetría, alertas y conectores quedan aislados por organización.
+The application supports multiple organizations and projects in a shared database. Products, SKUs, assets, devices, floor plans, zones, telemetry, alerts, users, and connectors are isolated by organization.
 
-## Requisitos
+## Requirements
 
-- PHP 8.2+
+- PHP 8.2 or later
 - Composer
-- MariaDB 10.6+ o MySQL 8+
+- MariaDB 10.6 or later, or MySQL 8
 
-## Instalación
+## Installation
 
 ```bash
 composer install
@@ -20,31 +20,31 @@ php artisan migrate
 php artisan db:seed
 ```
 
-Para desarrollo:
+For local development:
 
 ```bash
 composer dev
 ```
 
-La interfaz usa Blade, CSS estático y JavaScript nativo; no requiere Node.js ni npm. El procesamiento diferido se ejecuta mediante el scheduler:
+The interface uses Blade, static CSS, and native JavaScript. Node.js and npm are not required. Deferred work is executed by the Laravel scheduler:
 
 ```bash
 php artisan schedule:run
 ```
 
-Los planos se guardan exclusivamente en `storage/app/private` y se entregan mediante una ruta autenticada. No debe crearse `public/storage` en el servidor.
+Floor plans are stored exclusively under `storage/app/private` and delivered through authenticated routes. Do not create `public/storage` on the server.
 
-El seeder crea `test@example.com` con contraseña `password` y rol administrador para desarrollo. No conservar esta credencial en un entorno publicado.
+The development seeder creates `test@example.com` with password `password` and the administrator role. Never retain this credential in a published environment.
 
-## Empresas y proyectos
+## Organizations and Projects
 
-Cada usuario accede mediante membresías y puede tener un rol distinto en cada empresa o proyecto. Cualquier persona puede crear su empresa desde `/register` indicando nombre, correo administrativo y contraseña. También se admiten invitaciones para incorporar cuentas a una organización existente. Todas las consultas posteriores quedan limitadas a la organización activa.
+Users gain access through organization memberships and may have a different role in each organization or project. Public registration creates an isolated organization from `/register` using an organization name, administrative email address, and password. Invitations may also add accounts to an existing organization. All subsequent queries are restricted to the active organization.
 
-Los conectores, procesos MQTT, webhooks TTI, sincronizaciones de catálogo, tareas programadas y archivos privados conservan el identificador de organización. Una URL de un recurso perteneciente a otra organización responde 404.
+Connectors, MQTT consumers, TTI and Meraki webhooks, catalog synchronization, scheduled commands, and private files retain the organization identifier. Requests for resources owned by another organization return HTTP 404.
 
-## Microsoft
+## Microsoft Sign-In
 
-Registra una aplicación en Microsoft Entra ID y configura:
+Register an application in Microsoft Entra ID and configure:
 
 ```dotenv
 MICROSOFT_CLIENT_ID=
@@ -53,118 +53,121 @@ MICROSOFT_TENANT_ID=
 MICROSOFT_REDIRECT_URI="http://localhost:8000/auth/microsoft/callback"
 ```
 
-El registro público crea inicialmente una cuenta local. Para usar Microsoft, el correo debe pertenecer a un usuario de LoraTrack; en su primer acceso Microsoft se vincula el identificador estable de esa cuenta.
+Public registration initially creates a local account. Microsoft sign-in requires an existing LoraTrack user with an authorized email address. On the first successful sign-in, LoraTrack associates the stable Microsoft identity with that user.
 
-## Conectores
+## Connectors
 
-Los administradores crean conectores desde `/connectors`.
+Administrators manage connectors from `/connectors`.
 
-- Telemetría: TTI Webhook y MQTT genérico.
-- Catálogo: SAP S/4HANA, Business Central, Shopify, Odoo y CSV.
+- Telemetry: TTI Webhook, Cisco Meraki Location API, and generic MQTT.
+- Catalog: SAP S/4HANA, Microsoft Dynamics 365 Business Central, Shopify, Odoo, and CSV.
 
-SAP S/4HANA, Business Central, Shopify y Odoo tienen sincronización de catálogo implementada. CSV admite `sku,name,external_id,description,base_unit,status`; `external_id` es opcional y usa el SKU como respaldo. Cada servicio requiere credenciales y permisos válidos del proveedor antes de activarlo.
+SAP S/4HANA, Business Central, Shopify, and Odoo catalog synchronization is implemented. CSV accepts `sku,name,external_id,description,base_unit,status`; `external_id` is optional and falls back to the SKU. Each service requires valid provider credentials and permissions before activation.
 
 ### TTI Webhook
 
-1. Crea un conector `TTI Webhook` y define un token largo.
-2. Activa el conector.
-3. Configura en TTI un webhook hacia:
+1. Create a `TTI Webhook` connector and define a long, random token.
+2. Activate the connector.
+3. Configure a TTI webhook with the following destination:
 
 ```text
-POST https://tu-dominio.example/api/v1/ingest/tti/{connector-ulid}
-Authorization: Bearer {token-configurado}
+POST https://your-domain.example/api/v1/ingest/tti/{connector-ulid}
+Authorization: Bearer {configured-token}
 Content-Type: application/json
 ```
 
-Los eventos se deduplican, almacenan y procesan por cola. El endpoint responde HTTP 202.
+Events are authenticated, deduplicated, stored durably, and processed by the scheduler. The endpoint returns HTTP 202 after persistence.
 
-El payload decodificado puede incluir listas bajo `observations`, `beacons`, `ble`, `scan` o `devices`. Cada observación debe contener una MAC (`mac`, `mac_address`, `address` o `beacon_mac`) y RSSI (`rssi`, `signal` o `signal_strength`). Para publicar una posición 2D deben existir al menos tres anclas no colineales instaladas en el mismo plano.
+Decoded payloads may contain lists under `observations`, `beacons`, `ble`, `scan`, or `devices`. Each observation must contain a MAC address (`mac`, `mac_address`, `address`, or `beacon_mac`) and RSSI (`rssi`, `signal`, or `signal_strength`). A two-dimensional position requires at least three active, non-collinear anchors installed on the same floor plan.
+
+### Cisco Meraki Location API
+
+Create a Meraki telemetry connector, configure the supported API major version and shared secret, and use the generated `/api/v1/ingest/meraki/{connector-ulid}` endpoint in Meraki. The HTTP endpoint stores a durable inbox record and responds immediately. Scheduled commands normalize each batch, create idempotent telemetry events, and process location observations.
 
 ### SAP S/4HANA
 
-Configura URL base, ruta de `API_PRODUCT_SRV` y autenticación Basic o Bearer. Usa “Probar” antes de activar y “Sincronizar” para enviar la importación a la cola. Los números de material se conservan como texto, incluidos ceros iniciales.
+Configure the base URL, `API_PRODUCT_SRV` path, and Basic or Bearer authentication. Use **Test** before activation and **Synchronize** to request a scheduled import. Material numbers remain strings and preserve leading zeroes.
 
 ### MQTT
 
-Configura host, puerto, TLS, usuario, contraseña y topic desde el conector. Mantén este listener supervisado en el servidor:
+Configure the host, port, TLS mode, username, password, and topic through the connector. Keep the following listener supervised when MQTT connectors are enabled:
 
 ```bash
 php artisan loratrack:mqtt-listen
 ```
 
-Puede limitarse a un conector pasando su ULID. El mensaje debe ser JSON e incluir MAC y RSSI en las mismas claves aceptadas por TTI.
+The listener may be restricted to one connector by passing its ULID. Messages must be valid JSON and include MAC and RSSI fields accepted by the configured decoder.
 
-### Decoders de payload
+### Payload Decoders
 
-Los administradores pueden crear perfiles reutilizables en `/payload-profiles`. Un perfil puede asociarse a varios productos, reconocer un formato por FPort o por el valor de una ruta dentro de `decoded_payload`, y mapear mediante notación con puntos:
+Administrators manage reusable profiles at `/payload-profiles`. A profile may be assigned to multiple products, match a format by FPort or a value inside `decoded_payload`, and map the following values through dot notation:
 
-- ruta de la lista de observaciones;
-- campo MAC;
-- campo RSSI;
-- identificador opcional del receptor.
+- observation list path;
+- MAC field;
+- RSSI field;
+- optional receiver identifier.
 
-Cada perfil dispone de prioridad, activación y vista previa con un payload TTI completo. Si ningún perfil coincide, se conserva el extractor estándar. No se ejecuta código JavaScript aportado por usuarios.
+Each profile has a priority, activation state, and preview using a complete TTI payload. The standard extractor remains available when no profile matches. User-supplied JavaScript is never executed.
 
-## Planos, anclas y zonas
+## Floor Plans, Anchors, and Zones
 
-Desde `/floor-plans` se pueden:
+The `/floor-plans` module supports:
 
-- crear sitios, edificios y pisos;
-- subir planos PNG, JPG, WEBP, PDF o DXF;
-- añadir una vista previa raster para PDF/DXF;
-- indicar ancho y alto reales en metros;
-- crear beacons/scanners y colocarlos sobre el plano;
-- calibrar RSSI a un metro y factor ambiental;
-- dibujar zonas rectangulares con el mouse.
+- sites, buildings, and floors;
+- PNG, JPG, WEBP, PDF, and DXF floor plans;
+- raster previews for PDF and DXF sources;
+- physical width and height in meters;
+- fixed beacon and scanner placement;
+- one-meter RSSI and environmental calibration;
+- rectangular zones drawn with a pointer.
 
-Las posiciones se calculan por multilateración RSSI. Cuando una posición cae dentro de un rectángulo, la estimación queda asociada a esa zona y el dashboard puede expresar qué activo, producto y SKU está allí. El mapa consulta nuevas estimaciones cada 10 segundos y marca como atrasadas las superiores a 10 minutos.
+Positions are calculated through RSSI multilateration. When an estimate falls inside a zone, it is associated with that zone and may be presented together with its asset, product, and SKU. The dashboard retrieves new estimates periodically and identifies stale data.
 
-## Activos, permisos y alertas
+## Assets, Authorization, and Alerts
 
-Los activos estáticos y móviles se administran por separado. Se soportan beacon fijo para activo estático, beacon móvil observado por scanners fijos y tracker móvil observado por beacons fijos.
+Static and mobile assets are managed independently. Supported strategies include a fixed beacon for a static asset, a mobile beacon observed by fixed scanners, and a mobile tracker observing fixed beacons.
 
-La aplicación separa navegación y autorización en cinco grupos:
+The application defines five role groups:
 
-- `admin`: acceso completo; administra conectores, cuentas, seguridad y auditoría.
-- `engineer`: configura planos, anclas, calibración y decoders; consulta la salud técnica.
-- `supervisor`: gestiona activos, alertas y supervisa la salud operacional.
-- `operator`: registra, asigna y sigue activos durante la operación diaria.
-- `viewer`: consulta productos, activos, planos y mapa sin modificar datos.
+- `admin`: full access, including connectors, accounts, security, and audit records;
+- `engineer`: floor plans, anchors, calibration, decoders, and technical health;
+- `supervisor`: assets, alerts, and operational supervision;
+- `operator`: registration, assignment, and daily asset tracking;
+- `viewer`: read-only access to products, assets, floor plans, and maps.
 
-Los permisos se validan en las rutas; ocultar una opción del menú no sustituye la autorización del servidor.
+Authorization is enforced by server-side routes and policies. Hiding a navigation option does not replace authorization.
 
-En `/alerts` se configuran correos, umbral offline, confianza mínima y tipos de alerta. Configura SMTP y ejecuta permanentemente:
+Alert rules and recipients are configured under `/alerts`. Configure SMTP and run the scheduler every minute. Alert evaluation runs every ten minutes, suppresses duplicate notifications, and notifies again when an incident recurs after recovery.
 
-```bash
-php artisan schedule:work
+## RSSI Calibration
+
+Each floor plan provides a calibration workbench for authorized users. Select a fixed-beacon or fixed-scanner strategy, enter a physical `X/Y` reference point in meters, and provide median RSSI readings in dBm for at least four anchors. The following parameters may be adjusted per anchor:
+
+- reference RSSI `A` measured at one meter, in dBm;
+- dimensionless environmental path-loss exponent `n`;
+- observed RSSI, in dBm.
+
+The preview calculates coordinates, position error, RMSE, confidence, distances, and residuals in meters. It overlays expected and calculated positions on the floor plan. Parameters affect production calculations only after **Apply** is selected, and each calibration test remains available in the audit history.
+
+## Operations and Diagnostics
+
+Authorized technical roles can access `/operations/health` to review failed or delayed telemetry, connector status, private file state, anchor counts per floor plan, pending scanner placement, and recent audit records.
+
+Web mutations generate audit entries containing the user, route, result, and `X-Request-ID`. Passwords, tokens, and connector credentials are excluded. Incoming telemetry has explicit payload size limits. Scheduler commands use idempotency and overlap protection.
+
+Required production scheduling:
+
+```cron
+* * * * * cd /path/to/loratrack && php artisan schedule:run
 ```
 
-En producción también puede usarse cron para `php artisan schedule:run` cada minuto. La evaluación ocurre cada 10 minutos, evita correos repetidos y vuelve a notificar si la incidencia reaparece.
-
-## Calibración RSSI
-
-Cada plano dispone de un banco de calibración para administradores. Se selecciona la estrategia (beacons fijos o scanners fijos), se indica un punto real `X/Y` en metros y se introduce el RSSI mediano en dBm de cuatro o más anclas. Para cada ancla pueden ajustarse:
-
-- RSSI de referencia `A` medido a 1 metro, en dBm;
-- exponente de pérdida ambiental `n`, adimensional;
-- RSSI observado, en dBm.
-
-La vista previa calcula coordenadas, error de posición, RMSE, confianza, distancias y residuales en metros. También superpone la posición esperada y calculada en el plano. Los parámetros solo cambian la operación al pulsar **Aplicar** y cada prueba queda en el historial de auditoría.
-
-## Operación y diagnóstico
-
-Los administradores disponen de `/operations/health`, que muestra trabajos pendientes o fallidos, telemetría atascada, conectores, archivos privados, cantidad de anclas por plano y auditoría reciente.
-
-Las mutaciones web generan una auditoría con usuario, ruta, resultado y `X-Request-ID`; nunca se almacenan contraseñas, tokens ni credenciales. Los uplinks aceptan un máximo de 1 MB. Los trabajos de un mismo evento o conector no se ejecutan en paralelo y aplican reintentos escalonados.
-
-Procesos que deben quedar configurados en producción:
+When MQTT connectors are enabled, also supervise:
 
 ```bash
-* * * * * cd /ruta/a/loratrack && php artisan schedule:run
 php artisan loratrack:mqtt-listen
 ```
 
-## Verificación
+## Verification
 
 ```bash
 composer test
@@ -172,10 +175,14 @@ composer test
 composer audit
 ```
 
-## Seguridad y despliegue
+## Security and Deployment
 
-El repositorio incluye CI para PHP, Dependabot y un despliegue SSH directo sin PAT para repositorios públicos. Las acciones están fijadas por SHA y el despliegue exige un Environment llamado `production`, verificación estricta de la clave del host y un `.env` de producción preexistente. CI se ejecuta por separado y no bloquea el despliegue solicitado al hacer push a `main`.
+Production environments require HTTPS, protected runtime secrets, least-privileged database credentials, scheduled backups, tested restoration procedures, access reviews, monitoring, and controlled change management. Follow the [Professional Deployment and Operations Guide](docs/LoraTrack-Deployment-Guide.pdf) before operating LoraTrack in production.
 
-Antes de publicar o desplegar, aplica la configuración descrita en [despliegue seguro](docs/security/deployment.md), revisa la [política de seguridad](SECURITY.md) y completa la [matriz de aseguramiento](docs/security/assurance.md). Estos controles técnicos no equivalen por sí solos a una certificación ISO ni a la aprobación de seguridad de un cliente.
+Technical controls alone do not constitute ISO certification, customer security approval, or independent assurance.
 
-Las decisiones y reglas de arquitectura están en [AGENTS.md](AGENTS.md).
+## Public Documentation
+
+- [Technical Documentation and User Guide](docs/LoraTrack-Technical-Documentation.pdf)
+- [Professional Deployment and Operations Guide](docs/LoraTrack-Deployment-Guide.pdf)
+- [Documentation Index](docs/README.md)

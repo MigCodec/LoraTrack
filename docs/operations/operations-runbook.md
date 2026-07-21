@@ -175,5 +175,5 @@ For level 2/3 support collect:
 - asset ID;
 - position estimate ID when present;
 - sanitized log excerpt;
-- deployed version or commit;
+- deployed release version;
 - recent configuration changes.

@@ -125,6 +125,7 @@ class MerakiLocationWebhookTest extends TestCase
 
         $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
+        $this->assertDatabaseCount('meraki_webhook_batches', 0);
         Queue::assertNotPushed(ProcessMerakiLocationObservation::class);
         $this->artisan('loratrack:process-meraki-observations', ['--limit' => 1])->assertSuccessful();
         $event = TelemetryEvent::query()->firstOrFail();
@@ -163,10 +164,7 @@ class MerakiLocationWebhookTest extends TestCase
 
         $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
-        $this->assertDatabaseHas('meraki_webhook_batches', [
-            'processing_status' => 'processed',
-            'attempts' => 2,
-        ]);
+        $this->assertDatabaseCount('meraki_webhook_batches', 0);
         $this->assertDatabaseCount('telemetry_events', 1);
     }
 
@@ -203,6 +201,7 @@ class MerakiLocationWebhookTest extends TestCase
 
         $this->artisan('loratrack:process-meraki-webhooks')->assertSuccessful();
 
+        $this->assertDatabaseCount('meraki_webhook_batches', 0);
         $this->assertDatabaseCount('telemetry_events', 120);
         Queue::assertNotPushed(ProcessMerakiLocationObservation::class);
         $this->artisan('loratrack:sync-telemetry-counters', ['--connector' => $connector->id])->assertSuccessful();

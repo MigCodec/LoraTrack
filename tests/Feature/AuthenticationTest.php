@@ -69,6 +69,28 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_invalid_login_shows_a_safe_credentials_message(): void
+    {
+        User::factory()->create([
+            'email' => 'usuario@example.test',
+            'password' => 'correct-password',
+        ]);
+
+        $this->from(route('login'))->post('/login', [
+            'email' => 'usuario@example.test',
+            'password' => 'incorrect-password',
+        ])->assertRedirect(route('login'))
+            ->assertSessionHasErrors([
+                'email' => 'La combinación de correo y contraseña no es válida.',
+            ]);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('La combinación de correo y contraseña no es válida.');
+
+        $this->assertGuest();
+    }
+
     public function test_viewer_cannot_manage_connectors(): void
     {
         $user = User::factory()->create(['role' => UserRole::Viewer]);
