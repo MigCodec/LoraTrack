@@ -157,10 +157,10 @@ Actions:
 - review active connectors and tokens;
 - test backup restoration;
 - review `telemetry_events` growth;
-- review failed jobs;
+- review failed scheduled commands and pending ingestion records;
 - validate SMTP alerts;
 - review recurring log errors;
-- run `composer audit` during a controlled window;
+- review applicable vendor security advisories and the approved dependency assessment report;
 - update change documentation.
 
 ## Escalation Data

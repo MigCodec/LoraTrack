@@ -13,10 +13,14 @@ class PublicDocumentationTest extends TestCase
         $this->get(route('docs.index'))
             ->assertOk()
             ->assertSee('LoraTrack Documentation')
-            ->assertSee('Technical Documentation and User Guide')
-            ->assertSee('Professional Deployment and Operations Guide')
+            ->assertSee('Customer Technical and User Guide')
+            ->assertSee('Production Infrastructure and Operations Guide')
+            ->assertSee('System Component Architecture')
+            ->assertSee('Production Deployment Architecture')
             ->assertSee(route('docs.download', 'technical'), false)
-            ->assertSee(route('docs.download', 'deployment'), false);
+            ->assertSee(route('docs.download', 'deployment'), false)
+            ->assertSee(route('docs.diagram', 'system-architecture'), false)
+            ->assertSee(route('docs.diagram', 'production-deployment'), false);
     }
 
     public function test_public_documentation_can_be_downloaded_as_pdf(): void
@@ -32,5 +36,14 @@ class PublicDocumentationTest extends TestCase
     {
         $this->get('/docs/../../.env/download')->assertNotFound();
         $this->get('/docs/internal/download')->assertNotFound();
+        $this->get('/docs/diagrams/internal')->assertNotFound();
+    }
+
+    public function test_public_uml_diagram_can_be_viewed(): void
+    {
+        $this->get(route('docs.diagram', 'system-architecture'))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/svg+xml; charset=UTF-8')
+            ->assertHeader('x-content-type-options', 'nosniff');
     }
 }

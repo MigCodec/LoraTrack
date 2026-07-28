@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="generator" content="tools/build_docs_pdf.py">
-  <meta name="doc-version" content="1.0">
-  <title>LoraTrack - Professional Deployment and Operations Guide</title>
+  <meta name="doc-version" content="1.5">
+  <title>LoraTrack - Production Infrastructure and Operations Guide</title>
   <style>
 @page {
   size: A4;
@@ -91,8 +91,8 @@ li { margin: 2pt 0; }
 <body>
 <section class="cover">
 <h1>LoraTrack</h1>
-<h2>Professional Deployment and Operations Guide</h2>
-<p><strong>Document version:</strong> 1.0</p>
+<h2>Production Infrastructure and Operations Guide</h2>
+<p><strong>Document version:</strong> 1.5</p>
 <p><strong>Classification:</strong> Public product documentation</p>
 </section>
 
@@ -113,11 +113,11 @@ li { margin: 2pt 0; }
 </tr>
 <tr>
 <td>Document type</td>
-<td>Professional Deployment and Operations Guide</td>
+<td>Production Infrastructure and Operations Guide</td>
 </tr>
 <tr>
 <td>Document version</td>
-<td>1.0</td>
+<td>1.5</td>
 </tr>
 <tr>
 <td>Audience</td>
@@ -130,213 +130,250 @@ li { margin: 2pt 0; }
 </blockquote>
 <h1 id="document-index">Document Index</h1>
 <ul>
-<li><a href="#docs-operations-dependency-matrix-md">Dependency Matrix</a></li>
-<li><a href="#docs-operations-deployment-and-environments-md">Deployment and Environments</a></li>
+<li><a href="#docs-architecture-production-deployment-md">Production Deployment Architecture</a></li>
+<li><a href="#docs-operations-dependency-matrix-md">Production Infrastructure Requirements</a></li>
+<li><a href="#docs-operations-deployment-and-environments-md">Production Deployment and Configuration</a></li>
 <li><a href="#docs-operations-deployment-ubuntu-lts-md">Ubuntu LTS Deployment Tutorial</a></li>
 <li><a href="#docs-operations-deployment-windows-iis-md">Windows Server and IIS Deployment Tutorial</a></li>
-<li><a href="#docs-operations-sql-server-md">Recommended SQL Server Baseline</a></li>
-<li><a href="#docs-operations-compliance-baseline-md">Compliance Baseline and Benchmarks</a></li>
 <li><a href="#docs-operations-operations-runbook-md">Operations, Monitoring, and Runbooks</a></li>
 <li><a href="#docs-operations-field-commissioning-md">Field Commissioning Guide</a></li>
 </ul>
 <div class="page-break"></div>
 
+<p><a id="docs-architecture-production-deployment-md"></a></p>
+<h1 id="production-deployment-architecture">Production Deployment Architecture</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This UML deployment diagram defines the production infrastructure boundary, deployed application nodes, required services, trust zones, and principal communication paths. The final topology may use customer-managed servers or equivalent managed services while preserving the same security boundaries.</p>
+<p>The application host runs one LoraTrack modular-monolith deployment. The web runtime and minute scheduler are two execution entry points into the same application release, configuration, domain modules, and database; they are not separate application services.</p>
+<p><img alt="LoraTrack UML production deployment diagram" src="architecture/diagrams/production-deployment-diagram.svg"></p>
+<h2 id="production-nodes">Production Nodes</h2>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Required Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edge security</td>
+<td>Terminates trusted HTTPS, applies request limits, and optionally provides WAF or reverse-proxy controls.</td>
+</tr>
+<tr>
+<td>Application host</td>
+<td>Runs the web application and the minute scheduler with access to protected configuration and private storage.</td>
+</tr>
+<tr>
+<td>Database service</td>
+<td>Provides MySQL 8+, MariaDB 10.6+, or Microsoft SQL Server 2022+ persistence over encrypted transport and accepts connections only from approved application hosts.</td>
+</tr>
+<tr>
+<td>Private storage</td>
+<td>Retains customer floor plans and protected application files outside the public web root.</td>
+</tr>
+<tr>
+<td>Monitoring service</td>
+<td>Receives availability, application, scheduler, capacity, and security signals.</td>
+</tr>
+<tr>
+<td>Backup repository</td>
+<td>Stores encrypted, access-controlled database and private-file backups outside the application host.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="trust-and-network-boundaries">Trust and Network Boundaries</h2>
+<ul>
+<li>Only HTTPS is exposed to users and inbound webhook providers.</li>
+<li>The database is placed in a restricted data zone and is not publicly accessible.</li>
+<li>Administrative access uses the customer's approved VPN, bastion, or management network.</li>
+<li>Outbound traffic is restricted to configured identity, catalog, telemetry, email, DNS, NTP, monitoring, and backup destinations.</li>
+<li>Database and backup traffic must be encrypted in transit; backup copies must also be encrypted at rest. The selected database driver and trust configuration must match MySQL/MariaDB or SQL Server.</li>
+<li>Production secrets remain outside the public document root and are readable only by the application service account and authorized administrators.</li>
+</ul>
+<p>The editable UML source is provided in <a href="architecture/diagrams/production-deployment-diagram.puml"><code>production-deployment-diagram.puml</code></a>.</p>
+<h2 id="engineering-assumptions">Engineering Assumptions</h2>
+<ul>
+<li>The baseline shows one logical application host; approved high-availability deployments may use multiple equivalent hosts with shared state and verified scheduler locking.</li>
+<li>The database and backup services may be managed services or dedicated customer infrastructure provided the documented trust boundaries and transport controls are preserved.</li>
+<li>Firewall rules must be derived from enabled connectors; optional SMTP and MQTT paths are not opened when those capabilities are disabled.</li>
+<li>Monitoring and backup paths are mandatory production responsibilities even when implemented by customer-standard platforms not named in the diagram.</li>
+</ul>
+<div class="page-break"></div>
+
 <p><a id="docs-operations-dependency-matrix-md"></a></p>
-<h1 id="dependency-matrix">Dependency Matrix</h1>
-<p>This matrix reflects the dependencies observed in <code>composer.json</code> and the installed direct package versions reported by <code>composer show --direct</code>.</p>
-<h2 id="runtime">Runtime</h2>
+<h1 id="production-infrastructure-requirements">Production Infrastructure Requirements</h1>
+<p>This section defines the infrastructure a customer must provide to operate LoraTrack in production. Final capacity must be confirmed from the expected number of organizations, assets, users, connectors, telemetry volume, retention period, and availability target.</p>
+<h2 id="application-runtime">Application Runtime</h2>
 <table>
 <thead>
 <tr>
 <th>Component</th>
-<th>Required or Recommended Version</th>
-<th>Notes</th>
+<th>Production Requirement</th>
+<th>Operational Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td>Operating system</td>
+<td>Supported Ubuntu LTS or Windows Server with IIS 10</td>
+<td>Apply vendor security updates under the customer's patch policy.</td>
+</tr>
+<tr>
 <td>PHP</td>
-<td>8.2 or higher</td>
-<td>Laravel 12 requires a modern PHP runtime. PHP 8.3/8.4 may be used if extensions are available and validated.</td>
+<td>8.2 or later, supported by the selected operating system</td>
+<td>Enable OPcache and configure memory and request limits for the expected workload.</td>
 </tr>
 <tr>
-<td>Microsoft SQL Server</td>
-<td>2022 Standard or 2025 Standard</td>
-<td>Recommended for Windows/IIS enterprise deployments under the ISO/CIS baseline. Requires <code>pdo_sqlsrv</code> and Microsoft ODBC Driver for SQL Server.</td>
+<td>Web server</td>
+<td>Nginx or Apache on Linux; IIS 10 on Windows</td>
+<td>Publish only the Laravel <code>public</code> directory and enforce HTTPS.</td>
 </tr>
 <tr>
-<td>MariaDB</td>
-<td>10.6 or higher</td>
-<td>Technical alternative supported by Laravel and used as the original project reference.</td>
-</tr>
-<tr>
-<td>MySQL</td>
-<td>8.0 or higher</td>
-<td>Technical alternative supported by Laravel.</td>
-</tr>
-<tr>
-<td>Composer</td>
-<td>2.x</td>
-<td>PHP dependency manager.</td>
-</tr>
-<tr>
-<td>Linux web server</td>
-<td>Nginx or Apache</td>
-<td>The Ubuntu tutorial uses Nginx + PHP-FPM.</td>
-</tr>
-<tr>
-<td>Windows web server</td>
-<td>IIS 10</td>
-<td>Requires FastCGI and URL Rewrite.</td>
-</tr>
-<tr>
-<td>Queue</td>
-<td>Laravel Queue</td>
-<td>Database queue or another configured driver.</td>
+<td>Database</td>
+<td>MySQL 8.0+, MariaDB 10.6+, or Microsoft SQL Server 2022+</td>
+<td>Use a dedicated database and least-privilege application account. Require encrypted transport and the matching PHP PDO driver.</td>
 </tr>
 <tr>
 <td>Scheduler</td>
-<td>cron, systemd timer, Task Scheduler, or supervisor</td>
-<td>Required for <code>schedule:run</code> and workers.</td>
+<td>Cron or Windows Task Scheduler</td>
+<td>Execute <code>php artisan schedule:run</code> once per minute. A persistent Laravel Queue worker is not required.</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>Persistent application storage plus independent backup capacity</td>
+<td>Private floor plans, generated data, and application logs must not be exposed by the web server.</td>
+</tr>
+<tr>
+<td>DNS and TLS</td>
+<td>Customer-controlled production hostname and valid trusted certificate</td>
+<td>Monitor certificate expiration and redirect HTTP to HTTPS.</td>
+</tr>
+<tr>
+<td>Time synchronization</td>
+<td>NTP-synchronized application and database hosts</td>
+<td>Required for reliable telemetry, audit, and troubleshooting timestamps.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="direct-php-packages">Direct PHP Packages</h2>
+<h2 id="required-php-extensions">Required PHP Extensions</h2>
+<p>Enable <code>bcmath</code>, <code>ctype</code>, <code>curl</code>, <code>dom</code>, <code>fileinfo</code>, <code>gd</code>, <code>json</code>, <code>mbstring</code>, <code>openssl</code>, <code>pdo</code>, <code>tokenizer</code>, <code>xml</code>, <code>xmlreader</code>, <code>xmlwriter</code>, and <code>zip</code>. Enable <code>pdo_mysql</code> for MySQL/MariaDB or Microsoft <code>pdo_sqlsrv</code> for SQL Server. <code>intl</code> is recommended. Redis support is optional when Redis is selected for cache or sessions.</p>
+<h2 id="database-transport-and-capacity">Database Transport and Capacity</h2>
+<ul>
+<li>Require encrypted transport between the application and database and install the required trust chain on the application host.</li>
+<li>For MySQL/MariaDB, configure <code>MYSQL_ATTR_SSL_CA</code> with the absolute CA certificate path.</li>
+<li>When the PHP MySQL driver uses <code>libmysql</code>, configure <code>MYSQL_ATTR_MAX_BUFFER_SIZE=6291456</code> so accepted Meraki payloads are not truncated during database reads.</li>
+<li>For SQL Server, install Microsoft ODBC Driver 18 and <code>pdo_sqlsrv</code>, enable certificate validation, and use TCP 1433 or the customer-approved explicit port.</li>
+<li>Allocate database memory, connections, storage, and IOPS from measured production volume rather than generic minimums.</li>
+<li>Monitor table growth, slow queries, connection utilization, storage consumption, and backup duration.</li>
+</ul>
+<h2 id="network-connectivity">Network Connectivity</h2>
+<p>The customer firewall and proxy policy must permit only the flows required by enabled capabilities:</p>
 <table>
 <thead>
 <tr>
-<th>Package</th>
-<th>Installed Version</th>
-<th>Usage</th>
+<th>Flow</th>
+<th>Direction</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>laravel/framework</code></td>
-<td>12.62.0</td>
-<td>Main framework.</td>
+<td>HTTPS 443</td>
+<td>Inbound</td>
+<td>User access and authenticated webhook delivery.</td>
 </tr>
 <tr>
-<td><code>laravel/socialite</code></td>
-<td>5.28.0</td>
-<td>OAuth/OIDC login.</td>
+<td>Database TLS</td>
+<td>Application to database</td>
+<td>TCP 3306 for MySQL/MariaDB or TCP 1433 for SQL Server by default; restrict by source and destination.</td>
 </tr>
 <tr>
-<td><code>socialiteproviders/microsoft</code></td>
-<td>4.9.0</td>
-<td>Microsoft provider.</td>
+<td>HTTPS 443</td>
+<td>Outbound</td>
+<td>Microsoft identity and configured catalog or telemetry providers.</td>
 </tr>
 <tr>
-<td><code>laravel/tinker</code></td>
-<td>2.11.1</td>
-<td>Interactive console.</td>
+<td>SMTP submission</td>
+<td>Outbound</td>
+<td>Notifications and invitations when email is enabled.</td>
 </tr>
 <tr>
-<td><code>php-mqtt/client</code></td>
-<td>2.3.0</td>
-<td>MQTT listener.</td>
+<td>MQTT TLS</td>
+<td>Outbound</td>
+<td>Required only for configured MQTT connectors.</td>
 </tr>
 <tr>
-<td><code>laravel/pint</code></td>
-<td>1.29.3</td>
-<td>PHP code formatting.</td>
-</tr>
-<tr>
-<td><code>phpunit/phpunit</code></td>
-<td>11.5.55</td>
-<td>Automated tests.</td>
+<td>DNS and NTP</td>
+<td>Outbound</td>
+<td>Name resolution and time synchronization.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="php-extensions">PHP Extensions</h2>
-<p>Install and enable:</p>
-<ul>
-<li><code>bcmath</code></li>
-<li><code>ctype</code></li>
-<li><code>curl</code></li>
-<li><code>dom</code></li>
-<li><code>fileinfo</code></li>
-<li><code>gd</code></li>
-<li><code>json</code></li>
-<li><code>mbstring</code></li>
-<li><code>openssl</code></li>
-<li><code>pdo</code></li>
-<li><code>pdo_mysql</code> when using MySQL/MariaDB</li>
-<li><code>pdo_sqlsrv</code> when using SQL Server</li>
-<li><code>sqlsrv</code> recommended for diagnostics and non-PDO tooling</li>
-<li><code>tokenizer</code></li>
-<li><code>xml</code></li>
-<li><code>xmlreader</code></li>
-<li><code>xmlwriter</code></li>
-<li><code>zip</code></li>
-</ul>
-<p>Recommended:</p>
-<ul>
-<li><code>opcache</code></li>
-<li><code>intl</code></li>
-<li><code>redis</code> if Redis is used for cache, queues, or sessions.</li>
-</ul>
-<h2 id="optional-external-services">Optional External Services</h2>
+<p>The database must not be exposed to the public internet. Administrative access should use the customer's controlled management network, VPN, or bastion service.</p>
+<h2 id="external-services-by-enabled-capability">External Services by Enabled Capability</h2>
 <table>
 <thead>
 <tr>
 <th>Service</th>
-<th>Usage</th>
+<th>When Required</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Microsoft SQL Server</td>
-<td>Recommended database for Windows/IIS deployments under the ISO/CIS baseline.</td>
+<td>Microsoft Entra ID</td>
+<td>Microsoft sign-in.</td>
+</tr>
+<tr>
+<td>SMTP service</td>
+<td>Invitations, password workflows, and operational notifications.</td>
 </tr>
 <tr>
 <td>The Things Industries</td>
-<td>LoRaWAN webhook source.</td>
-</tr>
-<tr>
-<td>MQTT broker</td>
-<td>Generic telemetry or TTI through MQTT.</td>
+<td>TTI webhook or MQTT telemetry.</td>
 </tr>
 <tr>
 <td>Meraki</td>
-<td>Location API.</td>
+<td>Meraki Scanning/Location API ingestion.</td>
 </tr>
 <tr>
-<td>SAP S/4HANA</td>
-<td>Product Master catalog.</td>
+<td>SAP S/4HANA or another catalog provider</td>
+<td>Automated catalog synchronization.</td>
 </tr>
 <tr>
-<td>Microsoft Entra ID</td>
-<td>Microsoft login.</td>
+<td>Central logging and monitoring platform</td>
+<td>Production alerting, audit support, and incident investigation.</td>
 </tr>
 <tr>
-<td>SMTP</td>
-<td>Email alerts and invitations.</td>
+<td>Backup repository</td>
+<td>Encrypted database and private-file backups stored outside the application host.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="relevant-configuration-files">Relevant Configuration Files</h2>
+<h2 id="capacity-inputs-required-before-sizing">Capacity Inputs Required Before Sizing</h2>
+<p>The customer and implementation team must agree on:</p>
 <ul>
-<li><code>.env</code></li>
-<li><code>config/app.php</code></li>
-<li><code>config/database.php</code></li>
-<li><code>config/queue.php</code></li>
-<li><code>config/mail.php</code></li>
-<li><code>config/filesystems.php</code></li>
-<li><code>routes/api.php</code></li>
-<li><code>routes/console.php</code></li>
+<li>expected concurrent and named users;</li>
+<li>organizations, sites, buildings, floors, assets, and devices;</li>
+<li>number and type of connectors;</li>
+<li>average and peak webhook or MQTT events per minute;</li>
+<li>maximum accepted payload size;</li>
+<li>observation, audit, and location-history retention periods;</li>
+<li>floor-plan file volume;</li>
+<li>required availability, RPO, and RTO;</li>
+<li>backup retention and restoration-test frequency.</li>
 </ul>
+<p>Do not approve production capacity until representative telemetry and user workloads have been validated in a customer-approved pre-production environment.</p>
 <div class="page-break"></div>
 
 <p><a id="docs-operations-deployment-and-environments-md"></a></p>
-<h1 id="deployment-and-environments">Deployment and Environments</h1>
+<h1 id="production-deployment-and-configuration">Production Deployment and Configuration</h1>
 <h2 id="base-requirements">Base Requirements</h2>
 <ul>
 <li>PHP 8.2 or higher.</li>
 <li>Composer.</li>
-<li>SQL Server 2022/2025, MariaDB 10.6+, or MySQL 8+ depending on deployment baseline.</li>
+<li>MySQL 8.0+, MariaDB 10.6+, or Microsoft SQL Server 2022+ with encrypted transport.</li>
 <li>PHP extensions required by Laravel and the selected database.</li>
-<li>Cron, Task Scheduler, Supervisor, systemd, or equivalent process management.</li>
+<li>Cron or Windows Task Scheduler for the minute scheduler invocation.</li>
 <li>TLS on the public domain.</li>
 </ul>
 <h2 id="environment-variables">Environment Variables</h2>
@@ -348,9 +385,9 @@ li { margin: 2pt 0; }
 <li><code>APP_DEBUG=false</code> in production</li>
 <li><code>APP_URL</code></li>
 <li><code>DB_*</code></li>
-<li><code>QUEUE_CONNECTION</code></li>
 <li><code>MYSQL_ATTR_SSL_CA</code> for MySQL/MariaDB deployments that require TLS.</li>
 <li><code>MYSQL_ATTR_MAX_BUFFER_SIZE=6291456</code> when PDO uses <code>libmysql</code>, so Meraki payloads up to the 5 MiB HTTP limit are not truncated while being read.</li>
+<li>SQL Server encryption and certificate-trust parameters when <code>DB_CONNECTION=sqlsrv</code> is selected.</li>
 <li><code>CACHE_STORE</code></li>
 <li><code>SESSION_DRIVER</code></li>
 <li><code>MAIL_*</code></li>
@@ -376,18 +413,9 @@ php artisan view:cache
 </code></pre>
 <p>Do not expose floor plans through a public symlink.</p>
 <h2 id="scheduler">Scheduler</h2>
-<p>Run every minute:</p>
-<pre><code class="language-bash">php artisan schedule:run
-</code></pre>
-<p>Scheduled tasks:</p>
-<ul>
-<li><code>loratrack:evaluate-alerts</code> every ten minutes.</li>
-<li><code>loratrack:manage-telemetry-storage</code> hourly.</li>
-<li><code>loratrack:prune-meraki-history</code> hourly.</li>
-</ul>
-<h2 id="scheduler_1">Scheduler</h2>
-<p>The Laravel scheduler must run every minute. It drains the durable webhook inboxes and processes observations, TTI/MQTT events, and requested catalog synchronizations. Laravel Queue is not required. Avoid duplicate scheduler cron entries when the database has low connection limits.</p>
-<h2 id="recommended-environments">Recommended Environments</h2>
+<p>Run <code>php artisan schedule:run</code> once every minute. The scheduler drains durable webhook inboxes and processes observations, TTI/MQTT events, catalog synchronization requests, alerts, and retention activities. A persistent Laravel Queue worker is not required. Configure exactly one effective scheduler invocation per environment unless a tested distributed locking design has been approved.</p>
+<p>The production scheduler account requires access to the application directory, PHP CLI, application configuration, logs, private storage, and the production database. Monitor invocation failures and total processing duration.</p>
+<h2 id="customer-validation-environment">Customer Validation Environment</h2>
 <table>
 <thead>
 <tr>
@@ -398,19 +426,9 @@ php artisan view:cache
 </thead>
 <tbody>
 <tr>
-<td>local</td>
-<td>development</td>
-<td>synthetic data</td>
-</tr>
-<tr>
-<td>test/ci</td>
-<td>automated tests</td>
-<td>ephemeral database</td>
-</tr>
-<tr>
-<td>staging</td>
-<td>customer validation</td>
-<td>anonymized or approved data</td>
+<td>pre-production</td>
+<td>deployment, integration, capacity, recovery, and customer acceptance validation</td>
+<td>synthetic, anonymized, or explicitly approved data</td>
 </tr>
 <tr>
 <td>production</td>
@@ -439,8 +457,8 @@ php artisan view:cache
 <ul>
 <li>HTTP availability;</li>
 <li>5xx errors;</li>
-<li>failed jobs;</li>
-<li>queue depth;</li>
+<li>failed scheduled commands;</li>
+<li>pending webhook and connector backlog;</li>
 <li>database growth;</li>
 <li>disk space;</li>
 <li>inactive connectors;</li>
@@ -454,8 +472,8 @@ php artisan view:cache
 <li>previous release version;</li>
 <li>migration compatibility;</li>
 <li>pre-deploy backup;</li>
-<li>worker pause procedure;</li>
-<li>job retry procedure;</li>
+<li>scheduler suspension and controlled resumption procedure;</li>
+<li>failed-event replay procedure;</li>
 <li>user communication plan.</li>
 </ul>
 <h2 id="production-hardening">Production Hardening</h2>
@@ -476,14 +494,12 @@ php artisan view:cache
 <p><a id="docs-operations-deployment-ubuntu-lts-md"></a></p>
 <h1 id="ubuntu-lts-deployment-tutorial">Ubuntu LTS Deployment Tutorial</h1>
 <h2 id="scope">Scope</h2>
-<p>Tutorial for deploying LoraTrack on Ubuntu Server LTS with Nginx, PHP-FPM, Composer, and cron. The recommended Microsoft database backend is SQL Server 2022/2025 on a dedicated server, certified Linux host, Windows Server, or Azure SQL service under the ISO/CIS baseline.</p>
-<p>Project versions:</p>
+<p>Tutorial for deploying LoraTrack on Ubuntu Server LTS with Nginx, PHP-FPM, MySQL or MariaDB, and cron.</p>
+<p>Production baseline:</p>
 <ul>
-<li>Laravel Framework 12.62.0.</li>
-<li>Required PHP: 8.2+.</li>
-<li>Recommended database: SQL Server 2022 Standard with the latest approved CU, or SQL Server 2025 Standard after staging validation.</li>
-<li>MQTT client: <code>php-mqtt/client</code> 2.3.0.</li>
-<li>Microsoft OAuth: <code>laravel/socialite</code> 5.28.0 and <code>socialiteproviders/microsoft</code> 4.9.0.</li>
+<li>PHP 8.2 or later.</li>
+<li>MySQL 8.0 or later, or MariaDB 10.6 or later.</li>
+<li>TLS for public access and database transport.</li>
 </ul>
 <h2 id="1-prepare-the-server">1. Prepare the Server</h2>
 <pre><code class="language-bash">sudo apt update
@@ -491,7 +507,7 @@ sudo apt upgrade -y
 sudo apt install -y software-properties-common unzip git curl ca-certificates gnupg
 </code></pre>
 <h2 id="2-install-php-and-extensions">2. Install PHP and Extensions</h2>
-<pre><code class="language-bash">sudo apt install -y php php-fpm php-cli php-common php-mbstring php-xml php-curl php-zip php-bcmath php-gd php-intl php-opcache
+<pre><code class="language-bash">sudo apt install -y php php-fpm php-cli php-common php-mbstring php-xml php-curl php-zip php-bcmath php-gd php-intl php-opcache php-mysql
 </code></pre>
 <p>Verify:</p>
 <pre><code class="language-bash">php -v
@@ -514,32 +530,18 @@ opcache.enable_cli=1
 sudo systemctl enable nginx
 sudo systemctl start nginx
 </code></pre>
-<h2 id="4-configure-sql-server-connectivity">4. Configure SQL Server Connectivity</h2>
-<p>Recommended enterprise baseline:</p>
-<ul>
-<li>SQL Server 2022 Standard with latest approved CU for conservative production.</li>
-<li>SQL Server 2025 Standard for controlled new adoption after staging validation.</li>
-<li>SQL Server Developer for development.</li>
-<li>SQL Server Express only for labs or small pilots with explicit limit acceptance.</li>
-</ul>
-<p>Install Microsoft ODBC Driver for SQL Server and PHP <code>sqlsrv</code>/<code>pdo_sqlsrv</code> extensions following Microsoft's repository instructions for the Ubuntu version.</p>
+<h2 id="4-configure-mysql-or-mariadb-connectivity">4. Configure MySQL or MariaDB Connectivity</h2>
+<p>Provision a supported MySQL or MariaDB service with encrypted transport. Install the customer-approved CA certificate on the application server and restrict database access to the application host.</p>
 <p>Validate:</p>
-<pre><code class="language-bash">php -m | grep -E &quot;sqlsrv|pdo_sqlsrv&quot;
+<pre><code class="language-bash">php -m | grep -E &quot;mysqli|pdo_mysql&quot;
 sudo systemctl restart php*-fpm
 </code></pre>
 <p>Database account example:</p>
-<pre><code class="language-sql">create database loratrack;
-go
-create login loratrack_app with password = 'CHANGE_ME_LONG_SECRET';
-go
-use loratrack;
-go
-create user loratrack_app for login loratrack_app;
-go
-alter role db_datareader add member loratrack_app;
-alter role db_datawriter add member loratrack_app;
-alter role db_ddladmin add member loratrack_app;
-go
+<pre><code class="language-sql">CREATE DATABASE loratrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'loratrack_app'@'APPLICATION_HOST' IDENTIFIED BY 'CHANGE_ME_LONG_SECRET';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+    ON loratrack.* TO 'loratrack_app'@'APPLICATION_HOST';
+FLUSH PRIVILEGES;
 </code></pre>
 <p>After migrations, evaluate removing DDL permissions from the runtime account and using a separate migration account.</p>
 <h2 id="5-install-composer">5. Install Composer</h2>
@@ -571,14 +573,15 @@ APP_DEBUG=false
 APP_URL=https://loratrack.example.com
 APP_TIMEZONE=America/Santiago
 
-DB_CONNECTION=sqlsrv
-DB_HOST=sqlserver.example.com
-DB_PORT=1433
+DB_CONNECTION=mysql
+DB_HOST=mysql.example.com
+DB_PORT=3306
 DB_DATABASE=loratrack
 DB_USERNAME=loratrack_app
 DB_PASSWORD=CHANGE_ME_LONG_SECRET
 
-QUEUE_CONNECTION=database
+MYSQL_ATTR_SSL_CA=/etc/ssl/certs/customer-mysql-ca.pem
+MYSQL_ATTR_MAX_BUFFER_SIZE=6291456
 CACHE_STORE=database
 SESSION_DRIVER=database
 </code></pre>
@@ -649,14 +652,12 @@ sudo -u loratrack php artisan schedule:run
 <p><a id="docs-operations-deployment-windows-iis-md"></a></p>
 <h1 id="windows-server-and-iis-deployment-tutorial">Windows Server and IIS Deployment Tutorial</h1>
 <h2 id="scope_1">Scope</h2>
-<p>Tutorial for deploying LoraTrack on Windows Server with IIS, PHP FastCGI, Composer, Microsoft SQL Server, and Task Scheduler.</p>
-<p>Project versions:</p>
+<p>Tutorial for deploying LoraTrack on Windows Server with IIS, PHP FastCGI, MySQL or MariaDB, and Task Scheduler.</p>
+<p>Production baseline:</p>
 <ul>
-<li>Laravel Framework 12.62.0.</li>
-<li>Required PHP: 8.2+.</li>
-<li>Recommended database: Microsoft SQL Server 2022 Standard with latest approved CU, or SQL Server 2025 Standard after ISO/CIS staging validation.</li>
-<li>Microsoft OAuth: <code>laravel/socialite</code> 5.28.0 and <code>socialiteproviders/microsoft</code> 4.9.0.</li>
-<li>MQTT client: <code>php-mqtt/client</code> 2.3.0.</li>
+<li>PHP 8.2 or later.</li>
+<li>MySQL 8.0 or later, or MariaDB 10.6 or later.</li>
+<li>TLS for public access and database transport.</li>
 </ul>
 <h2 id="1-required-components">1. Required Components</h2>
 <p>Install:</p>
@@ -666,11 +667,10 @@ sudo -u loratrack php artisan schedule:run
 <li>PHP 8.2+ Non Thread Safe x64.</li>
 <li>Visual C++ Redistributable required by PHP.</li>
 <li>Composer 2.x for Windows.</li>
-<li>Microsoft SQL Server 2022/2025.</li>
-<li>Microsoft ODBC Driver for SQL Server.</li>
-<li>Microsoft Drivers for PHP for SQL Server: <code>pdo_sqlsrv</code> and <code>sqlsrv</code>.</li>
+<li>Customer-managed MySQL 8.0+ or MariaDB 10.6+ service.</li>
+<li>Trusted CA certificate for database TLS.</li>
 <li>IIS URL Rewrite Module.</li>
-<li>Git for Windows or an approved deployment mechanism.</li>
+<li>An approved mechanism for transferring the authorized application release.</li>
 </ul>
 <h2 id="2-enable-iis-and-cgi">2. Enable IIS and CGI</h2>
 <p>PowerShell as Administrator:</p>
@@ -689,8 +689,7 @@ extension=fileinfo
 extension=gd
 extension=mbstring
 extension=openssl
-extension=pdo_sqlsrv
-extension=sqlsrv
+extension=pdo_mysql
 extension=zip
 
 cgi.force_redirect=0
@@ -717,27 +716,14 @@ php -m
 <li>Executable: <code>C:\PHP\8.3\php-cgi.exe</code></li>
 <li>Name: <code>PHP via FastCGI</code></li>
 </ul>
-<h2 id="5-sql-server-setup">5. SQL Server Setup</h2>
-<p>Recommendation:</p>
-<ul>
-<li>Conservative production: SQL Server 2022 Standard, latest approved CU.</li>
-<li>Controlled new adoption: SQL Server 2025 Standard, validated in staging.</li>
-<li>Development: SQL Server Developer.</li>
-<li>Lab: SQL Server Express only if limits are accepted.</li>
-</ul>
+<h2 id="5-mysql-or-mariadb-setup">5. MySQL or MariaDB Setup</h2>
+<p>Provision a supported database service with TLS required. Restrict network access to the application server and use a dedicated least-privilege account.</p>
 <p>Create database and login:</p>
-<pre><code class="language-sql">create database loratrack;
-go
-create login loratrack_app with password = 'CHANGE_ME_LONG_SECRET';
-go
-use loratrack;
-go
-create user loratrack_app for login loratrack_app;
-go
-alter role db_datareader add member loratrack_app;
-alter role db_datawriter add member loratrack_app;
-alter role db_ddladmin add member loratrack_app;
-go
+<pre><code class="language-sql">CREATE DATABASE loratrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'loratrack_app'@'APPLICATION_HOST' IDENTIFIED BY 'CHANGE_ME_LONG_SECRET';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+    ON loratrack.* TO 'loratrack_app'@'APPLICATION_HOST';
+FLUSH PRIVILEGES;
 </code></pre>
 <p>Validate:</p>
 <pre><code class="language-sql">select @@version;
@@ -759,14 +745,15 @@ APP_DEBUG=false
 APP_URL=https://loratrack.example.com
 APP_TIMEZONE=America/Santiago
 
-DB_CONNECTION=sqlsrv
-DB_HOST=127.0.0.1
-DB_PORT=1433
+DB_CONNECTION=mysql
+DB_HOST=mysql.example.com
+DB_PORT=3306
 DB_DATABASE=loratrack
 DB_USERNAME=loratrack_app
 DB_PASSWORD=CHANGE_ME_LONG_SECRET
 
-QUEUE_CONNECTION=database
+MYSQL_ATTR_SSL_CA=C:\ProgramData\LoraTrack\certificates\mysql-ca.pem
+MYSQL_ATTR_MAX_BUFFER_SIZE=6291456
 CACHE_STORE=database
 SESSION_DRIVER=database
 </code></pre>
@@ -866,293 +853,12 @@ php artisan schedule:run
 </ul>
 <div class="page-break"></div>
 
-<p><a id="docs-operations-sql-server-md"></a></p>
-<h1 id="recommended-sql-server-baseline">Recommended SQL Server Baseline</h1>
-<h2 id="recommendation">Recommendation</h2>
-<p>For regulated or high-criticality industrial customers, the database recommendation is fixed against the <a href="compliance-baseline.md">compliance baseline</a>:</p>
-<ul>
-<li><strong>Conservative production:</strong> Microsoft SQL Server 2022 Standard, updated to the latest approved Cumulative Update.</li>
-<li><strong>Controlled new production adoption:</strong> Microsoft SQL Server 2025 Standard, only after staging validates migrations, PHP drivers, CIS hardening, and expected LoraTrack load.</li>
-<li><strong>Development:</strong> SQL Server Developer using the same major version as production.</li>
-<li><strong>Small pilots or labs:</strong> SQL Server Express only if its limits are explicitly accepted.</li>
-</ul>
-<p>SQL Server 2022 is the conservative recommendation because it has operational maturity and active support. SQL Server 2025 may be preferable when maximizing support lifetime, but it requires compatibility evidence before production use.</p>
-<h2 id="normalized-version-and-edition">Normalized Version and Edition</h2>
-<table>
-<thead>
-<tr>
-<th>Scenario</th>
-<th>Version</th>
-<th>Edition</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Stable enterprise production</td>
-<td>SQL Server 2022</td>
-<td>Standard or Enterprise depending on HA/DR and licensing</td>
-</tr>
-<tr>
-<td>Controlled new adoption</td>
-<td>SQL Server 2025</td>
-<td>Standard or Enterprise</td>
-</tr>
-<tr>
-<td>Development and QA</td>
-<td>Same major as production</td>
-<td>Developer</td>
-</tr>
-<tr>
-<td>Demo or small pilot</td>
-<td>SQL Server 2022/2025</td>
-<td>Express, if limits are acceptable</td>
-</tr>
-</tbody>
-</table>
-<p>Versions older than SQL Server 2022 are not recommended for new deployments.</p>
-<h2 id="phplaravel-drivers">PHP/Laravel Drivers</h2>
-<p>LoraTrack can connect to SQL Server through Laravel's <code>sqlsrv</code> connection.</p>
-<p>Requirements:</p>
-<ul>
-<li>Microsoft ODBC Driver for SQL Server.</li>
-<li>Microsoft Drivers for PHP for SQL Server.</li>
-<li>PHP extensions:</li>
-<li><code>pdo_sqlsrv</code></li>
-<li><code>sqlsrv</code></li>
-</ul>
-<p>The latest GA driver version observed during documentation was 5.13.1.</p>
-<h2 id="env-configuration"><code>.env</code> Configuration</h2>
-<pre><code class="language-dotenv">DB_CONNECTION=sqlsrv
-DB_HOST=sqlserver.example.com
-DB_PORT=1433
-DB_DATABASE=loratrack
-DB_USERNAME=loratrack_app
-DB_PASSWORD=CHANGE_ME_LONG_SECRET
-</code></pre>
-<p>For named instances, validate host and port format with the driver and network policy. Production should prefer an explicit port.</p>
-<h2 id="database-and-user-creation">Database and User Creation</h2>
-<p>Initial example:</p>
-<pre><code class="language-sql">create database loratrack;
-go
-
-create login loratrack_app with password = 'CHANGE_ME_LONG_SECRET';
-go
-
-use loratrack;
-go
-
-create user loratrack_app for login loratrack_app;
-go
-
-alter role db_datareader add member loratrack_app;
-alter role db_datawriter add member loratrack_app;
-alter role db_ddladmin add member loratrack_app;
-go
-</code></pre>
-<p>Notes:</p>
-<ul>
-<li><code>db_ddladmin</code> supports Laravel migrations.</li>
-<li>In mature production, use a separate migration account and remove DDL privileges from the runtime account.</li>
-<li>Do not use <code>sa</code> for the application.</li>
-<li>Align credential custody and rotation with ISO/IEC 27001 and ISO/IEC 27002.</li>
-</ul>
-<h2 id="collation-and-unicode">Collation and Unicode</h2>
-<p>LoraTrack stores names, descriptions, payloads, and metadata. Recommendations:</p>
-<ul>
-<li>Define collation in the project data design.</li>
-<li>Validate Unicode, accents, identifiers, and search behavior.</li>
-<li>Keep database, table, and column behavior consistent.</li>
-</ul>
-<h2 id="backups">Backups</h2>
-<p>Minimum recommendation:</p>
-<ul>
-<li>daily full backup;</li>
-<li>differential or incremental backup based on RPO;</li>
-<li>transaction log backups if recovery model is Full;</li>
-<li>periodic restore testing;</li>
-<li>encrypted backups;</li>
-<li>contract-defined retention.</li>
-</ul>
-<h2 id="high-availability">High Availability</h2>
-<p>For critical production, evaluate:</p>
-<ul>
-<li>SQL Server Always On Availability Groups;</li>
-<li>managed backup tooling;</li>
-<li>CPU, memory, IO, latency, and lock monitoring;</li>
-<li>separate data, log, and tempdb storage;</li>
-<li>index and statistics maintenance.</li>
-</ul>
-<h2 id="initial-sizing">Initial Sizing</h2>
-<p>Sizing depends on:</p>
-<ul>
-<li>number of assets;</li>
-<li>uplink frequency;</li>
-<li>observations per uplink;</li>
-<li>raw payload retention;</li>
-<li>historical position volume;</li>
-<li>concurrent users.</li>
-</ul>
-<p>Pilot starting point:</p>
-<ul>
-<li>4 vCPU;</li>
-<li>16 GB RAM;</li>
-<li>SSD;</li>
-<li>monitored storage for data, logs, and backups;</li>
-<li>weekly growth review.</li>
-</ul>
-<p>Production sizing must be based on load testing and agreed retention.</p>
-<h2 id="security">Security</h2>
-<p>Recommendations:</p>
-<ul>
-<li>TLS for app-to-database connections when crossing networks.</li>
-<li>SQL Server not exposed publicly.</li>
-<li>Firewall limited to application servers.</li>
-<li>Least-privilege application account.</li>
-<li>Security and operational audit aligned with ISO/IEC 27001, ISO/IEC 27002, and ISO/IEC 20000-1.</li>
-<li>Encrypted backups.</li>
-<li>Transparent Data Encryption if required by policy.</li>
-<li>Do not log full connection strings.</li>
-</ul>
-<h2 id="laravel-compatibility">Laravel Compatibility</h2>
-<p>Before certifying SQL Server as production database, run in staging:</p>
-<pre><code class="language-bash">php artisan migrate:fresh --seed
-php artisan test
-</code></pre>
-<p>Then validate manually:</p>
-<ul>
-<li>login;</li>
-<li>organizations;</li>
-<li>connectors;</li>
-<li>TTI ingestion;</li>
-<li>queue jobs;</li>
-<li>maps;</li>
-<li>asset track;</li>
-<li>floor plan uploads;</li>
-<li>alerts;</li>
-<li>telemetry cleanup.</li>
-</ul>
-<h2 id="reviewed-sources-and-benchmarks">Reviewed Sources and Benchmarks</h2>
-<ul>
-<li>Microsoft SQL Server downloads.</li>
-<li>Microsoft Learn: SQL Server 2025 features and Developer editions.</li>
-<li>Microsoft Learn: PHP drivers for SQL Server, GA version 5.13.1.</li>
-<li>Microsoft Learn: SQL Server support lifecycle.</li>
-<li>Microsoft Learn: SQL Server 2022 requirements.</li>
-<li>ISO/IEC 27001:2022.</li>
-<li>ISO/IEC 27002:2022.</li>
-<li>ISO/IEC 20000-1:2018.</li>
-<li>ISO 22301.</li>
-<li>CIS Microsoft SQL Server Benchmark.</li>
-</ul>
-<div class="page-break"></div>
-
-<p><a id="docs-operations-compliance-baseline-md"></a></p>
-<h1 id="compliance-baseline-and-benchmarks">Compliance Baseline and Benchmarks</h1>
-<h2 id="objective">Objective</h2>
-<p>Infrastructure decisions must not remain informal or open-ended. For enterprise LoraTrack deployments, database, server, operations, and evidence requirements should align with a concrete compliance baseline.</p>
-<h2 id="recommended-baseline">Recommended Baseline</h2>
-<table>
-<thead>
-<tr>
-<th>Area</th>
-<th>Reference</th>
-<th>Usage in LoraTrack</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Information security</td>
-<td>ISO/IEC 27001:2022</td>
-<td>ISMS governance, risk management, controls, continual improvement, and security evidence.</td>
-</tr>
-<tr>
-<td>Security controls</td>
-<td>ISO/IEC 27002:2022</td>
-<td>Guidance for access control, cryptography, operations, incidents, suppliers, and information protection.</td>
-</tr>
-<tr>
-<td>IT service management</td>
-<td>ISO/IEC 20000-1:2018</td>
-<td>Service operation, change, incident management, continuity, and service levels.</td>
-</tr>
-<tr>
-<td>Business continuity</td>
-<td>ISO 22301</td>
-<td>RTO/RPO, impact analysis, continuity, and recovery.</td>
-</tr>
-<tr>
-<td>SQL Server hardening</td>
-<td>CIS Microsoft SQL Server Benchmark</td>
-<td>Verifiable secure configuration for SQL Server instances and databases.</td>
-</tr>
-<tr>
-<td>Platform lifecycle</td>
-<td>Microsoft Lifecycle</td>
-<td>Supported versions, end of support, patching, and upgrade planning.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="mandatory-sql-server-criteria">Mandatory SQL Server Criteria</h2>
-<p>SQL Server selection must be defined by this baseline:</p>
-<ol>
-<li>The SQL Server version must be within Microsoft Lifecycle support.</li>
-<li>The edition must support availability, backup, audit, and growth requirements.</li>
-<li>The instance must be hardened against the CIS Benchmark for its version.</li>
-<li>Operation must produce evidence compatible with ISO/IEC 27001 and ISO/IEC 27002.</li>
-<li>Backup, restore, and continuity must be documented against ISO 22301.</li>
-<li>Incidents, changes, and recurring operations must be governed against ISO/IEC 20000-1.</li>
-</ol>
-<h2 id="version-standard">Version Standard</h2>
-<p>For production:</p>
-<ul>
-<li>Conservative baseline: SQL Server 2022 Standard, latest approved Cumulative Update.</li>
-<li>Controlled new adoption: SQL Server 2025 Standard, only after staging validates migrations, PHP drivers, jobs, load, and CIS hardening.</li>
-<li>Versions older than SQL Server 2022 are not recommended for new deployments.</li>
-</ul>
-<p>For development and QA:</p>
-<ul>
-<li>SQL Server Developer using the same major version as production.</li>
-</ul>
-<p>For laboratory use:</p>
-<ul>
-<li>SQL Server Express only with explicit acceptance of its limits.</li>
-</ul>
-<h2 id="minimum-evidence">Minimum Evidence</h2>
-<ul>
-<li>Exact SQL Server version and CU.</li>
-<li>Microsoft ODBC Driver version.</li>
-<li>Microsoft Drivers for PHP for SQL Server version.</li>
-<li><code>php -m</code> output showing <code>pdo_sqlsrv</code> and <code>sqlsrv</code>.</li>
-<li><code>.env</code> configuration without secrets.</li>
-<li>Migration execution evidence.</li>
-<li>Backup and restore evidence.</li>
-<li>SQL Server user and role matrix.</li>
-<li>CIS hardening checklist or scan result.</li>
-<li>Infrastructure change record.</li>
-<li>Approved RTO/RPO.</li>
-<li>Credential rotation procedure.</li>
-</ul>
-<h2 id="sources">Sources</h2>
-<ul>
-<li>ISO/IEC 27001:2022: https://www.iso.org/standard/27001</li>
-<li>ISO/IEC 27002:2022: https://www.iso.org/standard/75652.html</li>
-<li>ISO/IEC 20000-1:2018: https://www.iso.org/standard/70636.html</li>
-<li>ISO 22301: https://www.iso.org/standard/75106.html</li>
-<li>CIS Microsoft SQL Server Benchmark: https://www.cisecurity.org/benchmark/microsoft_sql_server</li>
-<li>Microsoft SQL Server downloads: https://www.microsoft.com/en-us/sql-server/sql-server-downloads</li>
-<li>Microsoft SQL Server Lifecycle: https://learn.microsoft.com/en-us/lifecycle/products/?terms=SQL%20Server</li>
-<li>Microsoft Drivers for PHP for SQL Server: https://learn.microsoft.com/en-us/sql/connect/php/download-drivers-php-sql-server</li>
-</ul>
-<h2 id="documentation-limit">Documentation Limit</h2>
-<p>This baseline guides technical configuration and evidence. It does not state that LoraTrack, the supplier, or the customer environment is certified under ISO/IEC 27001, ISO/IEC 20000-1, or ISO 22301. Certification requires formal scope, organizational controls, audit, and approval by the corresponding certification body.</p>
-<div class="page-break"></div>
-
 <p><a id="docs-operations-operations-runbook-md"></a></p>
 <h1 id="operations-monitoring-and-runbooks">Operations, Monitoring, and Runbooks</h1>
-<h2 id="objective_1">Objective</h2>
+<h2 id="objective">Objective</h2>
 <p>Define the minimum tasks required to operate LoraTrack in an enterprise environment and diagnose common failures.</p>
 <h2 id="required-processes">Required Processes</h2>
-<h3 id="scheduler_2">Scheduler</h3>
+<h3 id="scheduler_1">Scheduler</h3>
 <p>Run every minute:</p>
 <pre><code class="language-bash">php artisan schedule:run
 </code></pre>
@@ -1268,10 +974,10 @@ order by calculated_at desc;
 <li>review active connectors and tokens;</li>
 <li>test backup restoration;</li>
 <li>review <code>telemetry_events</code> growth;</li>
-<li>review failed jobs;</li>
+<li>review failed scheduled commands and pending ingestion records;</li>
 <li>validate SMTP alerts;</li>
 <li>review recurring log errors;</li>
-<li>run <code>composer audit</code> during a controlled window;</li>
+<li>review applicable vendor security advisories and the approved dependency assessment report;</li>
 <li>update change documentation.</li>
 </ul>
 <h2 id="escalation-data">Escalation Data</h2>
@@ -1292,7 +998,7 @@ order by calculated_at desc;
 
 <p><a id="docs-operations-field-commissioning-md"></a></p>
 <h1 id="field-commissioning-guide">Field Commissioning Guide</h1>
-<h2 id="objective_2">Objective</h2>
+<h2 id="objective_1">Objective</h2>
 <p>Define a baseline procedure for installing, validating, and calibrating LoraTrack in an industrial facility.</p>
 <h2 id="suggested-roles">Suggested Roles</h2>
 <table>

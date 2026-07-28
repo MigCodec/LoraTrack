@@ -1,12 +1,12 @@
-# Deployment and Environments
+# Production Deployment and Configuration
 
 ## Base Requirements
 
 - PHP 8.2 or higher.
 - Composer.
-- SQL Server 2022/2025, MariaDB 10.6+, or MySQL 8+ depending on deployment baseline.
+- MySQL 8.0+, MariaDB 10.6+, or Microsoft SQL Server 2022+ with encrypted transport.
 - PHP extensions required by Laravel and the selected database.
-- Cron, Task Scheduler, Supervisor, systemd, or equivalent process management.
+- Cron or Windows Task Scheduler for the minute scheduler invocation.
 - TLS on the public domain.
 
 ## Environment Variables
@@ -20,9 +20,9 @@ Critical variables:
 - `APP_DEBUG=false` in production
 - `APP_URL`
 - `DB_*`
-- `QUEUE_CONNECTION`
 - `MYSQL_ATTR_SSL_CA` for MySQL/MariaDB deployments that require TLS.
 - `MYSQL_ATTR_MAX_BUFFER_SIZE=6291456` when PDO uses `libmysql`, so Meraki payloads up to the 5 MiB HTTP limit are not truncated while being read.
+- SQL Server encryption and certificate-trust parameters when `DB_CONNECTION=sqlsrv` is selected.
 - `CACHE_STORE`
 - `SESSION_DRIVER`
 - `MAIL_*`
@@ -58,29 +58,15 @@ Do not expose floor plans through a public symlink.
 
 ## Scheduler
 
-Run every minute:
+Run `php artisan schedule:run` once every minute. The scheduler drains durable webhook inboxes and processes observations, TTI/MQTT events, catalog synchronization requests, alerts, and retention activities. A persistent Laravel Queue worker is not required. Configure exactly one effective scheduler invocation per environment unless a tested distributed locking design has been approved.
 
-```bash
-php artisan schedule:run
-```
+The production scheduler account requires access to the application directory, PHP CLI, application configuration, logs, private storage, and the production database. Monitor invocation failures and total processing duration.
 
-Scheduled tasks:
-
-- `loratrack:evaluate-alerts` every ten minutes.
-- `loratrack:manage-telemetry-storage` hourly.
-- `loratrack:prune-meraki-history` hourly.
-
-## Scheduler
-
-The Laravel scheduler must run every minute. It drains the durable webhook inboxes and processes observations, TTI/MQTT events, and requested catalog synchronizations. Laravel Queue is not required. Avoid duplicate scheduler cron entries when the database has low connection limits.
-
-## Recommended Environments
+## Customer Validation Environment
 
 | Environment | Purpose | Data |
 | --- | --- | --- |
-| local | development | synthetic data |
-| test/ci | automated tests | ephemeral database |
-| staging | customer validation | anonymized or approved data |
+| pre-production | deployment, integration, capacity, recovery, and customer acceptance validation | synthetic, anonymized, or explicitly approved data |
 | production | live operation | controlled data |
 
 Do not use real payloads or real floor plans in non-production without approval and controls.
@@ -105,8 +91,8 @@ Initial frequency recommendation:
 
 - HTTP availability;
 - 5xx errors;
-- failed jobs;
-- queue depth;
+- failed scheduled commands;
+- pending webhook and connector backlog;
 - database growth;
 - disk space;
 - inactive connectors;
@@ -121,8 +107,8 @@ Define before each change:
 - previous release version;
 - migration compatibility;
 - pre-deploy backup;
-- worker pause procedure;
-- job retry procedure;
+- scheduler suspension and controlled resumption procedure;
+- failed-event replay procedure;
 - user communication plan.
 
 ## Production Hardening

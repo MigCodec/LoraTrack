@@ -167,8 +167,7 @@ Each integration should document:
 - [ ] Credentials loaded and encrypted.
 - [ ] Connection test successful.
 - [ ] Connector active.
-- [ ] Queue worker running.
-- [ ] Scheduler running when required.
+- [ ] Minute scheduler running and monitored.
 - [ ] Logs do not contain secrets.
 - [ ] Test fixture available.
 - [ ] Rotation procedure documented.

@@ -34,13 +34,12 @@ from typing import Iterable
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 OUTPUT = DOCS
+VERSION_FILE = DOCS / "VERSION"
 
 TECHNICAL_DOCUMENTS = [
-    "docs/user-guide.md",
     "docs/engineering/executive-technical-summary.md",
-    "docs/engineering/architecture.md",
-    "docs/engineering/domain-and-data-model.md",
-    "docs/engineering/telemetry-and-positioning.md",
+    "docs/architecture/system-architecture.md",
+    "docs/user-guide.md",
     "docs/engineering/integrations.md",
     "docs/engineering/api-contracts.md",
     "docs/engineering/security-and-identity.md",
@@ -51,19 +50,18 @@ TECHNICAL_DOCUMENTS = [
 ]
 
 DEPLOYMENT_DOCUMENTS = [
+    "docs/architecture/production-deployment.md",
     "docs/operations/dependency-matrix.md",
     "docs/operations/deployment-and-environments.md",
     "docs/operations/deployment-ubuntu-lts.md",
     "docs/operations/deployment-windows-iis.md",
-    "docs/operations/sql-server.md",
-    "docs/operations/compliance-baseline.md",
     "docs/operations/operations-runbook.md",
     "docs/operations/field-commissioning.md",
 ]
 
 PUBLICATIONS = [
-    ("LoraTrack-Technical-Documentation", "Technical Documentation and User Guide", TECHNICAL_DOCUMENTS),
-    ("LoraTrack-Deployment-Guide", "Professional Deployment and Operations Guide", DEPLOYMENT_DOCUMENTS),
+    ("LoraTrack-Technical-Documentation", "Customer Technical and User Guide", TECHNICAL_DOCUMENTS),
+    ("LoraTrack-Deployment-Guide", "Production Infrastructure and Operations Guide", DEPLOYMENT_DOCUMENTS),
 ]
 
 
@@ -404,7 +402,11 @@ def generate_pdf(engine: str, html_path: Path, markdown_path: Path, pdf_path: Pa
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build public LoraTrack documentation HTML/PDF.")
-    parser.add_argument("--version", default="1.0", help="Public document version; never derived from Git metadata.")
+    parser.add_argument(
+        "--version",
+        default=VERSION_FILE.read_text(encoding="utf-8").strip(),
+        help="Public document version. Defaults to docs/VERSION and is never derived from Git metadata.",
+    )
     parser.add_argument("--output-dir", default=str(OUTPUT), help="Output directory; defaults to docs/.")
     parser.add_argument("--engine", choices=["auto", "weasyprint", "playwright", "pandoc"], default="auto", help="PDF engine.")
     parser.add_argument("--no-pdf", action="store_true", help="Only generate Markdown/HTML/manifest.")

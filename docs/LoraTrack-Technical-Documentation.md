@@ -1,7 +1,7 @@
 <section class="cover">
 <h1>LoraTrack</h1>
-<h2>Technical Documentation and User Guide</h2>
-<p><strong>Document version:</strong> 1.0</p>
+<h2>Customer Technical and User Guide</h2>
+<p><strong>Document version:</strong> 1.5</p>
 <p><strong>Classification:</strong> Public product documentation</p>
 </section>
 
@@ -12,19 +12,17 @@
 | Field | Value |
 | --- | --- |
 | Product | LoraTrack |
-| Document type | Technical Documentation and User Guide |
-| Document version | 1.0 |
+| Document type | Customer Technical and User Guide |
+| Document version | 1.5 |
 | Audience | Users, administrators, engineering, operations, and security teams |
 
 > This documentation describes product capabilities and procedures. References to practices or standards do not constitute certification, independent assurance, or formal customer acceptance.
 
 # Document Index
 
+- [Executive Product and Technical Summary](#docs-engineering-executive-technical-summary-md)
+- [System Architecture](#docs-architecture-system-architecture-md)
 - [LoraTrack User Guide](#docs-user-guide-md)
-- [Executive Technical Summary](#docs-engineering-executive-technical-summary-md)
-- [Solution Architecture](#docs-engineering-architecture-md)
-- [Domain and Data Model](#docs-engineering-domain-and-data-model-md)
-- [Telemetry and Positioning](#docs-engineering-telemetry-and-positioning-md)
 - [External Integrations and Contracts](#docs-engineering-integrations-md)
 - [Internal and External API Contracts](#docs-engineering-api-contracts-md)
 - [Security, Identity, and Tenant Isolation](#docs-engineering-security-and-identity-md)
@@ -32,6 +30,203 @@
 - [Field Commissioning Guide](#docs-operations-field-commissioning-md)
 - [TTI Integration](#docs-integrations-tti-md)
 - [SAP S/4HANA Integration](#docs-integrations-sap-md)
+
+<div class="page-break"></div>
+
+<a id="docs-engineering-executive-technical-summary-md"></a>
+
+# Executive Product and Technical Summary
+
+## Executive Purpose
+
+LoraTrack provides a governed inventory and location platform for physical assets in industrial indoor and outdoor environments. It combines product catalogs, asset identity, device assignments, IoT telemetry, floor plans, location estimates, alerts, and operational history in a single multi-organization application.
+
+The platform is intended to improve asset visibility, reduce manual location searches, preserve chain-of-custody evidence, and provide a consistent operational record across catalog, telemetry, and location workflows.
+
+## Business Outcomes
+
+LoraTrack is designed to support the following outcomes:
+
+- a consolidated register of products, physical assets, and tracking devices;
+- reduced time spent locating assets and investigating missing equipment;
+- traceable device-to-asset assignments with historical validity;
+- earlier identification of offline assets, low-confidence locations, and zone events;
+- reusable integration with enterprise catalogs and IoT providers;
+- organization-level isolation for shared-platform operation;
+- auditable operational changes and reproducible location evidence.
+
+Realized benefits depend on device coverage, floor-plan quality, calibration, integration availability, user adoption, and agreed operating procedures.
+
+## Product Scope
+
+### Included
+
+- Product and SKU catalog management and synchronization.
+- Physical asset registration and time-bound device assignment.
+- Device inventory for BLE beacons, scanners, gateways, LoRaWAN trackers, and Meraki access points.
+- Sites, buildings, floors, zones, floor plans, and installed anchors.
+- Telemetry ingestion from TTI, generic MQTT, and Cisco Meraki Location API.
+- Payload normalization, deterministic deduplication, signal observations, and position estimates.
+- Operational maps, asset history, alerts, health monitoring, and audit records.
+- Role-based access and organization isolation.
+
+### Excluded or Externally Managed
+
+- LoRaWAN network-server and radio-network operation, which remain with TTI.
+- Guaranteed physical accuracy without site calibration and adequate anchor geometry.
+- Certified metrology, personnel safety, emergency response, or life-safety positioning.
+- Customer governance controls such as service ownership, business continuity approval, and formal certification.
+
+## Current Delivery Status
+
+| Area | Current state | Executive interpretation |
+| --- | --- | --- |
+| Core inventory and assets | Implemented | Available for controlled operational use after environment validation. |
+| Organization isolation and roles | Implemented and covered by automated tests | Requires customer access reviews and role ownership. |
+| TTI, MQTT, and Meraki telemetry | Implemented | Requires provider configuration, credentials, monitoring, and capacity validation. |
+| Catalog integrations | SAP, Business Central, Shopify, Odoo, and CSV adapters implemented | Provider permissions and supported API versions must be validated per deployment. |
+| Positioning | RSSI-based estimation, calibration, confidence, and history implemented | Accuracy remains environment-dependent and must be field-validated. |
+| Deployment and operations | Documented for Linux and Windows | Production readiness depends on backup, recovery, monitoring, TLS, and operational ownership. |
+| Formal certification | Not claimed | Certification requires independently verified organizational and technical evidence. |
+
+## Architecture and Operating Model
+
+LoraTrack is delivered as a modular Laravel 12 monolith. This provides one controlled application deployment while preserving logical boundaries among catalog, assets, devices, locations, connectors, telemetry, positioning, dashboard, and identity capabilities.
+
+The production operating model requires:
+
+- PHP 8.2 or later and a supported MySQL, MariaDB, or SQL Server deployment baseline;
+- HTTPS and protected application secrets;
+- the Laravel scheduler invoked every minute;
+- an MQTT listener only when MQTT connectors are enabled;
+- database backup, tested restoration, monitoring, and incident procedures;
+- named owners for application, infrastructure, integrations, security, and data.
+
+Deferred telemetry and catalog processing is performed by scheduled Laravel commands. A persistent Laravel Queue worker is not required.
+
+## Security and Governance Controls
+
+- Business data is scoped by `organization_id` and active membership.
+- Effective roles belong to organization memberships.
+- Connector credentials are encrypted at rest and excluded from responses and logs.
+- External events are authenticated, persisted, deduplicated, and processed idempotently.
+- Floor plans and organization branding files use private storage.
+- Server-side authorization protects every supported operation.
+- Web mutations produce audit records and correlation identifiers.
+- Connector errors are sanitized before presentation.
+- Public documentation does not claim certification or independent assurance.
+
+These application controls must be complemented by infrastructure hardening, access reviews, supplier management, incident response, backup governance, continuity planning, training, and evidence retention.
+
+## Executive Risks and Treatments
+
+| Risk | Business impact | Required treatment | Accountable role |
+| --- | --- | --- | --- |
+| Inadequate anchor coverage or calibration | Incorrect or unavailable asset positions | Conduct site survey, calibration, acceptance testing, and periodic revalidation. | Operations and engineering owner |
+| Scheduler, connector, or provider interruption | Delayed telemetry and stale dashboard information | Monitor backlog and last activity; define alerting and recovery procedures. | Platform operations owner |
+| Uncontrolled retention growth | Increased storage cost and degraded performance | Approve retention periods, capacity thresholds, archival, and deletion rules. | Data and service owner |
+| Credential exposure or excessive access | Unauthorized data or integration access | Apply least privilege, rotation, access reviews, and protected secret storage. | Security and application owner |
+| Untested backup or recovery | Extended outage or permanent data loss | Define RPO/RTO, automate backups, and test restoration on a schedule. | Infrastructure and continuity owner |
+| Provider or API change | Integration failure or incomplete catalog/telemetry data | Pin supported contracts, monitor provider changes, and maintain contract tests. | Integration owner |
+| Misrepresentation of positioning accuracy | Unsafe or incorrect operational decisions | Publish confidence and limitations; prohibit life-safety or certified-metrology claims. | Product and operational owner |
+
+## Executive Metrics
+
+Production approval should define targets and reporting ownership for at least:
+
+- service availability and scheduled-processing success rate;
+- webhook response latency and rejected-request rate;
+- pending, failed, and oldest telemetry-event age;
+- connector last-success time and synchronization failure rate;
+- asset and device coverage, assignment completeness, and stale-device rate;
+- percentage of estimates meeting the agreed confidence and accuracy threshold;
+- alert delivery success and incident acknowledgment time;
+- backup success, restoration-test result, achieved RPO, and achieved RTO;
+- active-user adoption and completion of required operational workflows.
+
+Numeric targets must be approved for each customer environment after baseline and field testing; this document does not invent universal SLA or accuracy commitments.
+
+## Decisions Required Before Production Approval
+
+Executive sponsors and service owners must approve:
+
+1. Business scope, participating organizations, and accountable service owner.
+2. Hosting model, support model, operating hours, and escalation path.
+3. Target availability, response times, RPO, RTO, and retention periods.
+4. Accepted positioning use cases, field accuracy criteria, and prohibited uses.
+5. Integration ownership, provider credentials, API permissions, and supplier dependencies.
+6. Role model, access-review frequency, and administrative segregation.
+7. Monitoring, incident response, backup, restoration, and continuity evidence.
+8. Pilot acceptance criteria, rollout stages, training, and change-management plan.
+9. Budget and staffing for infrastructure, field commissioning, support, and lifecycle maintenance.
+
+## Recommended Adoption Stages
+
+1. **Technical validation:** verify deployment, security baseline, integrations, scheduler, backup, and restoration.
+2. **Controlled pilot:** commission one representative site, calibrate anchors, establish baseline metrics, and obtain user feedback.
+3. **Operational acceptance:** approve accuracy, monitoring, procedures, support, training, and risk treatment.
+4. **Phased rollout:** expand by site or business unit with explicit acceptance checkpoints.
+5. **Service operation:** review KPIs, incidents, access, capacity, provider changes, and continuity evidence periodically.
+
+## Document Governance
+
+| Control | Requirement |
+| --- | --- |
+| Document owner | LoraTrack Product Engineering |
+| Business approver | Designated customer executive sponsor or service owner |
+| Operational approver | Designated platform operations owner |
+| Status | Public product documentation; approval evidence remains deployment-specific |
+| Review cycle | At each published product-documentation change and at least annually |
+| Version control | The public document version is maintained in `docs/VERSION` and incremented whenever published content changes |
+
+## Executive Conclusion
+
+LoraTrack provides a coherent technical foundation for governed asset inventory and location workflows. Production suitability cannot be determined from application controls alone. Approval requires deployment-specific evidence, field accuracy validation, service ownership, measurable targets, accepted residual risk, and demonstrated backup and recovery capability.
+
+<div class="page-break"></div>
+
+<a id="docs-architecture-system-architecture-md"></a>
+
+# System Architecture
+
+## Purpose
+
+This UML component diagram presents the complete logical architecture visible to a customer planning, integrating, securing, and operating LoraTrack. It shows responsibilities and information flows without exposing source-code structure or development tooling.
+
+LoraTrack is a modular monolith: all modules shown inside the system boundary form one deployable application. The internal boundaries separate responsibilities and provider contracts; they do not represent independently deployed microservices.
+
+![LoraTrack UML component diagram](architecture/diagrams/system-component-diagram.svg)
+
+## Architectural Responsibilities
+
+| Area | Responsibility |
+| --- | --- |
+| User access | Provides authenticated browser access for business users and organization administrators. |
+| Identity and access | Authenticates local or Microsoft identities and enforces organization membership and role authorization. |
+| Asset operations | Manages products, physical assets, tracking devices, assignments, locations, maps, and zones. |
+| Integration management | Configures and supervises telemetry and catalog connectors without exposing stored credentials. |
+| Telemetry intake | Validates and durably accepts provider events before deferred processing. |
+| Scheduled processing | Normalizes, deduplicates, creates observations, calculates positions, evaluates alerts, synchronizes catalogs, and applies retention policies. |
+| Operational reporting | Presents current state, history, maps, alerts, and connector health from normalized application data. |
+| Persistence | Stores tenant-isolated operational records, private files, audit evidence, and durable ingestion buffers. |
+
+## Integration Boundaries
+
+- Users communicate with LoraTrack exclusively through HTTPS.
+- Telemetry providers send authenticated HTTPS webhooks, or use an explicitly configured outbound MQTT connection.
+- Catalog providers are accessed through authenticated HTTPS APIs.
+- Microsoft Entra ID is optional and used only when Microsoft sign-in is enabled.
+- SMTP is optional and supports invitations and notifications.
+- External provider formats are translated at the integration boundary before entering operational records.
+
+The editable UML source is provided in [`system-component-diagram.puml`](architecture/diagrams/system-component-diagram.puml).
+
+## Engineering Assumptions
+
+- The diagram is a logical component view of one modular-monolith deployment and does not prescribe separate servers or processes for each component.
+- Provider payloads terminate at integration boundaries and are normalized before use by operational components.
+- The durable ingestion inbox and operational repositories share the approved relational database unless a future architecture decision explicitly changes that boundary.
+- Tenant authorization applies to every application service and persistence operation, even where repeated authorization dependencies are omitted for readability.
 
 <div class="page-break"></div>
 
@@ -150,543 +345,6 @@ Before escalating an incident, record:
 - operational scope and impact.
 
 Technical procedures for diagnostics, backup, restoration, and continuity are provided in the deployment guide and operations runbook.
-
-<div class="page-break"></div>
-
-<a id="docs-engineering-executive-technical-summary-md"></a>
-
-# Executive Technical Summary
-
-## Purpose
-
-LoraTrack is a web platform for inventory and asset location tracking in industrial indoor and outdoor environments. It manages products, physical assets, devices, floor plans, zones, connectors, IoT telemetry, and position estimates.
-
-The application is implemented as a modular Laravel 12 monolith with Blade views, static CSS, and native JavaScript. It does not use a SPA framework or a Node.js frontend build pipeline.
-
-## Main Capabilities
-
-- Multi-organization and multi-project operation through organizations and memberships.
-- Product and SKU catalog management, including external catalog synchronization.
-- Physical asset registration and time-bound device assignment.
-- Device registry for beacons, scanners, gateways, LoRaWAN trackers, and access points.
-- 2D floor plans, rectangular zones, installed anchors, real dimensions in meters, and basic 3D support.
-- Telemetry ingestion from TTI, generic MQTT, and Meraki Location.
-- BLE payload normalization with MAC and RSSI observations.
-- RSSI multilateration and Kalman filtering for position estimates.
-- Operational map, historical asset track view, and dashboard.
-- Alerts for offline assets, low confidence, and zone events.
-- Web mutation audit log and operational health view.
-
-## Technical Scope
-
-LoraTrack becomes responsible once data is received from external providers. It does not implement a LoRaWAN network server and does not manage the LoRaWAN radio layer.
-
-For LoRaWAN, The Things Industries manages devices, gateways, the network server, and webhook delivery. LoraTrack authenticates, deduplicates, stores, normalizes, and processes those events.
-
-## Architecture Summary
-
-- Runtime: PHP 8.2+.
-- Framework: Laravel 12.
-- Persistence: SQL Server, MariaDB, or MySQL depending on the deployment baseline.
-- Queue: Laravel queue driver configured by `QUEUE_CONNECTION`.
-- UI: Blade, static CSS, and native JavaScript.
-- Inbound integrations: routes under `/api/v1/ingest`.
-- Heavy processing: Laravel jobs.
-- Scheduling: Laravel scheduler through cron, Task Scheduler, or a service manager.
-
-## Critical Runtime Processes
-
-Required background execution:
-
-```bash
-php artisan schedule:run
-php artisan loratrack:mqtt-listen
-```
-
-Run `schedule:run` from cron every minute. The MQTT listener is only needed when MQTT connectors are enabled.
-
-## Relevant Design Controls
-
-- Business entities are isolated by `organization_id`.
-- Effective roles are derived from organization memberships.
-- Webhook tokens are stored as connector credentials.
-- Connector credentials are encrypted by Laravel.
-- Floor plan files are served from authenticated private storage.
-- External events are deduplicated and processed idempotently.
-- Web mutations are audited.
-- Connector errors are sanitized.
-- PHPUnit tests cover integrations, positioning, roles, multi-tenancy, and storage behavior.
-
-## Known Limits
-
-- RSSI accuracy depends on calibration, physical environment, and anchor quality.
-- 2D positioning for mobile trackers requires at least three active, installed, non-collinear anchors on the same floor plan.
-- The system must not be represented as certified metrology or a life-safety location system.
-- Payload and observation retention must be formally defined per customer.
-- Enterprise approval requires external evidence beyond the repository: access controls, backups, DRP, change management, infrastructure hardening, monitoring, and audit artifacts.
-
-<div class="page-break"></div>
-
-<a id="docs-engineering-architecture-md"></a>
-
-# Solution Architecture
-
-## Architectural Style
-
-LoraTrack is organized as a modular Laravel monolith. Domain modules live under `app/` and are separated by models, controllers, jobs, services, and connector adapters. The architecture avoids premature microservices and prioritizes local transactions, traceability, and operational simplicity.
-
-## Main Layers
-
-| Layer | Responsibility | Examples |
-| --- | --- | --- |
-| Presentation | Blade views, forms, maps, progressive JavaScript | `resources/views`, `public/js`, `public/css` |
-| HTTP | Authentication, authorization, validation, and responses | `app/Http/Controllers`, `app/Http/Requests`, `routes` |
-| Application | Use cases, jobs, and commands | `app/Jobs`, `app/Console/Commands` |
-| Domain | Models, positioning, telemetry, and connectors | `app/Models`, `app/Positioning`, `app/Telemetry`, `app/Connectors` |
-| Persistence | Migrations, indexes, relationships, private storage | `database/migrations`, `storage/app/private` |
-
-## Domain Modules
-
-### Catalog
-
-Manages products, SKUs, and external references. Imports are performed through catalog connectors and normalized into internal models.
-
-Relevant classes:
-
-- `App\Models\Product`
-- `App\Models\Sku`
-- `App\Models\ExternalProductReference`
-- `App\Connectors\CatalogProductImporter`
-- `App\Jobs\SyncCatalogConnector`
-
-### Assets
-
-Manages physical trackable instances. A product or SKU is not an asset; an asset has its own identity, photo, state, mobility, and current location.
-
-Relevant classes:
-
-- `App\Models\Asset`
-- `App\Models\AssetDeviceAssignment`
-- `App\Http\Controllers\AssetController`
-- `App\Http\Controllers\AssetTrackController`
-
-### Devices
-
-Manages registered hardware and installations. An installation has time validity and coordinates on a floor plan.
-
-Relevant classes:
-
-- `App\Models\Device`
-- `App\Models\DeviceInstallation`
-- `App\Http\Controllers\DeviceController`
-
-### Locations, Floor Plans, and Zones
-
-Manages location hierarchy, raster plans, 3D models, zones, and anchors. Floor plans declare real width and height in meters.
-
-Relevant classes:
-
-- `App\Models\Location`
-- `App\Models\FloorPlan`
-- `App\Models\Zone`
-- `App\Http\Controllers\FloorPlanController`
-- `App\Positioning\ZoneClassifier`
-
-### Telemetry
-
-Receives, deduplicates, normalizes, and processes external events. Raw events are stored in `telemetry_events.raw_payload`; normalized data is stored in `normalized_payload`.
-
-Relevant classes:
-
-- `App\Models\TelemetryEvent`
-- `App\Models\SignalObservation`
-- `App\Jobs\ProcessTtiUplink`
-- `App\Jobs\ProcessMerakiLocationObservation`
-- `App\Telemetry\AssetLastSeenUpdater`
-- `App\Telemetry\TelemetryCounterUpdater`
-
-### Positioning
-
-Converts RSSI observations into position estimates. Each estimate stores evidence, algorithm, version, confidence, and estimated accuracy.
-
-Relevant classes:
-
-- `App\Models\PositionEstimate`
-- `App\Positioning\TelemetryPositioningService`
-- `App\Positioning\RssiMultilateration`
-- `App\Positioning\KalmanPositionFilter`
-- `App\Positioning\BleObservationExtractor`
-
-### Connectors
-
-Manages configured provider instances for telemetry and catalog synchronization. Non-secret configuration is stored separately from encrypted credentials.
-
-Relevant classes:
-
-- `App\Models\Connector`
-- `App\Models\ConnectorActivityLog`
-- `App\Connectors\ConnectorRegistry`
-- `App\Connectors\ConnectorConnectionTester`
-
-### Identity and Security
-
-Manages users, organizations, memberships, roles, local login, Microsoft OAuth, and server-side authorization.
-
-Relevant classes:
-
-- `App\Models\User`
-- `App\Models\Organization`
-- `App\Models\OrganizationMembership`
-- `App\Enums\UserRole`
-- `App\Http\Middleware\SetOrganizationContext`
-- `App\Http\Middleware\EnsureUserHasPermission`
-
-## TTI Telemetry Flow
-
-1. TTI sends `POST /api/v1/ingest/tti/{connector}` with a Bearer token.
-2. `TtiWebhookController` validates size, token, minimum schema, and active connector status.
-3. `external_event_id` is calculated from device, session, frame counter, and provider timestamp.
-4. A `telemetry_events` row is created in `pending` state.
-5. `schedule:run` invokes `loratrack:process-tti-uplinks`, which claims at most three pending uplinks per execution.
-6. The command runs `ProcessTtiUplink` synchronously; it creates or updates the tracker device, normalizes the payload, extracts BLE observations, and updates `signal_observations` without requiring `queue:work`.
-7. `AssetLastSeenUpdater` updates the assigned asset when applicable.
-8. `TelemetryPositioningService` attempts to create `position_estimates`.
-9. The event becomes `processed`, `failed`, or `ignored`.
-
-## Asset Track Flow
-
-1. The user opens `/assets/{asset}/track`.
-2. `AssetTrackController` selects floor plans with historical positions.
-3. `asset-track.js` requests `/assets/{asset}/track/data`.
-4. The endpoint returns `position_estimates` filtered by asset, floor plan, and time range.
-5. The browser draws polylines, points, accuracy, and tooltips.
-
-The track view does not read raw `telemetry_events`. If an uplink does not produce a `position_estimates` row, it does not appear as a track point.
-
-## External Dependencies
-
-- Laravel Framework.
-- Laravel Socialite and Socialite Microsoft provider.
-- `php-mqtt/client` for MQTT.
-- Vendored Select2 and jQuery for remote selectors.
-- SQL Server, MariaDB, or MySQL depending on the deployment.
-- External services: TTI, Meraki, SAP, Business Central, Shopify, and Odoo.
-
-## Evolution Principles
-
-- Keep the internal domain independent from provider-specific payload formats.
-- Process heavy integrations through queues.
-- Store enough evidence for auditability and reproducibility.
-- Do not mix geographic coordinates with local floor-plan coordinates.
-- Prefer persisted counters and aggregates for operational screens.
-
-<div class="page-break"></div>
-
-<a id="docs-engineering-domain-and-data-model-md"></a>
-
-# Domain and Data Model
-
-## Core Concepts
-
-| Concept | Description |
-| --- | --- |
-| Organization | Business tenant or project. Isolates operational data. |
-| User | Local or Microsoft-linked access account. |
-| Membership | User-to-organization relationship with effective role. |
-| Product | Commercial catalog definition. |
-| SKU | Product code or catalog variant. |
-| Asset | Physical trackable instance. |
-| Device | Field hardware such as beacon, scanner, tracker, gateway, or AP. |
-| Assignment | Time-bound asset-to-device relationship. |
-| Installation | Time-bound fixed device placement on a floor plan. |
-| Telemetry | External event received from TTI, Meraki, MQTT, or another provider. |
-| Signal observation | MAC/RSSI observation detected by a receiver. |
-| Position estimate | Calculated result with algorithm, evidence, and accuracy. |
-| Floor plan | Raster or 3D representation of a physical space with real dimensions. |
-| Zone | Region inside a floor plan. |
-| Connector | Configured external provider instance. |
-
-## Relevant Tables
-
-### Organizations and Identity
-
-- `organizations`: name, slug, branding, operational settings.
-- `organization_memberships`: user, organization, and role.
-- `organization_invitations`: invitations with token and expiration.
-- `users`: account, email, password, and `microsoft_id`.
-
-### Catalog
-
-- `products`: normalized product.
-- `skus`: SKU code and product reference.
-- `external_product_references`: provider/external ID mapping.
-
-### Assets and Devices
-
-- `assets`: physical asset, tag, name, mobility, status, photo, `last_seen_at`.
-- `devices`: hardware identity, type, status, metadata, `last_seen_at`.
-- `asset_device_assignments`: time-bound asset-device assignment and tracking strategy.
-- `device_installations`: fixed device placement with coordinates, floor plan, and RSSI parameters.
-
-### Locations and Floor Plans
-
-- `locations`: sites, buildings, floors, or other hierarchy levels.
-- `floor_plans`: private files, real dimensions, 2D/3D configuration.
-- `zones`: rectangles in normalized coordinates.
-
-### Telemetry and Positioning
-
-- `telemetry_events`: external event, raw payload, normalized payload, processing status.
-- `signal_observations`: MAC/RSSI observations associated with an event.
-- `position_estimates`: calculated asset positions tied to telemetry events.
-- `calibration_runs`: RSSI calibration history.
-
-### Connectors and Audit
-
-- `connectors`: provider instance, status, configuration, encrypted credentials, counters.
-- `connector_activity_logs`: connector activity log.
-- `audit_logs`: web mutation audit trail.
-
-### Alerts
-
-- `alert_settings`: organization-level alert settings.
-- `alerts`: alert events.
-- `alert_rules`: configurable alert rules.
-- `zone_alert_rules`: zone-specific rules.
-- `zone_presence_states`: current zone presence state by asset.
-
-## Multi-Tenancy
-
-Business entities use `organization_id` and the `BelongsToOrganization` trait. The active context is resolved through `SetOrganizationContext`.
-
-Expected rules:
-
-- A user only sees data from the active organization.
-- Roles are derived from memberships, not from a global role.
-- Routes must enforce server-side authorization.
-- `unique` and `exists` validation rules must be tenant-aware where applicable.
-- Jobs and webhooks must set organization context before operating.
-
-## Time and Traceability
-
-Telemetry stores separate timestamps:
-
-- `observed_at`: provider or device time, normalized.
-- `received_at`: time when LoraTrack received the event.
-- `processed_at`: time when the job completed.
-
-Positions store:
-
-- `calculated_at`: calculation time.
-- `telemetry_event_id`: source event.
-- `evidence`: anchors, RSSI, estimated distances, and residuals.
-- `algorithm` and `algorithm_version`.
-- `confidence` and `accuracy_meters`.
-
-## Event Identity
-
-TTI events are deduplicated using a hash built from:
-
-- `end_device_ids.dev_eui`
-- `end_device_ids.device_id`
-- `uplink_message.session_key_id`
-- `uplink_message.f_cnt`
-- `uplink_message.received_at` or `received_at`
-
-This avoids reprocessing provider retries without collapsing successive uplinks.
-
-## Data Governance Notes
-
-- Define retention for `raw_payload` formally.
-- Treat floor plans and asset locations as sensitive site information.
-- Avoid exposing raw payloads in logs or broad UI views.
-- Define contractual/legal basis for location data.
-- Define export and deletion procedures for contract termination.
-
-<div class="page-break"></div>
-
-<a id="docs-engineering-telemetry-and-positioning-md"></a>
-
-# Telemetry and Positioning
-
-## Objective
-
-Convert external provider events into normalized observations and, when evidence is sufficient, estimate asset positions on floor plans with real-world dimensions.
-
-## Telemetry States
-
-`telemetry_events.processing_status` may be:
-
-- `pending`: event received and not yet processed.
-- `processed`: job completed successfully.
-- `failed`: job failed and stores a sanitized error.
-- `ignored`: event intentionally not processed, for example because the connector was disabled.
-
-## TTI Ingestion
-
-Endpoint:
-
-```text
-POST /api/v1/ingest/tti/{connector}
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-Main validations:
-
-- Maximum payload size is 1 MB.
-- Connector must be active and of provider `TTI Webhook`.
-- Bearer token must match the configured credential.
-- `end_device_ids` and `uplink_message` must be present.
-- `uplink_message.received_at` or `received_at` is used as provider time when available.
-
-The endpoint returns `202 Accepted` after durable persistence. Processing is deferred to the Laravel scheduler and is not dispatched to the queue worker.
-
-## TTI Processing
-
-Scheduled command: `loratrack:process-tti-uplinks`. It processes at most three pending TTI events per execution and invokes `App\Jobs\ProcessTtiUplink` synchronously for the existing idempotent processing logic.
-
-Responsibilities:
-
-1. Set organization context.
-2. Skip events already marked as `processed`.
-3. Mark queued events as `ignored` if the connector was disabled.
-4. Create or update the tracker device.
-5. Apply a decoder profile when one matches.
-6. Store `normalized_payload`.
-7. Extract BLE MAC/RSSI observations.
-8. Update `last_seen_at` for the assigned asset.
-9. Run positioning.
-10. Mark the event as processed or failed.
-
-## BLE Extraction
-
-Class: `App\Positioning\BleObservationExtractor`
-
-Accepted observation fields:
-
-- MAC: `mac`, `mac_address`, `address`, `beacon_mac`.
-- RSSI: `rssi`, `signal`, `signal_strength`.
-
-MAC addresses are normalized to uppercase hexadecimal without separators. RSSI must be numeric, negative, and not less than -127 dBm.
-
-## Tracking Strategies
-
-### Mobile Beacon, Fixed Scanners
-
-A BLE beacon is assigned to a mobile asset. Fixed scanners detect its MAC. The system groups recent observations by receiver and calculates position against `scanner` installations.
-
-Strategy: `mobile_beacon_fixed_scanners`
-
-### Fixed Beacons, Mobile Tracker
-
-A LoRaWAN tracker is assigned to a mobile asset. The tracker reports detected fixed beacons. The system calculates position using `beacon` installations.
-
-Strategy: `fixed_beacons_mobile_tracker`
-
-## Conditions Required to Generate a Position
-
-An event creates a `position_estimates` row only when:
-
-- the event has `device_id`;
-- the event has signal observations;
-- the device is actively assigned to an asset;
-- the tracking strategy matches;
-- at least three active anchors of the correct type exist;
-- anchors have `x/y` coordinates;
-- anchors belong to the same `floor_plan_id`;
-- geometry is not degenerate for multilateration.
-
-If any condition is missing, the event may still be `processed` without creating a position.
-
-## Algorithm
-
-RSSI positioning uses:
-
-- `RssiMultilateration`: approximates position from RSSI measurements.
-- `KalmanPositionFilter`: smooths successive positions.
-- `ZoneClassifier`: assigns a position to rectangular zones.
-
-Each `position_estimates` row stores:
-
-- `raw_x`, `raw_y`: pre-filter result.
-- `x`, `y`: filtered result.
-- `confidence`.
-- `accuracy_meters`.
-- `evidence`: anchors, RSSI, distances, and residuals.
-- `filter_state`.
-
-## Asset Track View
-
-The asset track screen queries only `position_estimates`. It does not draw raw `telemetry_events`.
-
-Applied filters:
-
-- asset;
-- selected floor plan;
-- time range based on `calculated_at`;
-- optional `after` timestamp for live updates.
-
-If new uplinks arrive but no new track point appears, check:
-
-1. `telemetry_events.processing_status`.
-2. number of `signal_observations`.
-3. asset-device assignment.
-4. active and installed beacons/scanners.
-5. selected floor plan and time range.
-6. `position_estimates` for the telemetry event.
-
-## Operational Diagnostic SQL
-
-Recent events:
-
-```sql
-select id, device_id, observed_at, received_at, processed_at,
-       processing_status, processing_error
-from telemetry_events
-order by received_at desc
-limit 20;
-```
-
-Observations by event:
-
-```sql
-select telemetry_event_id, count(*) as signals
-from signal_observations
-group by telemetry_event_id
-order by max(observed_at) desc
-limit 20;
-```
-
-Recent positions:
-
-```sql
-select id, asset_id, telemetry_event_id, floor_plan_id,
-       calculated_at, x, y, confidence, accuracy_meters
-from position_estimates
-order by calculated_at desc
-limit 20;
-```
-
-## Position Quality
-
-RSSI location is an operational estimate, not certified metrology. Quality depends on:
-
-- anchor calibration;
-- multipath and site materials;
-- antenna height and orientation;
-- anchor density and distribution;
-- firmware and payload format;
-- uplink frequency and time window.
-
-## Retention
-
-Telemetry storage management commands:
-
-- `loratrack:manage-telemetry-storage`
-- `loratrack:prune-meraki-history`
-
-The exact retention policy must be defined by customer contract and risk assessment.
 
 <div class="page-break"></div>
 
@@ -861,8 +519,7 @@ Each integration should document:
 - [ ] Credentials loaded and encrypted.
 - [ ] Connection test successful.
 - [ ] Connector active.
-- [ ] Queue worker running.
-- [ ] Scheduler running when required.
+- [ ] Minute scheduler running and monitored.
 - [ ] Logs do not contain secrets.
 - [ ] Test fixture available.
 - [ ] Rotation procedure documented.
@@ -1233,7 +890,7 @@ Potentially sensitive data:
 
 Treat these as sensitive operational customer information.
 
-## Controls Outside the Repository
+## Customer Infrastructure and Governance Controls
 
 Enterprise approval commonly requires external evidence:
 
@@ -1413,10 +1070,10 @@ Actions:
 - review active connectors and tokens;
 - test backup restoration;
 - review `telemetry_events` growth;
-- review failed jobs;
+- review failed scheduled commands and pending ingestion records;
 - validate SMTP alerts;
 - review recurring log errors;
-- run `composer audit` during a controlled window;
+- review applicable vendor security advisories and the approved dependency assessment report;
 - update change documentation.
 
 ## Escalation Data

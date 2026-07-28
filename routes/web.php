@@ -39,6 +39,9 @@ Route::get('/docs', [PublicDocumentationController::class, 'index'])->name('docs
 Route::get('/docs/{document}/download', [PublicDocumentationController::class, 'download'])
     ->whereIn('document', ['technical', 'deployment'])
     ->name('docs.download');
+Route::get('/docs/diagrams/{diagram}', [PublicDocumentationController::class, 'diagram'])
+    ->whereIn('diagram', ['system-architecture', 'production-deployment'])
+    ->name('docs.diagram');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');

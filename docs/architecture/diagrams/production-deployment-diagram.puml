@@ -1,0 +1,66 @@
+@startuml
+title LoraTrack — UML Production Deployment
+caption Physical deployment view · Baseline topology · Document version 1.5
+
+left to right direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName "Segoe UI"
+skinparam packageStyle rectangle
+skinparam ArrowColor #496779
+skinparam NodeBorderColor #1F6F8B
+skinparam NodeBackgroundColor #F8FBFC
+skinparam DatabaseBorderColor #A97812
+skinparam DatabaseBackgroundColor #FFF9E8
+
+cloud "Customer Users and\nTelemetry Providers" as Clients <<external>>
+cloud "Identity, Catalog, MQTT\nand Email Services" as Providers <<external>>
+
+package "Public Edge Zone" <<trust-boundary>> {
+  node "Edge Service" as Edge <<reverse proxy / WAF>> {
+    artifact "TLS Certificate and\nRequest Security Policy" as EdgeConfig
+  }
+}
+
+package "Application Zone" <<trust-boundary>> {
+  node "Application Host\nUbuntu LTS or Windows Server" as AppHost {
+    node "Web Runtime\nPHP 8.2+ / Web Server" as WebRuntime <<execution-environment>> {
+      artifact "LoraTrack Modular Monolith" as WebArtifact <<single deployable application>>
+    }
+    node "Command Runtime\nPHP CLI" as CommandRuntime <<execution-environment>> {
+      artifact "Minute Scheduler" as SchedulerArtifact
+    }
+    artifact "Protected Runtime Configuration" as RuntimeConfig
+  }
+
+  node "Private File Storage" as Storage <<persistent-volume>> {
+    artifact "Floor Plans and Protected Files" as ProtectedFiles
+  }
+}
+
+package "Restricted Data Zone" <<trust-boundary>> {
+  node "Database Service" as DatabaseHost <<managed-or-dedicated>> {
+    database "LoraTrack Database" as Database <<MySQL 8+ / MariaDB 10.6+ / SQL Server 2022+>>
+  }
+}
+
+package "Operations Zone" <<trust-boundary>> {
+  node "Monitoring and Logging" as Monitoring
+  node "Encrypted Off-host Backup" as Backup
+  node "Administrative VPN / Bastion" as Admin
+}
+
+Clients --> Edge : HTTPS 443\nTLS 1.2+
+Edge --> WebRuntime : restricted reverse-proxy path
+WebRuntime --> DatabaseHost : Encrypted database connection\nTCP 3306 or TCP 1433
+CommandRuntime --> DatabaseHost : Encrypted database connection\nTCP 3306 or TCP 1433
+AppHost --> Storage : restricted file-system access
+AppHost --> Providers : HTTPS 443 / SMTP TLS / MQTT TLS
+AppHost --> Monitoring : logs, health and scheduler metrics
+DatabaseHost --> Monitoring : availability and capacity metrics
+DatabaseHost --> Backup : encrypted database backup
+Storage --> Backup : encrypted file backup
+Admin --> AppHost : controlled administration
+Admin --> DatabaseHost : controlled administration
+
+@enduml

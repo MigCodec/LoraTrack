@@ -2,15 +2,13 @@
 
 ## Scope
 
-Tutorial for deploying LoraTrack on Ubuntu Server LTS with Nginx, PHP-FPM, Composer, and cron. The recommended Microsoft database backend is SQL Server 2022/2025 on a dedicated server, certified Linux host, Windows Server, or Azure SQL service under the ISO/CIS baseline.
+Tutorial for deploying LoraTrack on Ubuntu Server LTS with Nginx, PHP-FPM, MySQL or MariaDB, and cron.
 
-Project versions:
+Production baseline:
 
-- Laravel Framework 12.62.0.
-- Required PHP: 8.2+.
-- Recommended database: SQL Server 2022 Standard with the latest approved CU, or SQL Server 2025 Standard after staging validation.
-- MQTT client: `php-mqtt/client` 2.3.0.
-- Microsoft OAuth: `laravel/socialite` 5.28.0 and `socialiteproviders/microsoft` 4.9.0.
+- PHP 8.2 or later.
+- MySQL 8.0 or later, or MariaDB 10.6 or later.
+- TLS for public access and database transport.
 
 ## 1. Prepare the Server
 
@@ -23,7 +21,7 @@ sudo apt install -y software-properties-common unzip git curl ca-certificates gn
 ## 2. Install PHP and Extensions
 
 ```bash
-sudo apt install -y php php-fpm php-cli php-common php-mbstring php-xml php-curl php-zip php-bcmath php-gd php-intl php-opcache
+sudo apt install -y php php-fpm php-cli php-common php-mbstring php-xml php-curl php-zip php-bcmath php-gd php-intl php-opcache php-mysql
 ```
 
 Verify:
@@ -59,39 +57,25 @@ sudo systemctl enable nginx
 sudo systemctl start nginx
 ```
 
-## 4. Configure SQL Server Connectivity
+## 4. Configure MySQL or MariaDB Connectivity
 
-Recommended enterprise baseline:
-
-- SQL Server 2022 Standard with latest approved CU for conservative production.
-- SQL Server 2025 Standard for controlled new adoption after staging validation.
-- SQL Server Developer for development.
-- SQL Server Express only for labs or small pilots with explicit limit acceptance.
-
-Install Microsoft ODBC Driver for SQL Server and PHP `sqlsrv`/`pdo_sqlsrv` extensions following Microsoft's repository instructions for the Ubuntu version.
+Provision a supported MySQL or MariaDB service with encrypted transport. Install the customer-approved CA certificate on the application server and restrict database access to the application host.
 
 Validate:
 
 ```bash
-php -m | grep -E "sqlsrv|pdo_sqlsrv"
+php -m | grep -E "mysqli|pdo_mysql"
 sudo systemctl restart php*-fpm
 ```
 
 Database account example:
 
 ```sql
-create database loratrack;
-go
-create login loratrack_app with password = 'CHANGE_ME_LONG_SECRET';
-go
-use loratrack;
-go
-create user loratrack_app for login loratrack_app;
-go
-alter role db_datareader add member loratrack_app;
-alter role db_datawriter add member loratrack_app;
-alter role db_ddladmin add member loratrack_app;
-go
+CREATE DATABASE loratrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'loratrack_app'@'APPLICATION_HOST' IDENTIFIED BY 'CHANGE_ME_LONG_SECRET';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+    ON loratrack.* TO 'loratrack_app'@'APPLICATION_HOST';
+FLUSH PRIVILEGES;
 ```
 
 After migrations, evaluate removing DDL permissions from the runtime account and using a separate migration account.
@@ -140,14 +124,15 @@ APP_DEBUG=false
 APP_URL=https://loratrack.example.com
 APP_TIMEZONE=America/Santiago
 
-DB_CONNECTION=sqlsrv
-DB_HOST=sqlserver.example.com
-DB_PORT=1433
+DB_CONNECTION=mysql
+DB_HOST=mysql.example.com
+DB_PORT=3306
 DB_DATABASE=loratrack
 DB_USERNAME=loratrack_app
 DB_PASSWORD=CHANGE_ME_LONG_SECRET
 
-QUEUE_CONNECTION=database
+MYSQL_ATTR_SSL_CA=/etc/ssl/certs/customer-mysql-ca.pem
+MYSQL_ATTR_MAX_BUFFER_SIZE=6291456
 CACHE_STORE=database
 SESSION_DRIVER=database
 ```

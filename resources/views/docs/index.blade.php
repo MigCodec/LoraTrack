@@ -48,6 +48,28 @@
                 @endforeach
             </div>
         </section>
+
+        <section class="border-t border-slate-200 p-7 sm:p-12" aria-labelledby="architecture-diagrams">
+            <h2 id="architecture-diagrams" class="text-2xl font-semibold text-slate-950">Architecture diagrams</h2>
+            <p class="mt-2 text-sm text-slate-500">Public UML diagrams for customer architecture and infrastructure reviews.</p>
+
+            <div class="mt-8 grid gap-5 md:grid-cols-2">
+                @foreach($diagrams as $diagram)
+                    <article class="rounded-lg border border-slate-200 bg-slate-50 p-6">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-brand-accent">UML · SVG</p>
+                        <h3 class="mt-3 text-xl font-semibold text-slate-950">{{ $diagram['title'] }}</h3>
+                        <p class="mt-3 text-sm leading-7 text-slate-600">{{ $diagram['description'] }}</p>
+                        <div class="mt-6">
+                            @if($diagram['available'])
+                                <a class="btn-primary" href="{{ route('docs.diagram', $diagram['key']) }}" target="_blank" rel="noopener">View diagram</a>
+                            @else
+                                <span class="text-sm font-semibold text-red-700" role="status">Diagram temporarily unavailable</span>
+                            @endif
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
     </main>
 </body>
 </html>

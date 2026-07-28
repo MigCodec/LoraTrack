@@ -124,7 +124,7 @@ Potentially sensitive data:
 
 Treat these as sensitive operational customer information.
 
-## Controls Outside the Repository
+## Customer Infrastructure and Governance Controls
 
 Enterprise approval commonly requires external evidence:
 

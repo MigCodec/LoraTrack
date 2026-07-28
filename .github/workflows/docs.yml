@@ -2,11 +2,6 @@ name: Documentation package
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Documentation version label
-        required: false
-        default: ''
   push:
     branches: [main]
     paths:
@@ -51,7 +46,6 @@ jobs:
       - name: Build public documentation
         run: |
           python tools/build_docs_pdf.py \
-            --version "${{ github.event.inputs.version || '1.0' }}" \
             --engine playwright
 
       - name: Verify public documents

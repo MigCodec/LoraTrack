@@ -13,14 +13,28 @@ class PublicDocumentationController extends Controller
     /** @var array<string, array{title: string, description: string, filename: string}> */
     private const DOCUMENTS = [
         'technical' => [
-            'title' => 'Technical Documentation and User Guide',
-            'description' => 'Product architecture, domain model, integrations, security model, operations, and end-user guidance.',
+            'title' => 'Customer Technical and User Guide',
+            'description' => 'Product capabilities, integrations, security model, operations, field commissioning, and end-user guidance.',
             'filename' => 'LoraTrack-Technical-Documentation.pdf',
         ],
         'deployment' => [
-            'title' => 'Professional Deployment and Operations Guide',
-            'description' => 'Requirements, installation, configuration, TLS, databases, scheduling, backup, recovery, monitoring, and troubleshooting.',
+            'title' => 'Production Infrastructure and Operations Guide',
+            'description' => 'Production requirements, installation, TLS, database, scheduling, backup, recovery, monitoring, and troubleshooting.',
             'filename' => 'LoraTrack-Deployment-Guide.pdf',
+        ],
+    ];
+
+    /** @var array<string, array{title: string, description: string, filename: string}> */
+    private const DIAGRAMS = [
+        'system-architecture' => [
+            'title' => 'System Component Architecture',
+            'description' => 'UML component diagram of the complete customer-facing application and integration architecture.',
+            'filename' => 'architecture/diagrams/system-component-diagram.svg',
+        ],
+        'production-deployment' => [
+            'title' => 'Production Deployment Architecture',
+            'description' => 'UML deployment diagram of production nodes, trust zones, services, and communication paths.',
+            'filename' => 'architecture/diagrams/production-deployment-diagram.svg',
         ],
     ];
 
@@ -36,7 +50,16 @@ class PublicDocumentationController extends Controller
             ];
         });
 
-        return view('docs.index', ['documents' => $documents]);
+        $diagrams = collect(self::DIAGRAMS)->map(function (array $diagram, string $key): array {
+            $path = $this->path($diagram['filename']);
+
+            return $diagram + [
+                'key' => $key,
+                'available' => is_file($path),
+            ];
+        });
+
+        return view('docs.index', ['documents' => $documents, 'diagrams' => $diagrams]);
     }
 
     public function download(string $document): BinaryFileResponse
@@ -50,6 +73,22 @@ class PublicDocumentationController extends Controller
         return response()->download($path, $definition['filename'], [
             'Content-Type' => 'application/pdf',
             'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+    }
+
+    public function diagram(string $diagram): BinaryFileResponse
+    {
+        $definition = self::DIAGRAMS[$diagram] ?? null;
+        abort_unless($definition !== null, Response::HTTP_NOT_FOUND);
+
+        $path = $this->path($definition['filename']);
+        abort_unless(is_file($path), Response::HTTP_NOT_FOUND);
+
+        return response()->file($path, [
+            'Content-Type' => 'image/svg+xml; charset=UTF-8',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; sandbox",
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
