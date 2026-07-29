@@ -38,6 +38,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(3)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip());
         });
 
+        RateLimiter::for('password-reset', function (Request $request): Limit {
+            return Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip());
+        });
+
         Event::listen(function (SocialiteWasCalled $event): void {
             $event->extendSocialite('microsoft', MicrosoftProvider::class);
         });
