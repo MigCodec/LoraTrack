@@ -36,9 +36,12 @@
                     <label class="field-label">Contraseña
                         <input class="field-input" type="password" name="password" required autocomplete="current-password">
                     </label>
-                    <label class="flex items-center gap-2 text-sm text-slate-600">
-                        <input class="rounded border-slate-300" type="checkbox" name="remember" value="1"> Mantener sesión iniciada
-                    </label>
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="flex items-center gap-2 text-sm text-slate-600">
+                            <input class="rounded border-slate-300" type="checkbox" name="remember" value="1"> Mantener sesión iniciada
+                        </label>
+                        <a class="text-sm font-semibold text-brand-primary" href="{{ route('password.request') }}">Olvidé mi contraseña</a>
+                    </div>
                     <button class="btn-primary w-full" type="submit">Ingresar</button>
                 </form>
 

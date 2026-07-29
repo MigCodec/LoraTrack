@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -67,6 +70,79 @@ class AuthenticationTest extends TestCase
 
         $response->assertRedirect(route('dashboard'));
         $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_user_can_request_a_temporary_password_reset_link(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create();
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('Olvidé mi contraseña');
+
+        $this->get(route('password.request'))
+            ->assertOk()
+            ->assertSee('Enviar enlace temporal');
+
+        $this->post(route('password.email'), ['email' => $user->email])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        Notification::assertSentTo($user, ResetPassword::class);
+    }
+
+    public function test_password_reset_request_does_not_reveal_unknown_accounts(): void
+    {
+        Notification::fake();
+
+        $response = $this->post(route('password.email'), ['email' => 'unknown@example.com']);
+
+        $response->assertRedirect()->assertSessionHas(
+            'status',
+            'Si existe una cuenta asociada a ese correo, recibirás un enlace temporal para restablecer tu contraseña.'
+        );
+        Notification::assertNothingSent();
+    }
+
+    public function test_user_can_reset_password_with_a_valid_single_use_token(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create(['password' => 'old-secure-password']);
+
+        $this->post(route('password.email'), ['email' => $user->email]);
+
+        Notification::assertSentTo(
+            $user,
+            ResetPassword::class,
+            function (ResetPassword $notification) use ($user): bool {
+                $this->get(route('password.reset', [
+                    'token' => $notification->token,
+                    'email' => $user->email,
+                ]))
+                    ->assertOk()
+                    ->assertSee('Restablecer contraseña');
+
+                $response = $this->post(route('password.store'), [
+                    'token' => $notification->token,
+                    'email' => $user->email,
+                    'password' => 'new-secure-password',
+                    'password_confirmation' => 'new-secure-password',
+                ]);
+
+                $response->assertRedirect(route('login'))->assertSessionHas('status');
+                $this->assertTrue(Hash::check('new-secure-password', $user->fresh()->password));
+
+                $this->post(route('password.store'), [
+                    'token' => $notification->token,
+                    'email' => $user->email,
+                    'password' => 'another-secure-password',
+                    'password_confirmation' => 'another-secure-password',
+                ])->assertSessionHasErrors('email');
+
+                return true;
+            }
+        );
     }
 
     public function test_viewer_cannot_manage_connectors(): void
