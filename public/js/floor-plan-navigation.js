@@ -51,7 +51,7 @@ document.querySelectorAll('[data-floor-plan-upload-form]').forEach((form) => {
 });
 
 const viewport = document.querySelector('#plan-2d-viewport');
-const editor = document.querySelector('#zone-editor');
+const editor = document.querySelector('#zone-editor, [data-plan-canvas]');
 
 if (viewport && editor) {
     const panButton = document.querySelector('[data-plan-pan]');

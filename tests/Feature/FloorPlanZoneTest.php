@@ -294,7 +294,13 @@ class FloorPlanZoneTest extends TestCase
             ->assertSee('Beacon fijo 1');
         $this->get(route('map.index', ['plan' => $plan]))
             ->assertOk()
-            ->assertSee('data-map-layer="beacons"', false);
+            ->assertSee('data-map-layer="beacons"', false)
+            ->assertSee('class="floor-plan-office-shell operational-map-shell"', false)
+            ->assertSee('data-plan-zoom="reset"', false)
+            ->assertSee('class="plan-sheet-tabs"', false)
+            ->assertDontSee('id="zone-command"', false)
+            ->assertDontSee('id="zone-form"', false)
+            ->assertDontSee('data-zone-redefine', false);
         $this->getJson(route('map.data', $plan))
             ->assertOk()
             ->assertJsonPath('anchors.0.name', 'Beacon fijo 1')

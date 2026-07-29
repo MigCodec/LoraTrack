@@ -496,6 +496,9 @@ if (realtimeMap) {
     const markers = document.querySelector('#map-markers');
     const updated = document.querySelector('#map-updated');
     const positionStatus = document.querySelector('#map-position-status');
+    const assetCount = document.querySelector('#map-asset-count');
+    const anchorCount = document.querySelector('#map-anchor-count');
+    const mapHealth = document.querySelector('#map-health');
     const technicalDialog = document.querySelector('#asset-technical-dialog');
     const evidenceBody = document.querySelector('#asset-detail-evidence');
     const circleColors = ['#2563eb', '#dc2626', '#7c3aed', '#d97706', '#059669', '#0891b2'];
@@ -604,6 +607,11 @@ if (realtimeMap) {
         loading = true;
         try {
             const response = await fetch(realtimeMap.dataset.endpoint, {headers:{Accept:'application/json'}}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
+            if (assetCount) assetCount.textContent = data.positions.length;
+            if (anchorCount) anchorCount.textContent = data.anchors.length;
+            mapHealth?.classList.remove('has-error');
+            const healthTitle = mapHealth?.querySelector('strong');
+            if (healthTitle) healthTitle.textContent = 'En línea';
             markers.querySelectorAll('.map-anchor,.asset-marker,.asset-uncertainty,.asset-detection-circle').forEach((node) => node.remove());
             data.anchors.forEach((anchor) => {
                 const node=document.createElement('span'); node.className=`map-anchor ${anchor.type}`; node.style.left=`${anchor.x*100}%`; node.style.top=`${anchor.y*100}%`; node.title=`${anchor.name} · ${anchor.identifier}`; node.setAttribute('aria-label', anchor.name); const marker=document.createElement('i'); marker.setAttribute('aria-hidden', 'true'); node.appendChild(marker); markers.appendChild(node);
@@ -616,11 +624,17 @@ if (realtimeMap) {
             const selectedPosition = data.positions.find((position) => position.asset_id === selectedAssetId);
             if (selectedPosition && technicalDialog?.open) showAssetDetails(selectedPosition, markers.querySelector(`[data-asset-id="${CSS.escape(selectedPosition.asset_id)}"]`), false);
             applyMapLayers();
-            if (positionStatus) positionStatus.textContent = data.positions.length
+            if (positionStatus) positionStatus.querySelector('span').textContent = data.positions.length
                 ? `${data.positions.length} activo(s) triangulado(s) en este plano.`
                 : 'Sin posiciones calculadas para este plano. Verifica tracker asignado, uplink BLE procesado y al menos 3 beacons instalados.';
             updated.textContent=`Actualizado ${new Date(data.generated_at).toLocaleTimeString()}`;
-        } catch { updated.textContent='No fue posible actualizar'; if (positionStatus) positionStatus.textContent='Falló la consulta de posiciones del mapa.'; }
+        } catch {
+            updated.textContent='No fue posible actualizar';
+            mapHealth?.classList.add('has-error');
+            const healthTitle = mapHealth?.querySelector('strong');
+            if (healthTitle) healthTitle.textContent = 'Sin conexión';
+            if (positionStatus) positionStatus.querySelector('span').textContent='Falló la consulta de posiciones del mapa.';
+        }
         finally { loading = false; }
     };
     window.LoraTrack.pollWhenVisible(refresh, 30000);
