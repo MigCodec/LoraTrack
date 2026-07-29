@@ -218,6 +218,13 @@ Estas URLs son puntos de partida, no sustituyen revisar autenticación, paginaci
 
 ## Convenciones de implementación
 
+### Published documentation versioning
+
+- `docs/VERSION` is the single authoritative version for every published document under `docs/`. Never derive a documentation version from a Git commit, branch, tag, workflow run, or deployment identifier.
+- Every change to published documentation content must increase `docs/VERSION` in the same change set. Use PATCH for editorial corrections that do not change meaning, MINOR for added or materially changed guidance, procedures, scope, or diagrams, and MAJOR for an incompatible document structure or contract change.
+- After increasing the version, regenerate all public Markdown, HTML, and PDF outputs with `python tools/build_docs_pdf.py --engine playwright` and verify that every generated format displays the exact version stored in `docs/VERSION`.
+- Do not publish or merge documentation changes when source documents, generated outputs, and `docs/VERSION` are inconsistent.
+
 - Toda acción de GitHub debe fijarse a un SHA completo revisado; no usar tags flotantes en workflows de producción.
 - Nunca usar `set -x`, PAT incrustados en URLs, descarga y ejecución por tubería, aceptación automática de claves SSH ni creación de `.env` durante despliegues.
 - El despliegue debe ejecutar el mismo commit que superó CI, usar un Environment protegido y conservar fuera del repositorio secretos, archivos privados y respaldos.

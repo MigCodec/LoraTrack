@@ -10,7 +10,6 @@ use App\Connectors\ConnectorRegistry;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Requests\StoreConnectorRequest;
-use App\Jobs\SyncCatalogConnector;
 use App\Models\Connector;
 use App\Models\FloorPlan;
 use App\Models\TelemetryEvent;
@@ -31,26 +30,35 @@ class ConnectorController extends Controller
         ]);
     }
 
-    public function show(Connector $connector, ConnectorRegistry $registry): View
+    public function show(Request $request, Connector $connector, ConnectorRegistry $registry): View
     {
+        $eventFilter = (string) $request->query('events', 'received');
+        if (! in_array($eventFilter, ['received', 'processed', 'pending', 'failed', 'rejected'], true)) {
+            $eventFilter = 'received';
+        }
+        $eventsQuery = $connector->telemetryEvents()
+            ->select([
+                'id',
+                'connector_id',
+                'device_id',
+                'event_type',
+                'received_at',
+                'processing_status',
+                'processing_error',
+                'normalized_payload',
+            ])
+            ->with('device:id,name')
+            ->latest('received_at');
+        if (in_array($eventFilter, ['processed', 'pending', 'failed'], true)) {
+            $eventsQuery->where('processing_status', $eventFilter);
+        }
+
         return view('connectors.show', [
             'connector' => $connector,
             'definition' => $registry->get($connector->provider),
-            'events' => $connector->telemetryEvents()
-                ->select([
-                    'id',
-                    'connector_id',
-                    'device_id',
-                    'event_type',
-                    'received_at',
-                    'processing_status',
-                    'processing_error',
-                    'normalized_payload',
-                ])
-                ->with('device:id,name')
-                ->latest('received_at')
-                ->limit(100)
-                ->get(),
+            'eventFilter' => $eventFilter,
+            'events' => $eventsQuery->limit(100)->get(),
+            'rejectedRequests' => $connector->rejectedRequests()->latest('occurred_at')->limit(10)->get(),
             'logs' => $connector->activityLogs()->latest()->limit(100)->get(),
             'merakiMappings' => $connector->provider === ConnectorProvider::MerakiLocation
                 ? $connector->merakiFloorPlanMappings()->with('floorPlan.location')->get()
@@ -134,9 +142,10 @@ class ConnectorController extends Controller
     public function sync(Connector $connector): RedirectResponse
     {
         abort_unless($connector->kind->value === 'catalog', 422);
-        SyncCatalogConnector::dispatch($connector->id);
+        $connector->forceFill(['sync_requested_at' => now(), 'sync_started_at' => null])->save();
+        $connector->logActivity('sync_requested', 'Sincronización de catálogo pendiente de ejecución programada.');
 
-        return back()->with('status', 'Sincronización enviada a la cola.');
+        return back()->with('status', 'Sincronización programada para la próxima ejecución del scheduler.');
     }
 
     public function importCsv(Request $request, Connector $connector, CatalogProductImporter $importer): RedirectResponse

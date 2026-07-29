@@ -11,30 +11,11 @@ use App\Connectors\Shopify\ShopifySynchronizer;
 use App\Enums\ConnectorProvider;
 use App\Models\Connector;
 use App\Tenancy\OrganizationContext;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class SyncCatalogConnector implements ShouldQueue
+class SyncCatalogConnector
 {
-    use Queueable;
-
-    public int $tries = 3;
-
-    /** @return array<int, object> */
-    public function middleware(): array
-    {
-        return [(new WithoutOverlapping('catalog:'.$this->connectorId))->releaseAfter(30)->expireAfter(1800)];
-    }
-
-    /** @return list<int> */
-    public function backoff(): array
-    {
-        return [30, 120, 300];
-    }
-
     public function __construct(public readonly string $connectorId) {}
 
     public function handle(SapProductSynchronizer $sap, BusinessCentralSynchronizer $businessCentral, ShopifySynchronizer $shopify, OdooSynchronizer $odoo): void

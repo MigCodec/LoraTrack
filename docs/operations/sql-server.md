@@ -6,7 +6,6 @@ For regulated or high-criticality industrial customers, the database recommendat
 
 - **Conservative production:** Microsoft SQL Server 2022 Standard, updated to the latest approved Cumulative Update.
 - **Controlled new production adoption:** Microsoft SQL Server 2025 Standard, only after staging validates migrations, PHP drivers, CIS hardening, and expected LoraTrack load.
-- **Development:** SQL Server Developer using the same major version as production.
 - **Small pilots or labs:** SQL Server Express only if its limits are explicitly accepted.
 
 SQL Server 2022 is the conservative recommendation because it has operational maturity and active support. SQL Server 2025 may be preferable when maximizing support lifetime, but it requires compatibility evidence before production use.
@@ -17,7 +16,6 @@ SQL Server 2022 is the conservative recommendation because it has operational ma
 | --- | --- | --- |
 | Stable enterprise production | SQL Server 2022 | Standard or Enterprise depending on HA/DR and licensing |
 | Controlled new adoption | SQL Server 2025 | Standard or Enterprise |
-| Development and QA | Same major as production | Developer |
 | Demo or small pilot | SQL Server 2022/2025 | Express, if limits are acceptable |
 
 Versions older than SQL Server 2022 are not recommended for new deployments.

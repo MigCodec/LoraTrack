@@ -28,10 +28,16 @@
                 <h2 class="mt-2 text-3xl font-semibold text-slate-950">Iniciar sesión</h2>
                 <p class="mt-2 text-sm text-slate-500">Usa tus credenciales de LoraTrack o tu cuenta Microsoft autorizada.</p>
 
+                @if($errors->has('email'))
+                    <div class="mt-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert" id="login-error">
+                        {{ $errors->first('email') }}
+                    </div>
+                @endif
+
                 <form method="POST" action="{{ url('/login') }}" class="mt-8 space-y-5">
                     @csrf
                     <label class="field-label">Correo
-                        <input class="field-input" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="email">
+                        <input class="field-input" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="email" @if($errors->has('email')) aria-invalid="true" aria-describedby="login-error" @endif>
                     </label>
                     <label class="field-label">Contraseña
                         <input class="field-input" type="password" name="password" required autocomplete="current-password">

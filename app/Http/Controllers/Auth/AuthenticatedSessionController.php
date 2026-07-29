@@ -29,7 +29,7 @@ class AuthenticatedSessionController extends Controller
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             throw ValidationException::withMessages([
-                'email' => 'Las credenciales ingresadas no son válidas.',
+                'email' => 'La combinación de correo y contraseña no es válida.',
             ]);
         }
 

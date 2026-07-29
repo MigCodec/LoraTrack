@@ -1,0 +1,92 @@
+@startuml
+title LoraTrack — UML Component Architecture
+caption Logical component view · Customer and production scope · Document version 1.5
+
+top to bottom direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName "Segoe UI"
+skinparam packageStyle rectangle
+skinparam ArrowColor #496779
+skinparam ComponentBorderColor #1F6F8B
+skinparam ComponentBackgroundColor #F8FBFC
+skinparam InterfaceBorderColor #1F6F8B
+skinparam DatabaseBorderColor #A97812
+skinparam DatabaseBackgroundColor #FFF9E8
+
+actor "Business User" as User
+actor "Organization Administrator" as Admin
+cloud "Telemetry Providers\nTTI / Meraki" as WebhookProviders <<external systems>>
+cloud "Identity, Catalog, MQTT\nand Email Services" as ExternalServices <<external systems>>
+
+interface "IUserAccess\nHTTPS" as IUserAccess
+interface "ITelemetryWebhook\nHTTPS" as IWebhook
+
+package "LoraTrack Modular Monolith" <<single deployable system>> {
+  package "Presentation" <<layer>> {
+    component "LoraTrack Application" as Web <<modular monolith>>
+    component "Dashboard and Reporting" as Dashboard
+  }
+
+  package "Operational Services" <<layer>> {
+    component "Identity and Access" as IAM
+    component "Catalog, Assets and Devices" as Assets
+    component "Locations and Maps" as Locations
+    component "Connector Administration" as Connectors
+  }
+
+  package "Telemetry Processing" <<layer>> {
+    component "Webhook Intake" as Intake <<synchronous boundary>>
+    component "Durable Ingestion Inbox" as Inbox <<idempotency boundary>>
+    component "Scheduled Processor" as Processor <<bounded batches>>
+    component "Positioning and Alerts" as Positioning <<domain services>>
+  }
+
+  package "Provider Boundary" <<layer>> {
+    component "Identity Adapter" as IdentityAdapter
+    component "Telemetry Adapters" as TelemetryAdapters
+    component "Catalog Adapters" as CatalogAdapters
+    component "Notification Adapter" as NotificationAdapter
+  }
+
+  package "Persistence Boundary" <<layer>> {
+    component "Persistence Gateway" as Persistence
+    database "Operational Database" as Database <<MySQL / MariaDB>>
+    artifact "Private File Store" as Files <<floor plans>>
+  }
+}
+
+User --> IUserAccess : uses
+Admin --> IUserAccess : administers
+IUserAccess - Web : provided interface
+WebhookProviders --> IWebhook : authenticated delivery
+IWebhook - Intake : provided interface
+
+Web ..> IAM
+Web ..> Assets
+Web ..> Locations
+Web ..> Connectors
+Web ..> Dashboard
+
+Intake --> Inbox : validate and persist
+Processor --> Inbox : claim bounded batch
+Processor --> TelemetryAdapters : normalize and deduplicate
+Processor --> Positioning : create observations
+
+IAM ..> IdentityAdapter
+Connectors ..> TelemetryAdapters
+Connectors ..> CatalogAdapters
+Positioning ..> NotificationAdapter
+IdentityAdapter --> ExternalServices : OAuth 2.0 / OIDC
+TelemetryAdapters --> ExternalServices : MQTT/TLS (optional)
+CatalogAdapters --> ExternalServices : HTTPS APIs
+NotificationAdapter --> ExternalServices : SMTP/TLS
+
+Dashboard ..> Persistence
+Inbox ..> Persistence
+Processor ..> Persistence
+Persistence --> Database : SQL over TLS
+Locations --> Files : controlled access
+
+@enduml

@@ -16,34 +16,15 @@ use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
-class ProcessMerakiLocationObservation implements ShouldQueue
+class ProcessMerakiLocationObservation
 {
-    use Queueable;
-
-    public int $tries = 3;
-
-    /** @return array<int, object> */
-    public function middleware(): array
-    {
-        return [(new WithoutOverlapping('telemetry:'.$this->telemetryEventId))->releaseAfter(5)->expireAfter(120)];
-    }
-
-    /** @return list<int> */
-    public function backoff(): array
-    {
-        return [5, 30, 120];
-    }
-
     public function __construct(public readonly string $telemetryEventId) {}
 
     public function handle(
@@ -67,7 +48,7 @@ class ProcessMerakiLocationObservation implements ShouldQueue
                     'processing_status' => 'ignored',
                     'processed_at' => now(),
                     'processing_error' => 'Conector desactivado; telemetría no procesada.',
-                ])->save();
+                ])->saveQuietly();
 
                 return;
             }
@@ -171,14 +152,19 @@ class ProcessMerakiLocationObservation implements ShouldQueue
                 'processing_status' => 'processed',
                 'processed_at' => now(),
                 'processing_error' => null,
-            ])->save();
-            $event->connector()->update(['last_success_at' => now(), 'last_error' => null]);
+            ])->saveQuietly();
+            $event->connector()
+                ->where(function (Builder $query): void {
+                    $query->whereNull('last_success_at')
+                        ->orWhere('last_success_at', '<', now()->subMinute());
+                })
+                ->update(['last_success_at' => now(), 'last_error' => null]);
             $retention->prune($event);
         } catch (Throwable $exception) {
             $event->forceFill([
                 'processing_status' => 'failed',
                 'processing_error' => mb_substr($exception->getMessage(), 0, 1000),
-            ])->save();
+            ])->saveQuietly();
             $event->connector()->update(['last_error' => mb_substr($exception->getMessage(), 0, 1000)]);
             Log::error('Falló el procesamiento de una observación Meraki.', [
                 'telemetry_event_id' => $event->id,

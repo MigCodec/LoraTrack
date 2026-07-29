@@ -21,9 +21,18 @@
         </div>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        @foreach([['Estado', $connector->status->label()], ['Eventos recibidos', $connector->telemetry_events_count], ['Procesados', $connector->processed_events_count], ['Pendientes', $connector->pending_events_count], ['Fallidos', $connector->failed_events_count]] as $metric)
-            <article class="metric-card"><p class="text-sm text-slate-500">{{ $metric[0] }}</p><p class="mt-2 text-2xl font-semibold">{{ $metric[1] }}</p></article>
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <article class="metric-card"><p class="text-sm text-slate-500">Estado</p><p class="mt-2 text-2xl font-semibold">{{ $connector->status->label() }}</p></article>
+        @foreach([
+            ['Eventos recibidos', $connector->telemetry_events_count, 'received', 'telemetry'],
+            ['Procesados', $connector->processed_events_count, 'processed', 'telemetry'],
+            ['Pendientes', $connector->pending_events_count, 'pending', 'telemetry'],
+            ['Fallidos', $connector->failed_events_count, 'failed', 'telemetry'],
+            ['Rechazados', $rejectedRequests->count(), 'rejected', 'rejected-requests'],
+        ] as $metric)
+            <a class="metric-card block transition hover:border-brand-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent" href="{{ route('connectors.show', ['connector' => $connector, 'events' => $metric[2]]) }}#{{ $metric[3] }}" aria-label="Ver detalle de {{ mb_strtolower($metric[0]) }}">
+                <p class="text-sm text-slate-500">{{ $metric[0] }}</p><p class="mt-2 text-2xl font-semibold">{{ $metric[1] }}</p>
+            </a>
         @endforeach
     </div>
 
@@ -50,8 +59,8 @@
             </tbody></table></div>
         </section>
 
-        <section class="panel">
-            <div class="panel-header"><div><h2 class="panel-title">Telemetría reciente</h2><p class="panel-subtitle">Haz clic en una recepción para ver el JSON enviado</p></div></div>
+        <section class="panel" id="telemetry">
+            <div class="panel-header"><div><h2 class="panel-title">Telemetría: {{ ['received' => 'recibida', 'processed' => 'procesada', 'pending' => 'pendiente', 'failed' => 'fallida', 'rejected' => 'recibida'][$eventFilter] }}</h2><p class="panel-subtitle">Hasta 100 eventos; haz clic en una recepción para ver el JSON enviado</p></div>@if($eventFilter !== 'received')<a class="text-sm font-semibold text-brand-primary" href="{{ route('connectors.show', $connector) }}#telemetry">Ver todos</a>@endif</div>
             <div class="table-wrap"><table class="data-table"><thead><tr><th>Recepción</th><th>Estado</th><th>Dispositivo</th><th>Error</th></tr></thead><tbody>
                 @forelse($events as $event)
                     <tr>
@@ -61,9 +70,39 @@
                         <td class="text-xs text-red-600">{{ Str::limit($event->processing_error, 100) }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="4">No se ha recibido telemetría.</td></tr>
+                    <tr><td colspan="4">No hay telemetría para este filtro.</td></tr>
                 @endforelse
             </tbody></table></div>
         </section>
     </div>
+
+    <section class="panel mt-6" id="rejected-requests">
+        <div class="panel-header"><div><h2 class="panel-title">Últimos intentos de recepción rechazados</h2><p class="panel-subtitle">Máximo 10 por conector. No se guardan secretos ni payloads completos.</p></div></div>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>HTTP</th><th>Motivo</th><th>Versión / tipo</th><th>Solicitud</th><th>Contexto</th></tr></thead><tbody>
+            @forelse($rejectedRequests as $rejection)
+                @php($reasonLabels = [
+                    'authentication_failed' => 'Autenticación fallida',
+                    'unsupported_version' => 'Versión no permitida',
+                    'invalid_version' => 'Versión inválida',
+                    'invalid_observation_type' => 'Tipo de observación inválido',
+                    'invalid_payload' => 'Payload inválido',
+                    'empty_observations' => 'Sin observaciones',
+                    'network_mismatch' => 'Red no autorizada',
+                    'unsupported_content_type' => 'Content-Type no permitido',
+                    'payload_too_large' => 'Payload demasiado grande',
+                    'connector_unavailable' => 'Conector no disponible',
+                ])
+                <tr>
+                    <td class="whitespace-nowrap">{{ $rejection->occurred_at->format('d-m-Y H:i:s') }}</td>
+                    <td><span class="status-badge status-error">{{ $rejection->http_status }}</span></td>
+                    <td>{{ $reasonLabels[$rejection->reason] ?? $rejection->reason }}</td>
+                    <td>{{ $rejection->declared_version ?? '—' }} / {{ $rejection->declared_type ?? '—' }}</td>
+                    <td><code class="text-xs">{{ $rejection->request_id }}</code></td>
+                    <td class="text-xs">{{ $rejection->context ? json_encode($rejection->context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '—' }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="6">No hay intentos rechazados registrados.</td></tr>
+            @endforelse
+        </tbody></table></div>
+    </section>
 @endsection

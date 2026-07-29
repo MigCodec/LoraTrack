@@ -1,0 +1,1182 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="generator" content="tools/build_docs_pdf.py">
+  <meta name="doc-version" content="1.5">
+  <title>LoraTrack - Production Infrastructure and Operations Guide</title>
+  <style>
+@page {
+  size: A4;
+  margin: 18mm 16mm 18mm 16mm;
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #64748b; }
+  @bottom-left { content: "LoraTrack - Technical Documentation"; font-size: 8pt; color: #64748b; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: #172033;
+  font-family: "Segoe UI", "Inter", "Arial", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+}
+h1, h2, h3, h4 { color: #0f2f4a; line-height: 1.2; page-break-after: avoid; }
+h1 { font-size: 24pt; border-bottom: 2px solid #1f6f8b; padding-bottom: 6pt; margin-top: 0; }
+h2 { font-size: 17pt; margin-top: 22pt; }
+h3 { font-size: 13pt; margin-top: 16pt; }
+h4 { font-size: 11pt; }
+a { color: #0b6684; text-decoration: none; }
+code {
+  color: #1e293b;
+  background: #eef4f7;
+  border: 1px solid #d9e5ea;
+  border-radius: 3px;
+  padding: 1px 3px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 9pt;
+}
+pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 10pt;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  page-break-inside: avoid;
+}
+pre code { color: inherit; background: transparent; border: 0; padding: 0; }
+table { width: 100%; border-collapse: collapse; margin: 10pt 0 14pt; page-break-inside: avoid; }
+th {
+  background: #e6f0f4;
+  color: #0f2f4a;
+  text-align: left;
+  font-weight: 700;
+}
+th, td { border: 1px solid #cbd8df; padding: 6pt; vertical-align: top; }
+blockquote {
+  margin: 12pt 0;
+  padding: 8pt 10pt;
+  border-left: 4px solid #1f6f8b;
+  background: #f3f8fa;
+}
+ul, ol { padding-left: 18pt; }
+li { margin: 2pt 0; }
+.cover {
+  min-height: 240mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-left: 8pt solid #1f6f8b;
+  padding-left: 22pt;
+}
+.cover h1 {
+  font-size: 42pt;
+  border: 0;
+  margin-bottom: 4pt;
+}
+.cover h2 {
+  font-size: 18pt;
+  color: #375569;
+  margin-top: 0;
+}
+.doc-source {
+  color: #64748b;
+  font-size: 8.5pt;
+  margin: 0 0 10pt;
+}
+.page-break { page-break-before: always; break-before: page; }
+</style>
+</head>
+<body>
+<section class="cover">
+<h1>LoraTrack</h1>
+<h2>Production Infrastructure and Operations Guide</h2>
+<p><strong>Document version:</strong> 1.5</p>
+<p><strong>Classification:</strong> Public product documentation</p>
+</section>
+
+<div class="page-break"></div>
+
+<h1 id="document-control">Document Control</h1>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Product</td>
+<td>LoraTrack</td>
+</tr>
+<tr>
+<td>Document type</td>
+<td>Production Infrastructure and Operations Guide</td>
+</tr>
+<tr>
+<td>Document version</td>
+<td>1.5</td>
+</tr>
+<tr>
+<td>Audience</td>
+<td>Users, administrators, engineering, operations, and security teams</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>This documentation describes product capabilities and procedures. References to practices or standards do not constitute certification, independent assurance, or formal customer acceptance.</p>
+</blockquote>
+<h1 id="document-index">Document Index</h1>
+<ul>
+<li><a href="#docs-architecture-production-deployment-md">Production Deployment Architecture</a></li>
+<li><a href="#docs-operations-dependency-matrix-md">Production Infrastructure Requirements</a></li>
+<li><a href="#docs-operations-deployment-and-environments-md">Production Deployment and Configuration</a></li>
+<li><a href="#docs-operations-deployment-ubuntu-lts-md">Ubuntu LTS Deployment Tutorial</a></li>
+<li><a href="#docs-operations-deployment-windows-iis-md">Windows Server and IIS Deployment Tutorial</a></li>
+<li><a href="#docs-operations-operations-runbook-md">Operations, Monitoring, and Runbooks</a></li>
+<li><a href="#docs-operations-field-commissioning-md">Field Commissioning Guide</a></li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-architecture-production-deployment-md"></a></p>
+<h1 id="production-deployment-architecture">Production Deployment Architecture</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This UML deployment diagram defines the production infrastructure boundary, deployed application nodes, required services, trust zones, and principal communication paths. The final topology may use customer-managed servers or equivalent managed services while preserving the same security boundaries.</p>
+<p>The application host runs one LoraTrack modular-monolith deployment. The web runtime and minute scheduler are two execution entry points into the same application release, configuration, domain modules, and database; they are not separate application services.</p>
+<p><img alt="LoraTrack UML production deployment diagram" src="architecture/diagrams/production-deployment-diagram.svg"></p>
+<h2 id="production-nodes">Production Nodes</h2>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Required Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edge security</td>
+<td>Terminates trusted HTTPS, applies request limits, and optionally provides WAF or reverse-proxy controls.</td>
+</tr>
+<tr>
+<td>Application host</td>
+<td>Runs the web application and the minute scheduler with access to protected configuration and private storage.</td>
+</tr>
+<tr>
+<td>Database service</td>
+<td>Provides MySQL 8+, MariaDB 10.6+, or Microsoft SQL Server 2022+ persistence over encrypted transport and accepts connections only from approved application hosts.</td>
+</tr>
+<tr>
+<td>Private storage</td>
+<td>Retains customer floor plans and protected application files outside the public web root.</td>
+</tr>
+<tr>
+<td>Monitoring service</td>
+<td>Receives availability, application, scheduler, capacity, and security signals.</td>
+</tr>
+<tr>
+<td>Backup repository</td>
+<td>Stores encrypted, access-controlled database and private-file backups outside the application host.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="trust-and-network-boundaries">Trust and Network Boundaries</h2>
+<ul>
+<li>Only HTTPS is exposed to users and inbound webhook providers.</li>
+<li>The database is placed in a restricted data zone and is not publicly accessible.</li>
+<li>Administrative access uses the customer's approved VPN, bastion, or management network.</li>
+<li>Outbound traffic is restricted to configured identity, catalog, telemetry, email, DNS, NTP, monitoring, and backup destinations.</li>
+<li>Database and backup traffic must be encrypted in transit; backup copies must also be encrypted at rest. The selected database driver and trust configuration must match MySQL/MariaDB or SQL Server.</li>
+<li>Production secrets remain outside the public document root and are readable only by the application service account and authorized administrators.</li>
+</ul>
+<p>The editable UML source is provided in <a href="architecture/diagrams/production-deployment-diagram.puml"><code>production-deployment-diagram.puml</code></a>.</p>
+<h2 id="engineering-assumptions">Engineering Assumptions</h2>
+<ul>
+<li>The baseline shows one logical application host; approved high-availability deployments may use multiple equivalent hosts with shared state and verified scheduler locking.</li>
+<li>The database and backup services may be managed services or dedicated customer infrastructure provided the documented trust boundaries and transport controls are preserved.</li>
+<li>Firewall rules must be derived from enabled connectors; optional SMTP and MQTT paths are not opened when those capabilities are disabled.</li>
+<li>Monitoring and backup paths are mandatory production responsibilities even when implemented by customer-standard platforms not named in the diagram.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-dependency-matrix-md"></a></p>
+<h1 id="production-infrastructure-requirements">Production Infrastructure Requirements</h1>
+<p>This section defines the infrastructure a customer must provide to operate LoraTrack in production. Final capacity must be confirmed from the expected number of organizations, assets, users, connectors, telemetry volume, retention period, and availability target.</p>
+<h2 id="application-runtime">Application Runtime</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Production Requirement</th>
+<th>Operational Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Operating system</td>
+<td>Supported Ubuntu LTS or Windows Server with IIS 10</td>
+<td>Apply vendor security updates under the customer's patch policy.</td>
+</tr>
+<tr>
+<td>PHP</td>
+<td>8.2 or later, supported by the selected operating system</td>
+<td>Enable OPcache and configure memory and request limits for the expected workload.</td>
+</tr>
+<tr>
+<td>Web server</td>
+<td>Nginx or Apache on Linux; IIS 10 on Windows</td>
+<td>Publish only the Laravel <code>public</code> directory and enforce HTTPS.</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>MySQL 8.0+, MariaDB 10.6+, or Microsoft SQL Server 2022+</td>
+<td>Use a dedicated database and least-privilege application account. Require encrypted transport and the matching PHP PDO driver.</td>
+</tr>
+<tr>
+<td>Scheduler</td>
+<td>Cron or Windows Task Scheduler</td>
+<td>Execute <code>php artisan schedule:run</code> once per minute. A persistent Laravel Queue worker is not required.</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>Persistent application storage plus independent backup capacity</td>
+<td>Private floor plans, generated data, and application logs must not be exposed by the web server.</td>
+</tr>
+<tr>
+<td>DNS and TLS</td>
+<td>Customer-controlled production hostname and valid trusted certificate</td>
+<td>Monitor certificate expiration and redirect HTTP to HTTPS.</td>
+</tr>
+<tr>
+<td>Time synchronization</td>
+<td>NTP-synchronized application and database hosts</td>
+<td>Required for reliable telemetry, audit, and troubleshooting timestamps.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="required-php-extensions">Required PHP Extensions</h2>
+<p>Enable <code>bcmath</code>, <code>ctype</code>, <code>curl</code>, <code>dom</code>, <code>fileinfo</code>, <code>gd</code>, <code>json</code>, <code>mbstring</code>, <code>openssl</code>, <code>pdo</code>, <code>tokenizer</code>, <code>xml</code>, <code>xmlreader</code>, <code>xmlwriter</code>, and <code>zip</code>. Enable <code>pdo_mysql</code> for MySQL/MariaDB or Microsoft <code>pdo_sqlsrv</code> for SQL Server. <code>intl</code> is recommended. Redis support is optional when Redis is selected for cache or sessions.</p>
+<h2 id="database-transport-and-capacity">Database Transport and Capacity</h2>
+<ul>
+<li>Require encrypted transport between the application and database and install the required trust chain on the application host.</li>
+<li>For MySQL/MariaDB, configure <code>MYSQL_ATTR_SSL_CA</code> with the absolute CA certificate path.</li>
+<li>When the PHP MySQL driver uses <code>libmysql</code>, configure <code>MYSQL_ATTR_MAX_BUFFER_SIZE=6291456</code> so accepted Meraki payloads are not truncated during database reads.</li>
+<li>For SQL Server, install Microsoft ODBC Driver 18 and <code>pdo_sqlsrv</code>, enable certificate validation, and use TCP 1433 or the customer-approved explicit port.</li>
+<li>Allocate database memory, connections, storage, and IOPS from measured production volume rather than generic minimums.</li>
+<li>Monitor table growth, slow queries, connection utilization, storage consumption, and backup duration.</li>
+</ul>
+<h2 id="network-connectivity">Network Connectivity</h2>
+<p>The customer firewall and proxy policy must permit only the flows required by enabled capabilities:</p>
+<table>
+<thead>
+<tr>
+<th>Flow</th>
+<th>Direction</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTPS 443</td>
+<td>Inbound</td>
+<td>User access and authenticated webhook delivery.</td>
+</tr>
+<tr>
+<td>Database TLS</td>
+<td>Application to database</td>
+<td>TCP 3306 for MySQL/MariaDB or TCP 1433 for SQL Server by default; restrict by source and destination.</td>
+</tr>
+<tr>
+<td>HTTPS 443</td>
+<td>Outbound</td>
+<td>Microsoft identity and configured catalog or telemetry providers.</td>
+</tr>
+<tr>
+<td>SMTP submission</td>
+<td>Outbound</td>
+<td>Notifications and invitations when email is enabled.</td>
+</tr>
+<tr>
+<td>MQTT TLS</td>
+<td>Outbound</td>
+<td>Required only for configured MQTT connectors.</td>
+</tr>
+<tr>
+<td>DNS and NTP</td>
+<td>Outbound</td>
+<td>Name resolution and time synchronization.</td>
+</tr>
+</tbody>
+</table>
+<p>The database must not be exposed to the public internet. Administrative access should use the customer's controlled management network, VPN, or bastion service.</p>
+<h2 id="external-services-by-enabled-capability">External Services by Enabled Capability</h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>When Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Microsoft Entra ID</td>
+<td>Microsoft sign-in.</td>
+</tr>
+<tr>
+<td>SMTP service</td>
+<td>Invitations, password workflows, and operational notifications.</td>
+</tr>
+<tr>
+<td>The Things Industries</td>
+<td>TTI webhook or MQTT telemetry.</td>
+</tr>
+<tr>
+<td>Meraki</td>
+<td>Meraki Scanning/Location API ingestion.</td>
+</tr>
+<tr>
+<td>SAP S/4HANA or another catalog provider</td>
+<td>Automated catalog synchronization.</td>
+</tr>
+<tr>
+<td>Central logging and monitoring platform</td>
+<td>Production alerting, audit support, and incident investigation.</td>
+</tr>
+<tr>
+<td>Backup repository</td>
+<td>Encrypted database and private-file backups stored outside the application host.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="capacity-inputs-required-before-sizing">Capacity Inputs Required Before Sizing</h2>
+<p>The customer and implementation team must agree on:</p>
+<ul>
+<li>expected concurrent and named users;</li>
+<li>organizations, sites, buildings, floors, assets, and devices;</li>
+<li>number and type of connectors;</li>
+<li>average and peak webhook or MQTT events per minute;</li>
+<li>maximum accepted payload size;</li>
+<li>observation, audit, and location-history retention periods;</li>
+<li>floor-plan file volume;</li>
+<li>required availability, RPO, and RTO;</li>
+<li>backup retention and restoration-test frequency.</li>
+</ul>
+<p>Do not approve production capacity until representative telemetry and user workloads have been validated in a customer-approved pre-production environment.</p>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-deployment-and-environments-md"></a></p>
+<h1 id="production-deployment-and-configuration">Production Deployment and Configuration</h1>
+<h2 id="base-requirements">Base Requirements</h2>
+<ul>
+<li>PHP 8.2 or higher.</li>
+<li>Composer.</li>
+<li>MySQL 8.0+, MariaDB 10.6+, or Microsoft SQL Server 2022+ with encrypted transport.</li>
+<li>PHP extensions required by Laravel and the selected database.</li>
+<li>Cron or Windows Task Scheduler for the minute scheduler invocation.</li>
+<li>TLS on the public domain.</li>
+</ul>
+<h2 id="environment-variables">Environment Variables</h2>
+<p>Start from <code>.env.example</code>. Do not generate <code>.env</code> from a pipeline containing embedded secrets.</p>
+<p>Critical variables:</p>
+<ul>
+<li><code>APP_ENV</code></li>
+<li><code>APP_KEY</code></li>
+<li><code>APP_DEBUG=false</code> in production</li>
+<li><code>APP_URL</code></li>
+<li><code>DB_*</code></li>
+<li><code>MYSQL_ATTR_SSL_CA</code> for MySQL/MariaDB deployments that require TLS.</li>
+<li><code>MYSQL_ATTR_MAX_BUFFER_SIZE=6291456</code> when PDO uses <code>libmysql</code>, so Meraki payloads up to the 5 MiB HTTP limit are not truncated while being read.</li>
+<li>SQL Server encryption and certificate-trust parameters when <code>DB_CONNECTION=sqlsrv</code> is selected.</li>
+<li><code>CACHE_STORE</code></li>
+<li><code>SESSION_DRIVER</code></li>
+<li><code>MAIL_*</code></li>
+<li><code>MICROSOFT_*</code> when Microsoft Entra ID is used</li>
+</ul>
+<h2 id="initial-installation">Initial Installation</h2>
+<pre><code class="language-bash">composer install --no-dev --optimize-autoloader
+php artisan key:generate
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+</code></pre>
+<p>Do not regenerate <code>APP_KEY</code> in an existing production environment because it invalidates encrypted data and sessions.</p>
+<h2 id="file-permissions">File Permissions</h2>
+<p>Laravel requires write access to:</p>
+<ul>
+<li><code>storage/</code></li>
+<li><code>bootstrap/cache/</code></li>
+</ul>
+<p>Floor plans must remain in private storage:</p>
+<pre><code class="language-text">storage/app/private
+</code></pre>
+<p>Do not expose floor plans through a public symlink.</p>
+<h2 id="scheduler">Scheduler</h2>
+<p>Run <code>php artisan schedule:run</code> once every minute. The scheduler drains durable webhook inboxes and processes observations, TTI/MQTT events, catalog synchronization requests, alerts, and retention activities. A persistent Laravel Queue worker is not required. Configure exactly one effective scheduler invocation per environment unless a tested distributed locking design has been approved.</p>
+<p>The production scheduler account requires access to the application directory, PHP CLI, application configuration, logs, private storage, and the production database. Monitor invocation failures and total processing duration.</p>
+<h2 id="customer-validation-environment">Customer Validation Environment</h2>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>Purpose</th>
+<th>Data</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pre-production</td>
+<td>deployment, integration, capacity, recovery, and customer acceptance validation</td>
+<td>synthetic, anonymized, or explicitly approved data</td>
+</tr>
+<tr>
+<td>production</td>
+<td>live operation</td>
+<td>controlled data</td>
+</tr>
+</tbody>
+</table>
+<p>Do not use real payloads or real floor plans in non-production without approval and controls.</p>
+<h2 id="backup-and-restore">Backup and Restore</h2>
+<p>The plan must cover:</p>
+<ul>
+<li>database;</li>
+<li><code>storage/app/private</code>;</li>
+<li>production <code>.env</code>;</li>
+<li>logs required by audit;</li>
+<li>deployed release version.</li>
+</ul>
+<p>Initial frequency recommendation:</p>
+<ul>
+<li>daily full backup;</li>
+<li>retention based on contract;</li>
+<li>restore test quarterly or before critical releases.</li>
+</ul>
+<h2 id="minimum-monitoring">Minimum Monitoring</h2>
+<ul>
+<li>HTTP availability;</li>
+<li>5xx errors;</li>
+<li>failed scheduled commands;</li>
+<li>pending webhook and connector backlog;</li>
+<li>database growth;</li>
+<li>disk space;</li>
+<li>inactive connectors;</li>
+<li>telemetry pending beyond threshold;</li>
+<li>TLS certificates;</li>
+<li>token and credential expiration.</li>
+</ul>
+<h2 id="rollback">Rollback</h2>
+<p>Define before each change:</p>
+<ul>
+<li>previous release version;</li>
+<li>migration compatibility;</li>
+<li>pre-deploy backup;</li>
+<li>scheduler suspension and controlled resumption procedure;</li>
+<li>failed-event replay procedure;</li>
+<li>user communication plan.</li>
+</ul>
+<h2 id="production-hardening">Production Hardening</h2>
+<ul>
+<li><code>APP_DEBUG=false</code>.</li>
+<li>Mandatory TLS.</li>
+<li>Database not publicly exposed.</li>
+<li>Least-privilege database users.</li>
+<li>Encrypted backups.</li>
+<li>Secret rotation.</li>
+<li>WAF or reverse proxy when applicable.</li>
+<li>Request size limits.</li>
+<li>Centralized logs.</li>
+<li>Disable test accounts.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-deployment-ubuntu-lts-md"></a></p>
+<h1 id="ubuntu-lts-deployment-tutorial">Ubuntu LTS Deployment Tutorial</h1>
+<h2 id="scope">Scope</h2>
+<p>Tutorial for deploying LoraTrack on Ubuntu Server LTS with Nginx, PHP-FPM, MySQL or MariaDB, and cron.</p>
+<p>Production baseline:</p>
+<ul>
+<li>PHP 8.2 or later.</li>
+<li>MySQL 8.0 or later, or MariaDB 10.6 or later.</li>
+<li>TLS for public access and database transport.</li>
+</ul>
+<h2 id="1-prepare-the-server">1. Prepare the Server</h2>
+<pre><code class="language-bash">sudo apt update
+sudo apt upgrade -y
+sudo apt install -y software-properties-common unzip git curl ca-certificates gnupg
+</code></pre>
+<h2 id="2-install-php-and-extensions">2. Install PHP and Extensions</h2>
+<pre><code class="language-bash">sudo apt install -y php php-fpm php-cli php-common php-mbstring php-xml php-curl php-zip php-bcmath php-gd php-intl php-opcache php-mysql
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-bash">php -v
+php -m | grep -E &quot;bcmath|curl|fileinfo|gd|mbstring|openssl|xml|zip&quot;
+</code></pre>
+<p>Suggested <code>php.ini</code> values:</p>
+<pre><code class="language-ini">memory_limit=256M
+upload_max_filesize=25M
+post_max_size=30M
+max_execution_time=120
+date.timezone=America/Santiago
+opcache.enable=1
+opcache.enable_cli=1
+</code></pre>
+<p>Restart FPM:</p>
+<pre><code class="language-bash">sudo systemctl restart php*-fpm
+</code></pre>
+<h2 id="3-install-nginx">3. Install Nginx</h2>
+<pre><code class="language-bash">sudo apt install -y nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
+</code></pre>
+<h2 id="4-configure-mysql-or-mariadb-connectivity">4. Configure MySQL or MariaDB Connectivity</h2>
+<p>Provision a supported MySQL or MariaDB service with encrypted transport. Install the customer-approved CA certificate on the application server and restrict database access to the application host.</p>
+<p>Validate:</p>
+<pre><code class="language-bash">php -m | grep -E &quot;mysqli|pdo_mysql&quot;
+sudo systemctl restart php*-fpm
+</code></pre>
+<p>Database account example:</p>
+<pre><code class="language-sql">CREATE DATABASE loratrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'loratrack_app'@'APPLICATION_HOST' IDENTIFIED BY 'CHANGE_ME_LONG_SECRET';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+    ON loratrack.* TO 'loratrack_app'@'APPLICATION_HOST';
+FLUSH PRIVILEGES;
+</code></pre>
+<p>After migrations, evaluate removing DDL permissions from the runtime account and using a separate migration account.</p>
+<h2 id="5-install-composer">5. Install Composer</h2>
+<pre><code class="language-bash">cd /tmp
+php -r &quot;copy('https://getcomposer.org/installer', 'composer-setup.php');&quot;
+php composer-setup.php
+sudo mv composer.phar /usr/local/bin/composer
+composer --version
+</code></pre>
+<p>Validate the official checksum before running the installer in controlled environments.</p>
+<h2 id="6-application-directory">6. Application Directory</h2>
+<pre><code class="language-bash">sudo adduser --system --group --home /var/www/loratrack loratrack
+sudo mkdir -p /var/www/loratrack/current
+sudo chown -R loratrack:www-data /var/www/loratrack
+sudo -u loratrack git clone REPO_URL /var/www/loratrack/current
+cd /var/www/loratrack/current
+</code></pre>
+<p>Install dependencies:</p>
+<pre><code class="language-bash">sudo -u loratrack composer install --no-dev --optimize-autoloader
+</code></pre>
+<h2 id="7-configure-env">7. Configure <code>.env</code></h2>
+<pre><code class="language-bash">sudo -u loratrack cp .env.example .env
+sudo -u loratrack nano .env
+</code></pre>
+<p>Minimum values:</p>
+<pre><code class="language-dotenv">APP_NAME=LoraTrack
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://loratrack.example.com
+APP_TIMEZONE=America/Santiago
+
+DB_CONNECTION=mysql
+DB_HOST=mysql.example.com
+DB_PORT=3306
+DB_DATABASE=loratrack
+DB_USERNAME=loratrack_app
+DB_PASSWORD=CHANGE_ME_LONG_SECRET
+
+MYSQL_ATTR_SSL_CA=/etc/ssl/certs/customer-mysql-ca.pem
+MYSQL_ATTR_MAX_BUFFER_SIZE=6291456
+CACHE_STORE=database
+SESSION_DRIVER=database
+</code></pre>
+<p>Generate <code>APP_KEY</code> only for a new installation:</p>
+<pre><code class="language-bash">sudo -u loratrack php artisan key:generate
+</code></pre>
+<h2 id="8-permissions-migrations-and-cache">8. Permissions, Migrations, and Cache</h2>
+<pre><code class="language-bash">sudo chown -R loratrack:www-data /var/www/loratrack/current
+sudo find /var/www/loratrack/current -type f -exec chmod 0644 {} \;
+sudo find /var/www/loratrack/current -type d -exec chmod 0755 {} \;
+sudo chmod -R ug+rwx /var/www/loratrack/current/storage /var/www/loratrack/current/bootstrap/cache
+
+sudo -u loratrack php artisan migrate --force
+sudo -u loratrack php artisan config:cache
+sudo -u loratrack php artisan route:cache
+sudo -u loratrack php artisan view:cache
+</code></pre>
+<h2 id="9-nginx-site">9. Nginx Site</h2>
+<p>Use <code>/var/www/loratrack/current/public</code> as the web root.</p>
+<pre><code class="language-nginx">server {
+    listen 80;
+    server_name loratrack.example.com;
+    root /var/www/loratrack/current/public;
+    index index.php index.html;
+    client_max_body_size 30M;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+</code></pre>
+<p>Adjust the PHP-FPM socket to the installed version.</p>
+<h2 id="10-tls">10. TLS</h2>
+<p>Use an approved PKI certificate or Let's Encrypt where allowed.</p>
+<h2 id="11-scheduler">11. Scheduler</h2>
+<p>Scheduler cron:</p>
+<pre><code class="language-cron">* * * * * cd /var/www/loratrack/current &amp;&amp; php artisan schedule:run &gt;&gt; storage/logs/schedule.log 2&gt;&amp;1
+</code></pre>
+<p>No Laravel Queue systemd service is required.</p>
+<h2 id="12-optional-microsoft-login">12. Optional Microsoft Login</h2>
+<pre><code class="language-dotenv">MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_TENANT_ID=
+MICROSOFT_REDIRECT_URI=https://loratrack.example.com/auth/microsoft/callback
+</code></pre>
+<p>Then run:</p>
+<pre><code class="language-bash">sudo -u loratrack php artisan config:cache
+</code></pre>
+<h2 id="13-post-deployment-verification">13. Post-Deployment Verification</h2>
+<pre><code class="language-bash">curl -I https://loratrack.example.com/login
+sudo -u loratrack php artisan about
+sudo -u loratrack php artisan schedule:run
+</code></pre>
+<p>Validate login, dashboard, <code>/operations/health</code>, connector creation, TTI ingestion, private floor plan access, and scheduled processing.</p>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-deployment-windows-iis-md"></a></p>
+<h1 id="windows-server-and-iis-deployment-tutorial">Windows Server and IIS Deployment Tutorial</h1>
+<h2 id="scope_1">Scope</h2>
+<p>Tutorial for deploying LoraTrack on Windows Server with IIS, PHP FastCGI, MySQL or MariaDB, and Task Scheduler.</p>
+<p>Production baseline:</p>
+<ul>
+<li>PHP 8.2 or later.</li>
+<li>MySQL 8.0 or later, or MariaDB 10.6 or later.</li>
+<li>TLS for public access and database transport.</li>
+</ul>
+<h2 id="1-required-components">1. Required Components</h2>
+<p>Install:</p>
+<ul>
+<li>Windows Server 2019/2022/2025.</li>
+<li>IIS 10.</li>
+<li>PHP 8.2+ Non Thread Safe x64.</li>
+<li>Visual C++ Redistributable required by PHP.</li>
+<li>Composer 2.x for Windows.</li>
+<li>Customer-managed MySQL 8.0+ or MariaDB 10.6+ service.</li>
+<li>Trusted CA certificate for database TLS.</li>
+<li>IIS URL Rewrite Module.</li>
+<li>An approved mechanism for transferring the authorized application release.</li>
+</ul>
+<h2 id="2-enable-iis-and-cgi">2. Enable IIS and CGI</h2>
+<p>PowerShell as Administrator:</p>
+<pre><code class="language-powershell">Install-WindowsFeature Web-Server, Web-CGI, Web-Common-Http, Web-Default-Doc, Web-Static-Content, Web-Http-Errors, Web-Http-Redirect, Web-Filtering, Web-Mgmt-Console
+</code></pre>
+<p>Install URL Rewrite from an approved internal package or Microsoft source.</p>
+<h2 id="3-install-php">3. Install PHP</h2>
+<p>Install PHP NTS x64, for example:</p>
+<pre><code class="language-text">C:\PHP\8.3
+</code></pre>
+<p>Copy <code>php.ini-production</code> to <code>php.ini</code> and enable:</p>
+<pre><code class="language-ini">extension_dir=&quot;ext&quot;
+extension=bcmath
+extension=curl
+extension=fileinfo
+extension=gd
+extension=mbstring
+extension=openssl
+extension=pdo_mysql
+extension=zip
+
+cgi.force_redirect=0
+cgi.fix_pathinfo=1
+fastcgi.impersonate=1
+
+memory_limit=256M
+upload_max_filesize=25M
+post_max_size=30M
+max_execution_time=120
+date.timezone=America/Santiago
+opcache.enable=1
+opcache.enable_cli=1
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-powershell">php -v
+php -m
+</code></pre>
+<h2 id="4-configure-php-fastcgi-in-iis">4. Configure PHP FastCGI in IIS</h2>
+<p>Add a handler mapping:</p>
+<ul>
+<li>Request path: <code>*.php</code></li>
+<li>Module: <code>FastCgiModule</code></li>
+<li>Executable: <code>C:\PHP\8.3\php-cgi.exe</code></li>
+<li>Name: <code>PHP via FastCGI</code></li>
+</ul>
+<h2 id="5-mysql-or-mariadb-setup">5. MySQL or MariaDB Setup</h2>
+<p>Provision a supported database service with TLS required. Restrict network access to the application server and use a dedicated least-privilege account.</p>
+<p>Create database and login:</p>
+<pre><code class="language-sql">CREATE DATABASE loratrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'loratrack_app'@'APPLICATION_HOST' IDENTIFIED BY 'CHANGE_ME_LONG_SECRET';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+    ON loratrack.* TO 'loratrack_app'@'APPLICATION_HOST';
+FLUSH PRIVILEGES;
+</code></pre>
+<p>Validate:</p>
+<pre><code class="language-sql">select @@version;
+</code></pre>
+<h2 id="6-application-directory_1">6. Application Directory</h2>
+<pre><code class="language-powershell">New-Item -ItemType Directory -Force C:\inetpub\loratrack
+git clone REPO_URL C:\inetpub\loratrack
+cd C:\inetpub\loratrack
+composer install --no-dev --optimize-autoloader
+</code></pre>
+<h2 id="7-configure-env_1">7. Configure <code>.env</code></h2>
+<pre><code class="language-powershell">Copy-Item .env.example .env
+notepad .env
+</code></pre>
+<p>Minimum values:</p>
+<pre><code class="language-dotenv">APP_NAME=LoraTrack
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://loratrack.example.com
+APP_TIMEZONE=America/Santiago
+
+DB_CONNECTION=mysql
+DB_HOST=mysql.example.com
+DB_PORT=3306
+DB_DATABASE=loratrack
+DB_USERNAME=loratrack_app
+DB_PASSWORD=CHANGE_ME_LONG_SECRET
+
+MYSQL_ATTR_SSL_CA=C:\ProgramData\LoraTrack\certificates\mysql-ca.pem
+MYSQL_ATTR_MAX_BUFFER_SIZE=6291456
+CACHE_STORE=database
+SESSION_DRIVER=database
+</code></pre>
+<p>Generate <code>APP_KEY</code> only for a new installation:</p>
+<pre><code class="language-powershell">php artisan key:generate
+</code></pre>
+<h2 id="8-configure-iis-site">8. Configure IIS Site</h2>
+<p>The site physical path must be:</p>
+<pre><code class="language-text">C:\inetpub\loratrack\public
+</code></pre>
+<p>Example:</p>
+<pre><code class="language-powershell">Import-Module WebAdministration
+New-Website -Name &quot;LoraTrack&quot; -Port 80 -HostHeader &quot;loratrack.example.com&quot; -PhysicalPath &quot;C:\inetpub\loratrack\public&quot;
+</code></pre>
+<p>Configure HTTPS using an approved PKI or public CA certificate.</p>
+<h2 id="9-webconfig">9. <code>web.config</code></h2>
+<p>Create <code>C:\inetpub\loratrack\public\web.config</code>:</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;configuration&gt;
+  &lt;system.webServer&gt;
+    &lt;rewrite&gt;
+      &lt;rules&gt;
+        &lt;rule name=&quot;Laravel&quot; stopProcessing=&quot;true&quot;&gt;
+          &lt;match url=&quot;.*&quot; /&gt;
+          &lt;conditions logicalGrouping=&quot;MatchAll&quot;&gt;
+            &lt;add input=&quot;{REQUEST_FILENAME}&quot; matchType=&quot;IsFile&quot; negate=&quot;true&quot; /&gt;
+            &lt;add input=&quot;{REQUEST_FILENAME}&quot; matchType=&quot;IsDirectory&quot; negate=&quot;true&quot; /&gt;
+          &lt;/conditions&gt;
+          &lt;action type=&quot;Rewrite&quot; url=&quot;index.php&quot; /&gt;
+        &lt;/rule&gt;
+      &lt;/rules&gt;
+    &lt;/rewrite&gt;
+    &lt;security&gt;
+      &lt;requestFiltering&gt;
+        &lt;requestLimits maxAllowedContentLength=&quot;31457280&quot; /&gt;
+      &lt;/requestFiltering&gt;
+    &lt;/security&gt;
+    &lt;defaultDocument&gt;
+      &lt;files&gt;
+        &lt;clear /&gt;
+        &lt;add value=&quot;index.php&quot; /&gt;
+      &lt;/files&gt;
+    &lt;/defaultDocument&gt;
+  &lt;/system.webServer&gt;
+&lt;/configuration&gt;
+</code></pre>
+<p>Do not point IIS to the project root.</p>
+<h2 id="10-ntfs-permissions">10. NTFS Permissions</h2>
+<p>Grant read access to the project and write access only to:</p>
+<ul>
+<li><code>storage</code></li>
+<li><code>bootstrap\cache</code></li>
+</ul>
+<p>Example:</p>
+<pre><code class="language-powershell">icacls C:\inetpub\loratrack /grant &quot;IIS AppPool\LoraTrack:(OI)(CI)RX&quot;
+icacls C:\inetpub\loratrack\storage /grant &quot;IIS AppPool\LoraTrack:(OI)(CI)M&quot;
+icacls C:\inetpub\loratrack\bootstrap\cache /grant &quot;IIS AppPool\LoraTrack:(OI)(CI)M&quot;
+</code></pre>
+<h2 id="11-migrate-and-optimize">11. Migrate and Optimize</h2>
+<pre><code class="language-powershell">php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+</code></pre>
+<h2 id="12-task-scheduler">12. Task Scheduler</h2>
+<p>Scheduler task:</p>
+<ul>
+<li>Program: <code>C:\PHP\8.3\php.exe</code></li>
+<li>Arguments: <code>artisan schedule:run</code></li>
+<li>Start in: <code>C:\inetpub\loratrack</code></li>
+<li>Repeat every minute.</li>
+</ul>
+<p>No Laravel Queue task or persistent queue service is required.</p>
+<h2 id="13-optional-microsoft-login">13. Optional Microsoft Login</h2>
+<pre><code class="language-dotenv">MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_TENANT_ID=
+MICROSOFT_REDIRECT_URI=https://loratrack.example.com/auth/microsoft/callback
+</code></pre>
+<p>Apply:</p>
+<pre><code class="language-powershell">php artisan config:cache
+iisreset
+</code></pre>
+<h2 id="14-post-deployment-verification">14. Post-Deployment Verification</h2>
+<pre><code class="language-powershell">Invoke-WebRequest https://loratrack.example.com/login -UseBasicParsing
+php artisan about
+php artisan schedule:run
+</code></pre>
+<p>Validate login, dashboard, <code>/operations/health</code>, floor plan access, connector creation, telemetry processing, and email delivery.</p>
+<h2 id="15-troubleshooting">15. Troubleshooting</h2>
+<ul>
+<li>Error 500: inspect <code>storage\logs\laravel.log</code> and Windows Event Viewer.</li>
+<li>Laravel routes return 404: verify URL Rewrite and <code>web.config</code>.</li>
+<li>Permission errors: reapply permissions on <code>storage</code> and <code>bootstrap\cache</code>.</li>
+<li><code>.env</code> changes do not apply: run <code>php artisan config:clear</code>, <code>php artisan config:cache</code>, and <code>iisreset</code>.</li>
+<li>Telemetry does not process: run <code>php artisan schedule:run -v</code> manually and inspect Task Scheduler history.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-operations-runbook-md"></a></p>
+<h1 id="operations-monitoring-and-runbooks">Operations, Monitoring, and Runbooks</h1>
+<h2 id="objective">Objective</h2>
+<p>Define the minimum tasks required to operate LoraTrack in an enterprise environment and diagnose common failures.</p>
+<h2 id="required-processes">Required Processes</h2>
+<h3 id="scheduler_1">Scheduler</h3>
+<p>Run every minute:</p>
+<pre><code class="language-bash">php artisan schedule:run
+</code></pre>
+<p>The scheduler is the only required background executor. It processes Meraki batches and observations, TTI/MQTT telemetry, and requested catalog synchronizations without Laravel Queue. TTI and MQTT commands process at most three pending events per execution.</p>
+<p>Scheduled tasks:</p>
+<ul>
+<li><code>loratrack:evaluate-alerts</code> every 10 minutes.</li>
+<li><code>loratrack:manage-telemetry-storage</code> hourly.</li>
+<li><code>loratrack:prune-meraki-history</code> hourly.</li>
+</ul>
+<h3 id="mqtt-listener">MQTT Listener</h3>
+<p>When MQTT connectors are configured:</p>
+<pre><code class="language-bash">php artisan loratrack:mqtt-listen
+</code></pre>
+<p>The listener must be supervised and restarted on failure.</p>
+<h2 id="operational-health-view">Operational Health View</h2>
+<p>Route:</p>
+<pre><code class="language-text">/operations/health
+</code></pre>
+<p>Review:</p>
+<ul>
+<li>stuck telemetry;</li>
+<li>connector errors;</li>
+<li>private storage state;</li>
+<li>anchors by floor plan;</li>
+<li>recent audit records.</li>
+</ul>
+<h2 id="logs">Logs</h2>
+<p>Laravel log:</p>
+<pre><code class="language-text">storage/logs/laravel.log
+</code></pre>
+<p>Scheduler cron output example:</p>
+<pre><code class="language-bash">php artisan schedule:run &gt;&gt; storage/logs/schedule.log 2&gt;&amp;1
+</code></pre>
+<p>Do not enable tracing that prints credentials.</p>
+<h2 id="runbook-telemetry-stays-pending">Runbook: Telemetry Stays Pending</h2>
+<ol>
+<li>Confirm scheduler execution:</li>
+</ol>
+<pre><code class="language-bash">php artisan schedule:run -v
+</code></pre>
+<ol start="2">
+<li>Review recent events:</li>
+</ol>
+<pre><code class="language-sql">select id, connector_id, device_id, processing_status, processing_error,
+       observed_at, received_at, processed_at
+from telemetry_events
+order by received_at desc
+limit 20;
+</code></pre>
+<ol start="3">
+<li>
+<p>Check database connection limits if <code>max_user_connections</code> appears.</p>
+</li>
+<li>
+<p>Confirm there is only one cron entry invoking the scheduler each minute.</p>
+</li>
+</ol>
+<h2 id="runbook-tti-arrives-but-asset-time-does-not-update">Runbook: TTI Arrives but Asset Time Does Not Update</h2>
+<ol>
+<li>Check recent event identity and timestamps.</li>
+<li>Check event processing status.</li>
+<li>Check active asset-device assignment.</li>
+<li>Check that the event has signal observations.</li>
+<li>Check whether a position estimate was generated.</li>
+</ol>
+<p>Useful SQL:</p>
+<pre><code class="language-sql">select id, device_id, observed_at, received_at, processing_status, processing_error
+from telemetry_events
+order by received_at desc
+limit 10;
+</code></pre>
+<h2 id="runbook-track-view-shows-fewer-points-than-expected">Runbook: Track View Shows Fewer Points Than Expected</h2>
+<p>The track view shows <code>position_estimates</code>, not raw <code>telemetry_events</code>.</p>
+<p>Review:</p>
+<pre><code class="language-sql">select id, asset_id, telemetry_event_id, floor_plan_id, calculated_at, x, y
+from position_estimates
+where asset_id = '{asset_id}'
+order by calculated_at desc;
+</code></pre>
+<p>If telemetry exists without a position, check:</p>
+<ul>
+<li>fewer than three valid MAC/RSSI observations;</li>
+<li>anchors not installed;</li>
+<li>inactive anchors;</li>
+<li>anchors on different floor plans;</li>
+<li>expired assignment;</li>
+<li>failed event;</li>
+<li>floor plan filter in the UI.</li>
+</ul>
+<h2 id="runbook-disabled-connector">Runbook: Disabled Connector</h2>
+<p>A disabled connector does not process telemetry. Queued events are marked <code>ignored</code> when taken by the job.</p>
+<p>To resume:</p>
+<ol>
+<li>Activate connector.</li>
+<li>Send a new payload or requeue events according to policy.</li>
+<li>Confirm <code>last_activity_at</code> and <code>last_success_at</code>.</li>
+</ol>
+<h2 id="runbook-database-connection-limit-exhausted">Runbook: Database Connection Limit Exhausted</h2>
+<p>Symptom:</p>
+<pre><code class="language-text">SQLSTATE[42000] [1226] User has exceeded the max_user_connections resource
+</code></pre>
+<p>Actions:</p>
+<ul>
+<li>remove duplicate scheduler cron entries;</li>
+<li>review cron overlap;</li>
+<li>review persistent connections;</li>
+<li>increase database limits if load justifies it.</li>
+</ul>
+<h2 id="monthly-maintenance-checklist">Monthly Maintenance Checklist</h2>
+<ul>
+<li>review users and roles;</li>
+<li>review active connectors and tokens;</li>
+<li>test backup restoration;</li>
+<li>review <code>telemetry_events</code> growth;</li>
+<li>review failed scheduled commands and pending ingestion records;</li>
+<li>validate SMTP alerts;</li>
+<li>review recurring log errors;</li>
+<li>review applicable vendor security advisories and the approved dependency assessment report;</li>
+<li>update change documentation.</li>
+</ul>
+<h2 id="escalation-data">Escalation Data</h2>
+<p>For level 2/3 support collect:</p>
+<ul>
+<li>exact timestamp;</li>
+<li>organization;</li>
+<li>connector;</li>
+<li>device identifier;</li>
+<li>telemetry event ID;</li>
+<li>asset ID;</li>
+<li>position estimate ID when present;</li>
+<li>sanitized log excerpt;</li>
+<li>deployed release version;</li>
+<li>recent configuration changes.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-field-commissioning-md"></a></p>
+<h1 id="field-commissioning-guide">Field Commissioning Guide</h1>
+<h2 id="objective_1">Objective</h2>
+<p>Define a baseline procedure for installing, validating, and calibrating LoraTrack in an industrial facility.</p>
+<h2 id="suggested-roles">Suggested Roles</h2>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project lead</td>
+<td>Scope, work windows, and acceptance.</td>
+</tr>
+<tr>
+<td>OT/IT engineering</td>
+<td>Network, access, servers, security, and integrations.</td>
+</tr>
+<tr>
+<td>RF/IoT specialist</td>
+<td>Devices, beacons, trackers, and gateways.</td>
+</tr>
+<tr>
+<td>LoraTrack administrator</td>
+<td>Organizations, users, connectors, and configuration.</td>
+</tr>
+<tr>
+<td>Customer operations</td>
+<td>Use case validation and acceptance criteria.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>Current floor plan.</li>
+<li>Real dimensions in meters.</li>
+<li>Asset inventory.</li>
+<li>Device inventory.</li>
+<li>TTI, MQTT, or Meraki connectivity as required.</li>
+<li>LoraTrack environment access.</li>
+<li>Approved credentials and tokens.</li>
+<li>Authorized installation window.</li>
+<li>Defined success criteria.</li>
+</ul>
+<h2 id="step-1-environment">Step 1: Environment</h2>
+<ol>
+<li>Confirm the deployed release version.</li>
+<li>Confirm <code>APP_DEBUG=false</code>.</li>
+<li>Confirm scheduler operation every minute.</li>
+<li>Confirm scheduled telemetry processing.</li>
+<li>Confirm SMTP if alerts are used.</li>
+<li>Confirm backups.</li>
+<li>Confirm basic monitoring.</li>
+</ol>
+<h2 id="step-2-organization-and-users">Step 2: Organization and Users</h2>
+<ol>
+<li>Create organization.</li>
+<li>Create administrator.</li>
+<li>Configure branding if required.</li>
+<li>Invite users.</li>
+<li>Assign roles by responsibility.</li>
+<li>Validate access with a non-admin user.</li>
+</ol>
+<h2 id="step-3-floor-plans">Step 3: Floor Plans</h2>
+<ol>
+<li>Create location.</li>
+<li>Upload raster plan or preview image.</li>
+<li>Register real width and height in meters.</li>
+<li>Verify orientation.</li>
+<li>Draw operational zones.</li>
+<li>Store evidence of dimensions used.</li>
+</ol>
+<h2 id="step-4-fixed-devices">Step 4: Fixed Devices</h2>
+<ol>
+<li>Register beacons or scanners.</li>
+<li>Install physically.</li>
+<li>Register coordinates on the floor plan.</li>
+<li>Confirm correct type: <code>beacon</code> or <code>scanner</code>.</li>
+<li>Confirm status <code>active</code>.</li>
+<li>Register initial RSSI parameters:
+   - reference RSSI;
+   - path loss exponent.</li>
+</ol>
+<h2 id="step-5-connectors">Step 5: Connectors</h2>
+<h3 id="tti">TTI</h3>
+<ol>
+<li>Create TTI connector.</li>
+<li>Generate a long token.</li>
+<li>Activate connector.</li>
+<li>Configure webhook in TTI.</li>
+<li>Send a test payload.</li>
+<li>Confirm event is <code>processed</code>.</li>
+<li>Confirm observations in <code>signal_observations</code>.</li>
+</ol>
+<h3 id="mqtt">MQTT</h3>
+<ol>
+<li>Create MQTT connector.</li>
+<li>Validate host, port, TLS, and credentials.</li>
+<li>Run listener.</li>
+<li>Confirm message reception.</li>
+</ol>
+<h3 id="catalog">Catalog</h3>
+<ol>
+<li>Create connector.</li>
+<li>Test connection.</li>
+<li>Run synchronization.</li>
+<li>Validate imported products and SKUs.</li>
+</ol>
+<h2 id="step-6-assets-and-assignments">Step 6: Assets and Assignments</h2>
+<ol>
+<li>Create or import assets.</li>
+<li>Register trackers or mobile beacons.</li>
+<li>Assign device to asset.</li>
+<li>Select strategy:
+   - <code>fixed_beacons_mobile_tracker</code>;
+   - <code>mobile_beacon_fixed_scanners</code>.</li>
+<li>Validate start date.</li>
+<li>Avoid duplicate active assignments.</li>
+</ol>
+<h2 id="step-7-position-validation">Step 7: Position Validation</h2>
+<ol>
+<li>Place asset at a known point.</li>
+<li>Wait for or force an uplink.</li>
+<li>Confirm <code>telemetry_events</code>.</li>
+<li>Confirm at least three valid observations.</li>
+<li>Confirm <code>position_estimates</code>.</li>
+<li>Compare calculated position with real point.</li>
+<li>Record observed error.</li>
+<li>Repeat in multiple points.</li>
+</ol>
+<h2 id="step-8-calibration">Step 8: Calibration</h2>
+<p>Use the floor plan calibration workbench:</p>
+<ol>
+<li>Select strategy.</li>
+<li>Enter real X/Y point.</li>
+<li>Enter median RSSI per anchor.</li>
+<li>Review RMSE and residuals.</li>
+<li>Adjust reference RSSI and path loss exponent.</li>
+<li>Apply only if the estimate improves.</li>
+<li>Keep calibration history.</li>
+</ol>
+<h2 id="step-9-acceptance-criteria">Step 9: Acceptance Criteria</h2>
+<p>Examples:</p>
+<ul>
+<li>telemetry processed under N seconds;</li>
+<li>percentage of uplinks with valid position;</li>
+<li>median error below N meters in pilot zone;</li>
+<li>map updates within expected interval;</li>
+<li>track view shows expected history;</li>
+<li>SMTP alerts reach recipients;</li>
+<li>dashboards load within target time;</li>
+<li>users only see their organization.</li>
+</ul>
+<h2 id="step-10-operational-handover">Step 10: Operational Handover</h2>
+<p>Deliver:</p>
+<ul>
+<li>customer-managed credentials;</li>
+<li>connector list;</li>
+<li>token rotation owners;</li>
+<li>device inventory;</li>
+<li>location and floor plan map;</li>
+<li>calibration parameters;</li>
+<li>runbooks;</li>
+<li>support procedure;</li>
+<li>accepted risks.</li>
+</ul>
+<h2 id="commissioning-evidence">Commissioning Evidence</h2>
+<p>Store:</p>
+<ul>
+<li>date and time;</li>
+<li>release version;</li>
+<li>participants;</li>
+<li>floor plan used;</li>
+<li>test points;</li>
+<li>position results;</li>
+<li>detected errors;</li>
+<li>corrective actions;</li>
+<li>counterpart approval or sign-off.</li>
+</ul>
+</body>
+</html>

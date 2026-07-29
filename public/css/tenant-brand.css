@@ -28,6 +28,59 @@
     color: var(--color-brand-on-secondary);
 }
 
+.sidebar-brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.sidebar-menu-toggle {
+    display: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--color-brand-on-secondary) 28%, transparent);
+    border-radius: .5rem;
+    color: var(--color-brand-on-secondary);
+}
+
+.sidebar-menu-toggle:hover {
+    background: color-mix(in srgb, var(--color-brand-primary) 24%, transparent);
+}
+
+.sidebar-menu-toggle:focus-visible {
+    outline: 2px solid var(--color-brand-accent);
+    outline-offset: 2px;
+}
+
+.sidebar-menu-icon,
+.sidebar-menu-icon::before,
+.sidebar-menu-icon::after {
+    display: block;
+    width: 1.25rem;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    transition: transform .15s ease, opacity .15s ease;
+}
+
+.sidebar-menu-icon { position: relative; }
+
+.sidebar-menu-icon::before,
+.sidebar-menu-icon::after {
+    position: absolute;
+    content: "";
+}
+
+.sidebar-menu-icon::before { transform: translateY(-.4rem); }
+.sidebar-menu-icon::after { transform: translateY(.4rem); }
+.sidebar-menu-toggle[aria-expanded="true"] .sidebar-menu-icon { background: transparent; }
+.sidebar-menu-toggle[aria-expanded="true"] .sidebar-menu-icon::before { transform: rotate(45deg); }
+.sidebar-menu-toggle[aria-expanded="true"] .sidebar-menu-icon::after { transform: rotate(-45deg); }
+
 .brand-sidebar .nav-section-label {
     color: color-mix(in srgb, var(--color-brand-on-secondary) 68%, var(--color-brand-accent));
 }
@@ -327,6 +380,33 @@ a.text-brand-primary:hover {
 
     .brand-sidebar .nav-link-active {
         box-shadow: inset 3px 0 0 var(--color-brand-accent);
+    }
+}
+
+@media (max-width: 63.999rem) {
+    .brand-sidebar {
+        position: relative;
+        z-index: 40;
+    }
+
+    .brand-sidebar.nav-enhanced .sidebar-menu-toggle {
+        display: inline-flex;
+    }
+
+    .brand-sidebar.nav-enhanced .sidebar-collapsible {
+        display: none;
+        max-height: calc(100dvh - 5.75rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-bottom: 1rem;
+    }
+
+    .brand-sidebar.nav-enhanced.is-nav-open .sidebar-collapsible {
+        display: block;
+    }
+
+    .brand-sidebar .sidebar-nav {
+        margin-top: 1.25rem !important;
     }
 }
 

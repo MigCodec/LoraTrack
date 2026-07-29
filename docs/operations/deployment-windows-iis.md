@@ -2,15 +2,13 @@
 
 ## Scope
 
-Tutorial for deploying LoraTrack on Windows Server with IIS, PHP FastCGI, Composer, Microsoft SQL Server, and Task Scheduler.
+Tutorial for deploying LoraTrack on Windows Server with IIS, PHP FastCGI, MySQL or MariaDB, and Task Scheduler.
 
-Project versions:
+Production baseline:
 
-- Laravel Framework 12.62.0.
-- Required PHP: 8.2+.
-- Recommended database: Microsoft SQL Server 2022 Standard with latest approved CU, or SQL Server 2025 Standard after ISO/CIS staging validation.
-- Microsoft OAuth: `laravel/socialite` 5.28.0 and `socialiteproviders/microsoft` 4.9.0.
-- MQTT client: `php-mqtt/client` 2.3.0.
+- PHP 8.2 or later.
+- MySQL 8.0 or later, or MariaDB 10.6 or later.
+- TLS for public access and database transport.
 
 ## 1. Required Components
 
@@ -21,11 +19,10 @@ Install:
 - PHP 8.2+ Non Thread Safe x64.
 - Visual C++ Redistributable required by PHP.
 - Composer 2.x for Windows.
-- Microsoft SQL Server 2022/2025.
-- Microsoft ODBC Driver for SQL Server.
-- Microsoft Drivers for PHP for SQL Server: `pdo_sqlsrv` and `sqlsrv`.
+- Customer-managed MySQL 8.0+ or MariaDB 10.6+ service.
+- Trusted CA certificate for database TLS.
 - IIS URL Rewrite Module.
-- Git for Windows or an approved deployment mechanism.
+- An approved mechanism for transferring the authorized application release.
 
 ## 2. Enable IIS and CGI
 
@@ -55,8 +52,7 @@ extension=fileinfo
 extension=gd
 extension=mbstring
 extension=openssl
-extension=pdo_sqlsrv
-extension=sqlsrv
+extension=pdo_mysql
 extension=zip
 
 cgi.force_redirect=0
@@ -88,30 +84,18 @@ Add a handler mapping:
 - Executable: `C:\PHP\8.3\php-cgi.exe`
 - Name: `PHP via FastCGI`
 
-## 5. SQL Server Setup
+## 5. MySQL or MariaDB Setup
 
-Recommendation:
-
-- Conservative production: SQL Server 2022 Standard, latest approved CU.
-- Controlled new adoption: SQL Server 2025 Standard, validated in staging.
-- Development: SQL Server Developer.
-- Lab: SQL Server Express only if limits are accepted.
+Provision a supported database service with TLS required. Restrict network access to the application server and use a dedicated least-privilege account.
 
 Create database and login:
 
 ```sql
-create database loratrack;
-go
-create login loratrack_app with password = 'CHANGE_ME_LONG_SECRET';
-go
-use loratrack;
-go
-create user loratrack_app for login loratrack_app;
-go
-alter role db_datareader add member loratrack_app;
-alter role db_datawriter add member loratrack_app;
-alter role db_ddladmin add member loratrack_app;
-go
+CREATE DATABASE loratrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'loratrack_app'@'APPLICATION_HOST' IDENTIFIED BY 'CHANGE_ME_LONG_SECRET';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+    ON loratrack.* TO 'loratrack_app'@'APPLICATION_HOST';
+FLUSH PRIVILEGES;
 ```
 
 Validate:
@@ -145,14 +129,15 @@ APP_DEBUG=false
 APP_URL=https://loratrack.example.com
 APP_TIMEZONE=America/Santiago
 
-DB_CONNECTION=sqlsrv
-DB_HOST=127.0.0.1
-DB_PORT=1433
+DB_CONNECTION=mysql
+DB_HOST=mysql.example.com
+DB_PORT=3306
 DB_DATABASE=loratrack
 DB_USERNAME=loratrack_app
 DB_PASSWORD=CHANGE_ME_LONG_SECRET
 
-QUEUE_CONNECTION=database
+MYSQL_ATTR_SSL_CA=C:\ProgramData\LoraTrack\certificates\mysql-ca.pem
+MYSQL_ATTR_MAX_BUFFER_SIZE=6291456
 CACHE_STORE=database
 SESSION_DRIVER=database
 ```
@@ -250,13 +235,7 @@ Scheduler task:
 - Start in: `C:\inetpub\loratrack`
 - Repeat every minute.
 
-Queue task command:
-
-```text
-artisan queue:work --stop-when-empty --sleep=1 --tries=3 --timeout=120 --max-time=55
-```
-
-For production, prefer a Windows service wrapper such as WinSW, NSSM, or an approved service manager for persistent workers.
+No Laravel Queue task or persistent queue service is required.
 
 ## 13. Optional Microsoft Login
 
@@ -279,7 +258,6 @@ iisreset
 ```powershell
 Invoke-WebRequest https://loratrack.example.com/login -UseBasicParsing
 php artisan about
-php artisan queue:work --stop-when-empty -v
 php artisan schedule:run
 ```
 
@@ -291,4 +269,4 @@ Validate login, dashboard, `/operations/health`, floor plan access, connector cr
 - Laravel routes return 404: verify URL Rewrite and `web.config`.
 - Permission errors: reapply permissions on `storage` and `bootstrap\cache`.
 - `.env` changes do not apply: run `php artisan config:clear`, `php artisan config:cache`, and `iisreset`.
-- Queue does not process: run `php artisan queue:work --stop-when-empty -v` manually and inspect Task Scheduler history.
+- Telemetry does not process: run `php artisan schedule:run -v` manually and inspect Task Scheduler history.

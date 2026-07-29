@@ -1,0 +1,1403 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="generator" content="tools/build_docs_pdf.py">
+  <meta name="doc-version" content="1.5">
+  <title>LoraTrack - Customer Technical and User Guide</title>
+  <style>
+@page {
+  size: A4;
+  margin: 18mm 16mm 18mm 16mm;
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #64748b; }
+  @bottom-left { content: "LoraTrack - Technical Documentation"; font-size: 8pt; color: #64748b; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: #172033;
+  font-family: "Segoe UI", "Inter", "Arial", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+}
+h1, h2, h3, h4 { color: #0f2f4a; line-height: 1.2; page-break-after: avoid; }
+h1 { font-size: 24pt; border-bottom: 2px solid #1f6f8b; padding-bottom: 6pt; margin-top: 0; }
+h2 { font-size: 17pt; margin-top: 22pt; }
+h3 { font-size: 13pt; margin-top: 16pt; }
+h4 { font-size: 11pt; }
+a { color: #0b6684; text-decoration: none; }
+code {
+  color: #1e293b;
+  background: #eef4f7;
+  border: 1px solid #d9e5ea;
+  border-radius: 3px;
+  padding: 1px 3px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 9pt;
+}
+pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 10pt;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  page-break-inside: avoid;
+}
+pre code { color: inherit; background: transparent; border: 0; padding: 0; }
+table { width: 100%; border-collapse: collapse; margin: 10pt 0 14pt; page-break-inside: avoid; }
+th {
+  background: #e6f0f4;
+  color: #0f2f4a;
+  text-align: left;
+  font-weight: 700;
+}
+th, td { border: 1px solid #cbd8df; padding: 6pt; vertical-align: top; }
+blockquote {
+  margin: 12pt 0;
+  padding: 8pt 10pt;
+  border-left: 4px solid #1f6f8b;
+  background: #f3f8fa;
+}
+ul, ol { padding-left: 18pt; }
+li { margin: 2pt 0; }
+.cover {
+  min-height: 240mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-left: 8pt solid #1f6f8b;
+  padding-left: 22pt;
+}
+.cover h1 {
+  font-size: 42pt;
+  border: 0;
+  margin-bottom: 4pt;
+}
+.cover h2 {
+  font-size: 18pt;
+  color: #375569;
+  margin-top: 0;
+}
+.doc-source {
+  color: #64748b;
+  font-size: 8.5pt;
+  margin: 0 0 10pt;
+}
+.page-break { page-break-before: always; break-before: page; }
+</style>
+</head>
+<body>
+<section class="cover">
+<h1>LoraTrack</h1>
+<h2>Customer Technical and User Guide</h2>
+<p><strong>Document version:</strong> 1.5</p>
+<p><strong>Classification:</strong> Public product documentation</p>
+</section>
+
+<div class="page-break"></div>
+
+<h1 id="document-control">Document Control</h1>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Product</td>
+<td>LoraTrack</td>
+</tr>
+<tr>
+<td>Document type</td>
+<td>Customer Technical and User Guide</td>
+</tr>
+<tr>
+<td>Document version</td>
+<td>1.5</td>
+</tr>
+<tr>
+<td>Audience</td>
+<td>Users, administrators, engineering, operations, and security teams</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>This documentation describes product capabilities and procedures. References to practices or standards do not constitute certification, independent assurance, or formal customer acceptance.</p>
+</blockquote>
+<h1 id="document-index">Document Index</h1>
+<ul>
+<li><a href="#docs-engineering-executive-technical-summary-md">Executive Product and Technical Summary</a></li>
+<li><a href="#docs-architecture-system-architecture-md">System Architecture</a></li>
+<li><a href="#docs-user-guide-md">LoraTrack User Guide</a></li>
+<li><a href="#docs-engineering-integrations-md">External Integrations and Contracts</a></li>
+<li><a href="#docs-engineering-api-contracts-md">Internal and External API Contracts</a></li>
+<li><a href="#docs-engineering-security-and-identity-md">Security, Identity, and Tenant Isolation</a></li>
+<li><a href="#docs-operations-operations-runbook-md">Operations, Monitoring, and Runbooks</a></li>
+<li><a href="#docs-operations-field-commissioning-md">Field Commissioning Guide</a></li>
+<li><a href="#docs-integrations-tti-md">TTI Integration</a></li>
+<li><a href="#docs-integrations-sap-md">SAP S/4HANA Integration</a></li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-engineering-executive-technical-summary-md"></a></p>
+<h1 id="executive-product-and-technical-summary">Executive Product and Technical Summary</h1>
+<h2 id="executive-purpose">Executive Purpose</h2>
+<p>LoraTrack provides a governed inventory and location platform for physical assets in industrial indoor and outdoor environments. It combines product catalogs, asset identity, device assignments, IoT telemetry, floor plans, location estimates, alerts, and operational history in a single multi-organization application.</p>
+<p>The platform is intended to improve asset visibility, reduce manual location searches, preserve chain-of-custody evidence, and provide a consistent operational record across catalog, telemetry, and location workflows.</p>
+<h2 id="business-outcomes">Business Outcomes</h2>
+<p>LoraTrack is designed to support the following outcomes:</p>
+<ul>
+<li>a consolidated register of products, physical assets, and tracking devices;</li>
+<li>reduced time spent locating assets and investigating missing equipment;</li>
+<li>traceable device-to-asset assignments with historical validity;</li>
+<li>earlier identification of offline assets, low-confidence locations, and zone events;</li>
+<li>reusable integration with enterprise catalogs and IoT providers;</li>
+<li>organization-level isolation for shared-platform operation;</li>
+<li>auditable operational changes and reproducible location evidence.</li>
+</ul>
+<p>Realized benefits depend on device coverage, floor-plan quality, calibration, integration availability, user adoption, and agreed operating procedures.</p>
+<h2 id="product-scope">Product Scope</h2>
+<h3 id="included">Included</h3>
+<ul>
+<li>Product and SKU catalog management and synchronization.</li>
+<li>Physical asset registration and time-bound device assignment.</li>
+<li>Device inventory for BLE beacons, scanners, gateways, LoRaWAN trackers, and Meraki access points.</li>
+<li>Sites, buildings, floors, zones, floor plans, and installed anchors.</li>
+<li>Telemetry ingestion from TTI, generic MQTT, and Cisco Meraki Location API.</li>
+<li>Payload normalization, deterministic deduplication, signal observations, and position estimates.</li>
+<li>Operational maps, asset history, alerts, health monitoring, and audit records.</li>
+<li>Role-based access and organization isolation.</li>
+</ul>
+<h3 id="excluded-or-externally-managed">Excluded or Externally Managed</h3>
+<ul>
+<li>LoRaWAN network-server and radio-network operation, which remain with TTI.</li>
+<li>Guaranteed physical accuracy without site calibration and adequate anchor geometry.</li>
+<li>Certified metrology, personnel safety, emergency response, or life-safety positioning.</li>
+<li>Customer governance controls such as service ownership, business continuity approval, and formal certification.</li>
+</ul>
+<h2 id="current-delivery-status">Current Delivery Status</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Current state</th>
+<th>Executive interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core inventory and assets</td>
+<td>Implemented</td>
+<td>Available for controlled operational use after environment validation.</td>
+</tr>
+<tr>
+<td>Organization isolation and roles</td>
+<td>Implemented and covered by automated tests</td>
+<td>Requires customer access reviews and role ownership.</td>
+</tr>
+<tr>
+<td>TTI, MQTT, and Meraki telemetry</td>
+<td>Implemented</td>
+<td>Requires provider configuration, credentials, monitoring, and capacity validation.</td>
+</tr>
+<tr>
+<td>Catalog integrations</td>
+<td>SAP, Business Central, Shopify, Odoo, and CSV adapters implemented</td>
+<td>Provider permissions and supported API versions must be validated per deployment.</td>
+</tr>
+<tr>
+<td>Positioning</td>
+<td>RSSI-based estimation, calibration, confidence, and history implemented</td>
+<td>Accuracy remains environment-dependent and must be field-validated.</td>
+</tr>
+<tr>
+<td>Deployment and operations</td>
+<td>Documented for Linux and Windows</td>
+<td>Production readiness depends on backup, recovery, monitoring, TLS, and operational ownership.</td>
+</tr>
+<tr>
+<td>Formal certification</td>
+<td>Not claimed</td>
+<td>Certification requires independently verified organizational and technical evidence.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="architecture-and-operating-model">Architecture and Operating Model</h2>
+<p>LoraTrack is delivered as a modular Laravel 12 monolith. This provides one controlled application deployment while preserving logical boundaries among catalog, assets, devices, locations, connectors, telemetry, positioning, dashboard, and identity capabilities.</p>
+<p>The production operating model requires:</p>
+<ul>
+<li>PHP 8.2 or later and a supported MySQL, MariaDB, or SQL Server deployment baseline;</li>
+<li>HTTPS and protected application secrets;</li>
+<li>the Laravel scheduler invoked every minute;</li>
+<li>an MQTT listener only when MQTT connectors are enabled;</li>
+<li>database backup, tested restoration, monitoring, and incident procedures;</li>
+<li>named owners for application, infrastructure, integrations, security, and data.</li>
+</ul>
+<p>Deferred telemetry and catalog processing is performed by scheduled Laravel commands. A persistent Laravel Queue worker is not required.</p>
+<h2 id="security-and-governance-controls">Security and Governance Controls</h2>
+<ul>
+<li>Business data is scoped by <code>organization_id</code> and active membership.</li>
+<li>Effective roles belong to organization memberships.</li>
+<li>Connector credentials are encrypted at rest and excluded from responses and logs.</li>
+<li>External events are authenticated, persisted, deduplicated, and processed idempotently.</li>
+<li>Floor plans and organization branding files use private storage.</li>
+<li>Server-side authorization protects every supported operation.</li>
+<li>Web mutations produce audit records and correlation identifiers.</li>
+<li>Connector errors are sanitized before presentation.</li>
+<li>Public documentation does not claim certification or independent assurance.</li>
+</ul>
+<p>These application controls must be complemented by infrastructure hardening, access reviews, supplier management, incident response, backup governance, continuity planning, training, and evidence retention.</p>
+<h2 id="executive-risks-and-treatments">Executive Risks and Treatments</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Business impact</th>
+<th>Required treatment</th>
+<th>Accountable role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inadequate anchor coverage or calibration</td>
+<td>Incorrect or unavailable asset positions</td>
+<td>Conduct site survey, calibration, acceptance testing, and periodic revalidation.</td>
+<td>Operations and engineering owner</td>
+</tr>
+<tr>
+<td>Scheduler, connector, or provider interruption</td>
+<td>Delayed telemetry and stale dashboard information</td>
+<td>Monitor backlog and last activity; define alerting and recovery procedures.</td>
+<td>Platform operations owner</td>
+</tr>
+<tr>
+<td>Uncontrolled retention growth</td>
+<td>Increased storage cost and degraded performance</td>
+<td>Approve retention periods, capacity thresholds, archival, and deletion rules.</td>
+<td>Data and service owner</td>
+</tr>
+<tr>
+<td>Credential exposure or excessive access</td>
+<td>Unauthorized data or integration access</td>
+<td>Apply least privilege, rotation, access reviews, and protected secret storage.</td>
+<td>Security and application owner</td>
+</tr>
+<tr>
+<td>Untested backup or recovery</td>
+<td>Extended outage or permanent data loss</td>
+<td>Define RPO/RTO, automate backups, and test restoration on a schedule.</td>
+<td>Infrastructure and continuity owner</td>
+</tr>
+<tr>
+<td>Provider or API change</td>
+<td>Integration failure or incomplete catalog/telemetry data</td>
+<td>Pin supported contracts, monitor provider changes, and maintain contract tests.</td>
+<td>Integration owner</td>
+</tr>
+<tr>
+<td>Misrepresentation of positioning accuracy</td>
+<td>Unsafe or incorrect operational decisions</td>
+<td>Publish confidence and limitations; prohibit life-safety or certified-metrology claims.</td>
+<td>Product and operational owner</td>
+</tr>
+</tbody>
+</table>
+<h2 id="executive-metrics">Executive Metrics</h2>
+<p>Production approval should define targets and reporting ownership for at least:</p>
+<ul>
+<li>service availability and scheduled-processing success rate;</li>
+<li>webhook response latency and rejected-request rate;</li>
+<li>pending, failed, and oldest telemetry-event age;</li>
+<li>connector last-success time and synchronization failure rate;</li>
+<li>asset and device coverage, assignment completeness, and stale-device rate;</li>
+<li>percentage of estimates meeting the agreed confidence and accuracy threshold;</li>
+<li>alert delivery success and incident acknowledgment time;</li>
+<li>backup success, restoration-test result, achieved RPO, and achieved RTO;</li>
+<li>active-user adoption and completion of required operational workflows.</li>
+</ul>
+<p>Numeric targets must be approved for each customer environment after baseline and field testing; this document does not invent universal SLA or accuracy commitments.</p>
+<h2 id="decisions-required-before-production-approval">Decisions Required Before Production Approval</h2>
+<p>Executive sponsors and service owners must approve:</p>
+<ol>
+<li>Business scope, participating organizations, and accountable service owner.</li>
+<li>Hosting model, support model, operating hours, and escalation path.</li>
+<li>Target availability, response times, RPO, RTO, and retention periods.</li>
+<li>Accepted positioning use cases, field accuracy criteria, and prohibited uses.</li>
+<li>Integration ownership, provider credentials, API permissions, and supplier dependencies.</li>
+<li>Role model, access-review frequency, and administrative segregation.</li>
+<li>Monitoring, incident response, backup, restoration, and continuity evidence.</li>
+<li>Pilot acceptance criteria, rollout stages, training, and change-management plan.</li>
+<li>Budget and staffing for infrastructure, field commissioning, support, and lifecycle maintenance.</li>
+</ol>
+<h2 id="recommended-adoption-stages">Recommended Adoption Stages</h2>
+<ol>
+<li><strong>Technical validation:</strong> verify deployment, security baseline, integrations, scheduler, backup, and restoration.</li>
+<li><strong>Controlled pilot:</strong> commission one representative site, calibrate anchors, establish baseline metrics, and obtain user feedback.</li>
+<li><strong>Operational acceptance:</strong> approve accuracy, monitoring, procedures, support, training, and risk treatment.</li>
+<li><strong>Phased rollout:</strong> expand by site or business unit with explicit acceptance checkpoints.</li>
+<li><strong>Service operation:</strong> review KPIs, incidents, access, capacity, provider changes, and continuity evidence periodically.</li>
+</ol>
+<h2 id="document-governance">Document Governance</h2>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Document owner</td>
+<td>LoraTrack Product Engineering</td>
+</tr>
+<tr>
+<td>Business approver</td>
+<td>Designated customer executive sponsor or service owner</td>
+</tr>
+<tr>
+<td>Operational approver</td>
+<td>Designated platform operations owner</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Public product documentation; approval evidence remains deployment-specific</td>
+</tr>
+<tr>
+<td>Review cycle</td>
+<td>At each published product-documentation change and at least annually</td>
+</tr>
+<tr>
+<td>Version control</td>
+<td>The public document version is maintained in <code>docs/VERSION</code> and incremented whenever published content changes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="executive-conclusion">Executive Conclusion</h2>
+<p>LoraTrack provides a coherent technical foundation for governed asset inventory and location workflows. Production suitability cannot be determined from application controls alone. Approval requires deployment-specific evidence, field accuracy validation, service ownership, measurable targets, accepted residual risk, and demonstrated backup and recovery capability.</p>
+<div class="page-break"></div>
+
+<p><a id="docs-architecture-system-architecture-md"></a></p>
+<h1 id="system-architecture">System Architecture</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This UML component diagram presents the complete logical architecture visible to a customer planning, integrating, securing, and operating LoraTrack. It shows responsibilities and information flows without exposing source-code structure or development tooling.</p>
+<p>LoraTrack is a modular monolith: all modules shown inside the system boundary form one deployable application. The internal boundaries separate responsibilities and provider contracts; they do not represent independently deployed microservices.</p>
+<p><img alt="LoraTrack UML component diagram" src="architecture/diagrams/system-component-diagram.svg"></p>
+<h2 id="architectural-responsibilities">Architectural Responsibilities</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>User access</td>
+<td>Provides authenticated browser access for business users and organization administrators.</td>
+</tr>
+<tr>
+<td>Identity and access</td>
+<td>Authenticates local or Microsoft identities and enforces organization membership and role authorization.</td>
+</tr>
+<tr>
+<td>Asset operations</td>
+<td>Manages products, physical assets, tracking devices, assignments, locations, maps, and zones.</td>
+</tr>
+<tr>
+<td>Integration management</td>
+<td>Configures and supervises telemetry and catalog connectors without exposing stored credentials.</td>
+</tr>
+<tr>
+<td>Telemetry intake</td>
+<td>Validates and durably accepts provider events before deferred processing.</td>
+</tr>
+<tr>
+<td>Scheduled processing</td>
+<td>Normalizes, deduplicates, creates observations, calculates positions, evaluates alerts, synchronizes catalogs, and applies retention policies.</td>
+</tr>
+<tr>
+<td>Operational reporting</td>
+<td>Presents current state, history, maps, alerts, and connector health from normalized application data.</td>
+</tr>
+<tr>
+<td>Persistence</td>
+<td>Stores tenant-isolated operational records, private files, audit evidence, and durable ingestion buffers.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="integration-boundaries">Integration Boundaries</h2>
+<ul>
+<li>Users communicate with LoraTrack exclusively through HTTPS.</li>
+<li>Telemetry providers send authenticated HTTPS webhooks, or use an explicitly configured outbound MQTT connection.</li>
+<li>Catalog providers are accessed through authenticated HTTPS APIs.</li>
+<li>Microsoft Entra ID is optional and used only when Microsoft sign-in is enabled.</li>
+<li>SMTP is optional and supports invitations and notifications.</li>
+<li>External provider formats are translated at the integration boundary before entering operational records.</li>
+</ul>
+<p>The editable UML source is provided in <a href="architecture/diagrams/system-component-diagram.puml"><code>system-component-diagram.puml</code></a>.</p>
+<h2 id="engineering-assumptions">Engineering Assumptions</h2>
+<ul>
+<li>The diagram is a logical component view of one modular-monolith deployment and does not prescribe separate servers or processes for each component.</li>
+<li>Provider payloads terminate at integration boundaries and are normalized before use by operational components.</li>
+<li>The durable ingestion inbox and operational repositories share the approved relational database unless a future architecture decision explicitly changes that boundary.</li>
+<li>Tenant authorization applies to every application service and persistence operation, even where repeated authorization dependencies are omitted for readability.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-user-guide-md"></a></p>
+<h1 id="loratrack-user-guide">LoraTrack User Guide</h1>
+<h2 id="purpose-and-audience">Purpose and Audience</h2>
+<p>This guide describes the functional use of LoraTrack for administrators, supervisors, operators, engineering personnel, and read-only users. Available options depend on the user role and active organization.</p>
+<h2 id="access-and-sessions">Access and Sessions</h2>
+<ol>
+<li>Open the HTTPS URL provided by the administrator.</li>
+<li>Enter the email address and password associated with your account, or use Microsoft sign-in when enabled by the organization.</li>
+<li>When credentials are invalid, the application displays a generic message and does not disclose whether the email address is registered.</li>
+<li>Sign out when work is complete, particularly on shared workstations.</li>
+</ol>
+<p>Access is always restricted to the active organization. Users who belong to multiple organizations must verify the selected context before viewing or modifying information.</p>
+<h2 id="primary-navigation">Primary Navigation</h2>
+<ul>
+<li><strong>Dashboard:</strong> operational status, recent activity, locations, and alerts.</li>
+<li><strong>Products:</strong> commercial definitions and references received from external catalogs.</li>
+<li><strong>Assets:</strong> trackable physical instances, status, mobility, and assigned devices.</li>
+<li><strong>Devices:</strong> registered beacons, scanners, gateways, and trackers.</li>
+<li><strong>Locations:</strong> sites, buildings, floors, zones, floor plans, and known installations.</li>
+<li><strong>Connectors:</strong> telemetry and catalog integrations, subject to authorization.</li>
+<li><strong>Users and settings:</strong> memberships, roles, visual identity, and administration.</li>
+</ul>
+<h2 id="products-and-assets">Products and Assets</h2>
+<p>A product is a catalog definition; an asset is an individual physical unit. A SKU must not be used as the unique identifier of an asset.</p>
+<p>When creating or editing an asset:</p>
+<ol>
+<li>Select the applicable product.</li>
+<li>Enter a unique asset tag and a recognizable name.</li>
+<li>Define its mobility behavior.</li>
+<li>Assign a compatible device and tracking strategy.</li>
+<li>Verify the assignment start date.</li>
+</ol>
+<p>Assignments are historical records. To replace a device, close the current assignment and create a new one without altering prior records.</p>
+<h2 id="devices-and-locations">Devices and Locations</h2>
+<p>Devices must be registered with their actual technical identifier. Fixed scanners and beacons require an active installation associated with a location or floor plan. Before relying on a position:</p>
+<ul>
+<li>confirm that the device is active;</li>
+<li>confirm that its installation belongs to the correct floor;</li>
+<li>verify the floor plan scale and physical dimensions;</li>
+<li>validate calibration, reference RSSI, and path-loss exponent where applicable.</li>
+</ul>
+<h2 id="floor-plans-and-zones">Floor Plans and Zones</h2>
+<p>Floor plans are stored privately. To configure a floor plan:</p>
+<ol>
+<li>Upload the supported source file and preview.</li>
+<li>Specify its physical dimensions in meters.</li>
+<li>Draw zones using normalized coordinates.</li>
+<li>Place fixed installations in the same coordinate system.</li>
+<li>Visually verify alignment, scale, and zone membership.</li>
+</ol>
+<p>Do not mix geographic coordinates with local floor coordinates.</p>
+<h2 id="connectors">Connectors</h2>
+<p>Connectors are separated into telemetry and catalog integrations. The recommended administrative workflow is:</p>
+<ol>
+<li>Create an instance and select its provider.</li>
+<li>Complete server-side configuration and credentials.</li>
+<li>Test the connection using a minimal read operation.</li>
+<li>Review the sanitized result.</li>
+<li>Activate the connector.</li>
+<li>Monitor its latest activity, errors, and pending volume.</li>
+</ol>
+<p>Stored credentials are never displayed again. They must be changed through an explicit rotation procedure.</p>
+<h2 id="telemetry-positions-and-history">Telemetry, Positions, and History</h2>
+<p>Receiving telemetry does not guarantee that a position can be calculated. A position may remain unknown or have low confidence when anchors, coordinates, calibration data, or sufficient signal evidence are unavailable.</p>
+<p>When investigating an asset:</p>
+<ol>
+<li>Review the device's latest reception time.</li>
+<li>Confirm the active assignment between the device and asset.</li>
+<li>Review available signal observations.</li>
+<li>Verify the estimation algorithm, confidence, and accuracy.</li>
+<li>Use historical data to distinguish an isolated reading from a consistent trajectory.</li>
+</ol>
+<h2 id="alerts-and-operations">Alerts and Operations</h2>
+<p>Administrators and supervisors configure rules and authorized recipients. Every alert must be reviewed together with its evidence and observation time. An alert must not be interpreted as a guarantee of physical accuracy.</p>
+<p>The operational health view reports failed or delayed telemetry, connector status, floor plans, pending scanners, and recent records. The scheduler must run every minute for deferred processing to advance.</p>
+<h2 id="security-and-recommended-practices">Security and Recommended Practices</h2>
+<ul>
+<li>Do not share accounts or connector credentials.</li>
+<li>Use unique passwords and authorized Microsoft sign-in where available.</li>
+<li>Verify the active organization before changing data.</li>
+<li>Do not copy payloads, sensitive locations, or secrets into unauthorized tickets or channels.</li>
+<li>Report errors with the date, screen, correlation identifier, and reproducible steps while redacting secrets.</li>
+<li>Request the least-privileged role required for the assigned work.</li>
+</ul>
+<h2 id="support-and-diagnostics">Support and Diagnostics</h2>
+<p>Before escalating an incident, record:</p>
+<ul>
+<li>the affected organization and user;</li>
+<li>date, time, and time zone;</li>
+<li>the affected asset, device, or connector;</li>
+<li>expected and observed results;</li>
+<li>the sanitized error message;</li>
+<li>visual evidence without secrets;</li>
+<li>operational scope and impact.</li>
+</ul>
+<p>Technical procedures for diagnostics, backup, restoration, and continuity are provided in the deployment guide and operations runbook.</p>
+<div class="page-break"></div>
+
+<p><a id="docs-engineering-integrations-md"></a></p>
+<h1 id="external-integrations-and-contracts">External Integrations and Contracts</h1>
+<h2 id="principles">Principles</h2>
+<ul>
+<li>Each external provider is translated into internal models.</li>
+<li>Domain logic must not depend on provider SDKs or payload field names.</li>
+<li>Heavy connector work runs through queues.</li>
+<li>Credentials are encrypted.</li>
+<li>User-visible errors are sanitized.</li>
+<li>Tests should use sanitized fixtures.</li>
+</ul>
+<h2 id="connector-types">Connector Types</h2>
+<h3 id="telemetry">Telemetry</h3>
+<ul>
+<li>TTI Webhook.</li>
+<li>Generic MQTT.</li>
+<li>Meraki Location.</li>
+</ul>
+<h3 id="catalog">Catalog</h3>
+<ul>
+<li>SAP S/4HANA.</li>
+<li>Microsoft Dynamics 365 Business Central.</li>
+<li>Shopify.</li>
+<li>Odoo.</li>
+<li>CSV.</li>
+</ul>
+<h2 id="connector-model">Connector Model</h2>
+<p>Table: <code>connectors</code></p>
+<p>Conceptual fields:</p>
+<ul>
+<li>organization;</li>
+<li>name;</li>
+<li>kind;</li>
+<li>provider;</li>
+<li>status;</li>
+<li>non-secret configuration;</li>
+<li>encrypted credentials;</li>
+<li>contract version;</li>
+<li>cursor or checkpoint;</li>
+<li>last activity;</li>
+<li>last success;</li>
+<li>sanitized last error;</li>
+<li>telemetry counters.</li>
+</ul>
+<p>If a connector is disabled, queued telemetry is not processed. The job marks those events as <code>ignored</code>.</p>
+<h2 id="tti-webhook">TTI Webhook</h2>
+<p>TTI responsibilities:</p>
+<ul>
+<li>LoRaWAN network server;</li>
+<li>gateways;</li>
+<li>devices;</li>
+<li>session and frame counters;</li>
+<li>webhook delivery.</li>
+</ul>
+<p>LoraTrack responsibilities:</p>
+<ul>
+<li>authenticate webhook;</li>
+<li>deduplicate events;</li>
+<li>store raw event;</li>
+<li>normalize payload;</li>
+<li>extract BLE observations;</li>
+<li>calculate position when possible.</li>
+</ul>
+<p>Minimum contract:</p>
+<pre><code class="language-json">{
+  &quot;end_device_ids&quot;: {
+    &quot;device_id&quot;: &quot;tracker-01&quot;,
+    &quot;dev_eui&quot;: &quot;0011223344556677&quot;
+  },
+  &quot;received_at&quot;: &quot;2026-07-10T11:24:49Z&quot;,
+  &quot;uplink_message&quot;: {
+    &quot;f_cnt&quot;: 42,
+    &quot;f_port&quot;: 1,
+    &quot;received_at&quot;: &quot;2026-07-10T11:24:49Z&quot;,
+    &quot;decoded_payload&quot;: {
+      &quot;beacons&quot;: [
+        {&quot;mac&quot;: &quot;AA:BB:CC:DD:EE:01&quot;, &quot;rssi&quot;: -76}
+      ]
+    }
+  }
+}
+</code></pre>
+<p><code>uplink_message.received_at</code> is preferred for identity and <code>observed_at</code> when present.</p>
+<h2 id="mqtt">MQTT</h2>
+<p>Command:</p>
+<pre><code class="language-bash">php artisan loratrack:mqtt-listen
+</code></pre>
+<p>The listener connects to the broker configured in the connector. It must be supervised by systemd, Supervisor, Task Scheduler, or an approved equivalent.</p>
+<p>MQTT does not bypass queue processing. Messages are converted to events and follow the normal telemetry flow.</p>
+<h2 id="meraki-location">Meraki Location</h2>
+<p>Routes:</p>
+<pre><code class="language-text">GET  /api/v1/ingest/meraki/{connector}
+POST /api/v1/ingest/meraki/{connector}
+</code></pre>
+<p>The integration includes receiver validation, normalization, access point registration, and Meraki-to-internal floor plan mapping.</p>
+<h2 id="sap-s4hana">SAP S/4HANA</h2>
+<p>The connector targets the Product Master API. Configuration includes:</p>
+<ul>
+<li>base URL;</li>
+<li>base path;</li>
+<li>authentication;</li>
+<li>timeout;</li>
+<li>cursor or incremental strategy when supported.</li>
+</ul>
+<p>The adapter must not leak SAP entities such as <code>A_Product</code> outside the connector. Normalization produces internal products and SKUs.</p>
+<h2 id="business-central-shopify-odoo-and-csv">Business Central, Shopify, Odoo, and CSV</h2>
+<p>These connectors import products and normalize them into internal catalog records. They must respect:</p>
+<ul>
+<li>pagination;</li>
+<li>rate limits;</li>
+<li>idempotency;</li>
+<li>cursors/checkpoints;</li>
+<li>no deletion of local products because of partial provider responses.</li>
+</ul>
+<p>CSV is a controlled manual import mechanism.</p>
+<h2 id="connection-testing">Connection Testing</h2>
+<p>Connection tests must:</p>
+<ul>
+<li>use strict timeouts;</li>
+<li>not perform implicit imports;</li>
+<li>not expose credentials;</li>
+<li>store sanitized errors;</li>
+<li>log connector activity.</li>
+</ul>
+<h2 id="versioning">Versioning</h2>
+<p>Each integration should document:</p>
+<ul>
+<li>external API version;</li>
+<li>review date;</li>
+<li>endpoints used;</li>
+<li>required permissions;</li>
+<li>pagination policy;</li>
+<li>limits and rate limits;</li>
+<li>error format;</li>
+<li>sanitized fixture.</li>
+</ul>
+<h2 id="connector-onboarding-checklist">Connector Onboarding Checklist</h2>
+<ul>
+<li>[ ] Correct provider and kind.</li>
+<li>[ ] Non-secret configuration validated.</li>
+<li>[ ] Credentials loaded and encrypted.</li>
+<li>[ ] Connection test successful.</li>
+<li>[ ] Connector active.</li>
+<li>[ ] Minute scheduler running and monitored.</li>
+<li>[ ] Logs do not contain secrets.</li>
+<li>[ ] Test fixture available.</li>
+<li>[ ] Rotation procedure documented.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-engineering-api-contracts-md"></a></p>
+<h1 id="internal-and-external-api-contracts">Internal and External API Contracts</h1>
+<h2 id="scope">Scope</h2>
+<p>This document summarizes relevant HTTP routes for integrations, operations, and visualization. It is not a formal OpenAPI specification, but it provides a review baseline for engineering teams.</p>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li>Web routes require an authenticated session unless stated otherwise.</li>
+<li>Ingestion routes use <code>/api/v1</code>.</li>
+<li>Exposed identifiers are generally ULIDs.</li>
+<li>Error responses follow Laravel behavior unless explicitly customized.</li>
+<li>Examples are sanitized.</li>
+</ul>
+<h2 id="tti-ingestion">TTI Ingestion</h2>
+<pre><code class="language-text">POST /api/v1/ingest/tti/{connector}
+</code></pre>
+<p>Headers:</p>
+<pre><code class="language-text">Authorization: Bearer {webhook_token}
+Content-Type: application/json
+Accept: application/json
+</code></pre>
+<p>Minimum payload:</p>
+<pre><code class="language-json">{
+  &quot;end_device_ids&quot;: {
+    &quot;device_id&quot;: &quot;tracker-01&quot;,
+    &quot;dev_eui&quot;: &quot;0011223344556677&quot;
+  },
+  &quot;uplink_message&quot;: {
+    &quot;f_port&quot;: 1,
+    &quot;f_cnt&quot;: 42,
+    &quot;received_at&quot;: &quot;2026-07-10T11:24:49Z&quot;,
+    &quot;decoded_payload&quot;: {
+      &quot;beacons&quot;: [
+        {&quot;mac&quot;: &quot;AA:BB:CC:DD:EE:01&quot;, &quot;rssi&quot;: -76},
+        {&quot;mac&quot;: &quot;AA:BB:CC:DD:EE:02&quot;, &quot;rssi&quot;: -78},
+        {&quot;mac&quot;: &quot;AA:BB:CC:DD:EE:03&quot;, &quot;rssi&quot;: -80}
+      ]
+    }
+  }
+}
+</code></pre>
+<p>Accepted response:</p>
+<pre><code class="language-json">{
+  &quot;accepted&quot;: true,
+  &quot;duplicate&quot;: false,
+  &quot;event_id&quot;: &quot;01...&quot;,
+  &quot;request_id&quot;: &quot;...&quot;
+}
+</code></pre>
+<p>Status codes:</p>
+<ul>
+<li><code>202</code>: accepted.</li>
+<li><code>401</code>: invalid token.</li>
+<li><code>404</code>: connector not found, inactive, or wrong provider.</li>
+<li><code>413</code>: payload larger than 1 MB.</li>
+<li><code>422</code>: validation failure.</li>
+<li><code>429</code>: throttled.</li>
+</ul>
+<h2 id="meraki-ingestion">Meraki Ingestion</h2>
+<p>Receiver validation:</p>
+<pre><code class="language-text">GET /api/v1/ingest/meraki/{connector}
+</code></pre>
+<p>Reception:</p>
+<pre><code class="language-text">POST /api/v1/ingest/meraki/{connector}
+</code></pre>
+<p>The connector must be active and configured. Internal normalization produces <code>telemetry_events</code>, <code>signal_observations</code>, access point devices, and positions when mapping is sufficient.</p>
+<p>Authenticated Meraki POST requests are stored in a durable, idempotent inbox and receive <code>200 OK</code> before normalization. The shared secret is removed before persistence. <code>schedule:run</code> processes pending inbox records, normalizes and deduplicates observations, creates telemetry events, records connector activity, and dispatches downstream observation processing.</p>
+<p>Rejected Meraki POST requests are recorded separately from accepted telemetry. LoraTrack retains only the 10 most recent rejections per connector with the HTTP status, sanitized reason, declared version/type, request ID, and a keyed hash of the source IP. Shared secrets and complete request payloads are never stored in this diagnostic history. These records do not increment the failed telemetry counter because no <code>telemetry_event</code> was accepted.</p>
+<p>The connector detail counters link to filtered accepted telemetry (<code>received</code>, <code>processed</code>, <code>pending</code>, or <code>failed</code>) or to the separate rejected-request history.</p>
+<h2 id="map-data">Map Data</h2>
+<pre><code class="language-text">GET /map/{floorPlan}/data
+</code></pre>
+<p>Authorization:</p>
+<ul>
+<li>authenticated session;</li>
+<li><code>maps.view</code> permission.</li>
+</ul>
+<p>Conceptual response:</p>
+<pre><code class="language-json">{
+  &quot;anchors&quot;: [
+    {
+      &quot;id&quot;: &quot;01...&quot;,
+      &quot;name&quot;: &quot;Beacon A&quot;,
+      &quot;identifier&quot;: &quot;AABBCCDDEE01&quot;,
+      &quot;type&quot;: &quot;beacon&quot;,
+      &quot;x&quot;: 0.1,
+      &quot;y&quot;: 0.2
+    }
+  ],
+  &quot;positions&quot;: [
+    {
+      &quot;asset_id&quot;: &quot;01...&quot;,
+      &quot;name&quot;: &quot;Pump 01&quot;,
+      &quot;x&quot;: 0.5,
+      &quot;y&quot;: 0.4,
+      &quot;x_meters&quot;: 5.0,
+      &quot;y_meters&quot;: 4.0,
+      &quot;confidence&quot;: 0.91,
+      &quot;accuracy_meters&quot;: 1.2,
+      &quot;calculated_at&quot;: &quot;2026-07-10T11:24:50Z&quot;,
+      &quot;evidence&quot;: []
+    }
+  ]
+}
+</code></pre>
+<h2 id="asset-track">Asset Track</h2>
+<p>View:</p>
+<pre><code class="language-text">GET /assets/{asset}/track
+</code></pre>
+<p>Data:</p>
+<pre><code class="language-text">GET /assets/{asset}/track/data?floor_plan_id={id}&amp;range=24h
+</code></pre>
+<p>Parameters:</p>
+<ul>
+<li><code>floor_plan_id</code>: optional.</li>
+<li><code>range</code>: <code>1h</code>, <code>24h</code>, <code>7d</code>, <code>30d</code>.</li>
+<li><code>from</code>: optional date.</li>
+<li><code>to</code>: optional date.</li>
+<li><code>after</code>: optional incremental update date.</li>
+</ul>
+<p>The response contains asset metadata, floor plan metadata, and historical <code>position_estimates</code>.</p>
+<h2 id="connector-administration">Connector Administration</h2>
+<p>Admin web routes:</p>
+<ul>
+<li><code>GET /connectors</code></li>
+<li><code>GET /connectors/{connector}</code></li>
+<li><code>GET /connectors/create/{provider}</code></li>
+<li><code>POST /connectors</code></li>
+<li><code>POST /connectors/{connector}/test</code></li>
+<li><code>POST /connectors/{connector}/toggle</code></li>
+<li><code>POST /connectors/{connector}/rotate-webhook-token</code></li>
+<li><code>POST /connectors/{connector}/sync</code></li>
+<li><code>POST /connectors/{connector}/csv</code></li>
+</ul>
+<p>Secrets must not be returned in full to the browser after storage.</p>
+<h2 id="floor-plans-zones-and-installations">Floor Plans, Zones, and Installations</h2>
+<p>Relevant routes:</p>
+<ul>
+<li><code>GET /floor-plans</code></li>
+<li><code>GET /floor-plans/{floorPlan}/file</code></li>
+<li><code>GET /floor-plans/{floorPlan}/model</code></li>
+<li><code>POST /floor-plans</code></li>
+<li><code>PUT /floor-plans/{floorPlan}</code></li>
+<li><code>POST /floor-plans/{floorPlan}/zones</code></li>
+<li><code>POST /floor-plans/{floorPlan}/installations</code></li>
+<li><code>PUT /installations/{deviceInstallation}</code></li>
+</ul>
+<p>Mutation permission:</p>
+<pre><code class="language-text">plans.manage
+</code></pre>
+<h2 id="assets">Assets</h2>
+<p>Relevant routes:</p>
+<ul>
+<li><code>GET /assets</code></li>
+<li><code>GET /assets/{asset}/photo</code></li>
+<li><code>POST /assets</code></li>
+<li><code>PUT /assets/{asset}</code></li>
+<li><code>POST /assets/{asset}/assignments</code></li>
+<li><code>DELETE /asset-assignments/{assignment}</code></li>
+<li><code>POST /assets/{asset}/refresh-position</code></li>
+</ul>
+<p>Mutation permission:</p>
+<pre><code class="language-text">assets.manage
+</code></pre>
+<h2 id="error-observability">Error Observability</h2>
+<p>For investigations, correlate:</p>
+<ul>
+<li><code>X-Request-ID</code> when present;</li>
+<li><code>telemetry_events.id</code>;</li>
+<li><code>connectors.id</code>;</li>
+<li><code>jobs.uuid</code> when applicable;</li>
+<li><code>observed_at</code>, <code>received_at</code>, and <code>processed_at</code>;</li>
+<li>Laravel logs.</li>
+</ul>
+<h2 id="future-openapi-requirements">Future OpenAPI Requirements</h2>
+<ul>
+<li>Versioned schemas per endpoint.</li>
+<li>Stable error code catalog.</li>
+<li>Pagination and filter documentation.</li>
+<li>Permission documentation per route.</li>
+<li>Sanitized examples per provider.</li>
+<li>Outbound webhook contracts if added.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-engineering-security-and-identity-md"></a></p>
+<h1 id="security-identity-and-tenant-isolation">Security, Identity, and Tenant Isolation</h1>
+<h2 id="identity-model">Identity Model</h2>
+<p>LoraTrack supports:</p>
+<ul>
+<li>local email/password login;</li>
+<li>Microsoft OAuth/OpenID Connect through Laravel Socialite;</li>
+<li>public organization registration;</li>
+<li>invitations to existing organizations.</li>
+</ul>
+<p>A user account does not define effective authorization by itself. Effective authorization depends on the user's membership in the active organization.</p>
+<h2 id="roles">Roles</h2>
+<p>Roles defined in <code>App\Enums\UserRole</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Capabilities</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>admin</td>
+<td>Full access, connectors, users, and security administration.</td>
+</tr>
+<tr>
+<td>engineer</td>
+<td>Floor plans, anchors, calibration, decoders, and technical diagnostics.</td>
+</tr>
+<tr>
+<td>supervisor</td>
+<td>Assets, alerts, and operational supervision.</td>
+</tr>
+<tr>
+<td>operator</td>
+<td>Daily asset registration, assignment, and tracking.</td>
+</tr>
+<tr>
+<td>viewer</td>
+<td>Read-only access to products, assets, plans, and maps.</td>
+</tr>
+</tbody>
+</table>
+<p>Permissions are enforced by middleware and controllers. Hiding a menu item is not a security control.</p>
+<h2 id="multi-tenancy">Multi-Tenancy</h2>
+<p>Isolation is based on:</p>
+<ul>
+<li><code>organization_id</code> on business entities;</li>
+<li><code>BelongsToOrganization</code> trait;</li>
+<li><code>OrganizationContext</code>;</li>
+<li><code>SetOrganizationContext</code> middleware;</li>
+<li>tenant-filtered route model binding and queries;</li>
+<li>tenant-aware validation where applicable.</li>
+</ul>
+<p>Cross-organization access should return 404 or 403 depending on context.</p>
+<h2 id="authentication">Authentication</h2>
+<h3 id="local-login">Local Login</h3>
+<p>Laravel provides:</p>
+<ul>
+<li>password hashing;</li>
+<li>sessions;</li>
+<li>CSRF protection;</li>
+<li>session regeneration at login;</li>
+<li>login throttling.</li>
+</ul>
+<h3 id="microsoft">Microsoft</h3>
+<p>Required environment variables:</p>
+<pre><code class="language-dotenv">MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_TENANT_ID=
+MICROSOFT_REDIRECT_URI=
+</code></pre>
+<p>The link uses stable <code>microsoft_id</code>. Accounts must not be automatically merged only by email unless a formal policy approves it.</p>
+<h2 id="secrets">Secrets</h2>
+<p>Do not version:</p>
+<ul>
+<li><code>.env</code>;</li>
+<li>connector credentials;</li>
+<li>TTI tokens;</li>
+<li>Microsoft secrets;</li>
+<li>database dumps;</li>
+<li>real payloads;</li>
+<li>customer floor plans;</li>
+<li>SSH keys.</li>
+</ul>
+<p>Connector credentials must be encrypted with Laravel capabilities. The UI must not re-expose full secrets after saving them.</p>
+<h2 id="private-files">Private Files</h2>
+<p>Floor plans are stored under <code>storage/app/private</code> and served through authenticated routes. Do not expose floor plans through a public storage symlink.</p>
+<h2 id="webhooks">Webhooks</h2>
+<p>Current controls:</p>
+<ul>
+<li>payload size limit;</li>
+<li>Bearer token for TTI;</li>
+<li>active connector required;</li>
+<li>telemetry route throttling;</li>
+<li>deduplication;</li>
+<li>asynchronous processing;</li>
+<li>sanitized errors.</li>
+</ul>
+<p>Recommended enterprise controls:</p>
+<ul>
+<li>mandatory TLS;</li>
+<li>scheduled token rotation;</li>
+<li>provider IP allowlisting where available;</li>
+<li>WAF or reverse proxy rate and size limits;</li>
+<li><code>X-Request-ID</code> logging;</li>
+<li>monitoring of retries and failures.</li>
+</ul>
+<h2 id="audit">Audit</h2>
+<p>Web mutations generate records in <code>audit_logs</code> with user, route, result, and request ID. Audit records must not include secrets or full sensitive payloads.</p>
+<h2 id="security-headers">Security Headers</h2>
+<p><code>SecurityHeaders</code> middleware should remain enabled for web responses. Reverse proxies must be reviewed to avoid weakening or duplicating headers incorrectly.</p>
+<h2 id="data-classification">Data Classification</h2>
+<p>Potentially sensitive data:</p>
+<ul>
+<li>site plans and facility images;</li>
+<li>asset positions;</li>
+<li>device identifiers;</li>
+<li>telemetry payloads;</li>
+<li>users, emails, and memberships;</li>
+<li>connector tokens and credentials.</li>
+</ul>
+<p>Treat these as sensitive operational customer information.</p>
+<h2 id="customer-infrastructure-and-governance-controls">Customer Infrastructure and Governance Controls</h2>
+<p>Enterprise approval commonly requires external evidence:</p>
+<ul>
+<li>server hardening;</li>
+<li>vulnerability management;</li>
+<li>backup and restore testing;</li>
+<li>disaster recovery plan;</li>
+<li>information asset inventory;</li>
+<li>access matrix;</li>
+<li>periodic access review;</li>
+<li>change management;</li>
+<li>environment segregation;</li>
+<li>centralized logging;</li>
+<li>incident response and monitoring;</li>
+<li>support agreements and SLA.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-operations-runbook-md"></a></p>
+<h1 id="operations-monitoring-and-runbooks">Operations, Monitoring, and Runbooks</h1>
+<h2 id="objective">Objective</h2>
+<p>Define the minimum tasks required to operate LoraTrack in an enterprise environment and diagnose common failures.</p>
+<h2 id="required-processes">Required Processes</h2>
+<h3 id="scheduler">Scheduler</h3>
+<p>Run every minute:</p>
+<pre><code class="language-bash">php artisan schedule:run
+</code></pre>
+<p>The scheduler is the only required background executor. It processes Meraki batches and observations, TTI/MQTT telemetry, and requested catalog synchronizations without Laravel Queue. TTI and MQTT commands process at most three pending events per execution.</p>
+<p>Scheduled tasks:</p>
+<ul>
+<li><code>loratrack:evaluate-alerts</code> every 10 minutes.</li>
+<li><code>loratrack:manage-telemetry-storage</code> hourly.</li>
+<li><code>loratrack:prune-meraki-history</code> hourly.</li>
+</ul>
+<h3 id="mqtt-listener">MQTT Listener</h3>
+<p>When MQTT connectors are configured:</p>
+<pre><code class="language-bash">php artisan loratrack:mqtt-listen
+</code></pre>
+<p>The listener must be supervised and restarted on failure.</p>
+<h2 id="operational-health-view">Operational Health View</h2>
+<p>Route:</p>
+<pre><code class="language-text">/operations/health
+</code></pre>
+<p>Review:</p>
+<ul>
+<li>stuck telemetry;</li>
+<li>connector errors;</li>
+<li>private storage state;</li>
+<li>anchors by floor plan;</li>
+<li>recent audit records.</li>
+</ul>
+<h2 id="logs">Logs</h2>
+<p>Laravel log:</p>
+<pre><code class="language-text">storage/logs/laravel.log
+</code></pre>
+<p>Scheduler cron output example:</p>
+<pre><code class="language-bash">php artisan schedule:run &gt;&gt; storage/logs/schedule.log 2&gt;&amp;1
+</code></pre>
+<p>Do not enable tracing that prints credentials.</p>
+<h2 id="runbook-telemetry-stays-pending">Runbook: Telemetry Stays Pending</h2>
+<ol>
+<li>Confirm scheduler execution:</li>
+</ol>
+<pre><code class="language-bash">php artisan schedule:run -v
+</code></pre>
+<ol start="2">
+<li>Review recent events:</li>
+</ol>
+<pre><code class="language-sql">select id, connector_id, device_id, processing_status, processing_error,
+       observed_at, received_at, processed_at
+from telemetry_events
+order by received_at desc
+limit 20;
+</code></pre>
+<ol start="3">
+<li>
+<p>Check database connection limits if <code>max_user_connections</code> appears.</p>
+</li>
+<li>
+<p>Confirm there is only one cron entry invoking the scheduler each minute.</p>
+</li>
+</ol>
+<h2 id="runbook-tti-arrives-but-asset-time-does-not-update">Runbook: TTI Arrives but Asset Time Does Not Update</h2>
+<ol>
+<li>Check recent event identity and timestamps.</li>
+<li>Check event processing status.</li>
+<li>Check active asset-device assignment.</li>
+<li>Check that the event has signal observations.</li>
+<li>Check whether a position estimate was generated.</li>
+</ol>
+<p>Useful SQL:</p>
+<pre><code class="language-sql">select id, device_id, observed_at, received_at, processing_status, processing_error
+from telemetry_events
+order by received_at desc
+limit 10;
+</code></pre>
+<h2 id="runbook-track-view-shows-fewer-points-than-expected">Runbook: Track View Shows Fewer Points Than Expected</h2>
+<p>The track view shows <code>position_estimates</code>, not raw <code>telemetry_events</code>.</p>
+<p>Review:</p>
+<pre><code class="language-sql">select id, asset_id, telemetry_event_id, floor_plan_id, calculated_at, x, y
+from position_estimates
+where asset_id = '{asset_id}'
+order by calculated_at desc;
+</code></pre>
+<p>If telemetry exists without a position, check:</p>
+<ul>
+<li>fewer than three valid MAC/RSSI observations;</li>
+<li>anchors not installed;</li>
+<li>inactive anchors;</li>
+<li>anchors on different floor plans;</li>
+<li>expired assignment;</li>
+<li>failed event;</li>
+<li>floor plan filter in the UI.</li>
+</ul>
+<h2 id="runbook-disabled-connector">Runbook: Disabled Connector</h2>
+<p>A disabled connector does not process telemetry. Queued events are marked <code>ignored</code> when taken by the job.</p>
+<p>To resume:</p>
+<ol>
+<li>Activate connector.</li>
+<li>Send a new payload or requeue events according to policy.</li>
+<li>Confirm <code>last_activity_at</code> and <code>last_success_at</code>.</li>
+</ol>
+<h2 id="runbook-database-connection-limit-exhausted">Runbook: Database Connection Limit Exhausted</h2>
+<p>Symptom:</p>
+<pre><code class="language-text">SQLSTATE[42000] [1226] User has exceeded the max_user_connections resource
+</code></pre>
+<p>Actions:</p>
+<ul>
+<li>remove duplicate scheduler cron entries;</li>
+<li>review cron overlap;</li>
+<li>review persistent connections;</li>
+<li>increase database limits if load justifies it.</li>
+</ul>
+<h2 id="monthly-maintenance-checklist">Monthly Maintenance Checklist</h2>
+<ul>
+<li>review users and roles;</li>
+<li>review active connectors and tokens;</li>
+<li>test backup restoration;</li>
+<li>review <code>telemetry_events</code> growth;</li>
+<li>review failed scheduled commands and pending ingestion records;</li>
+<li>validate SMTP alerts;</li>
+<li>review recurring log errors;</li>
+<li>review applicable vendor security advisories and the approved dependency assessment report;</li>
+<li>update change documentation.</li>
+</ul>
+<h2 id="escalation-data">Escalation Data</h2>
+<p>For level 2/3 support collect:</p>
+<ul>
+<li>exact timestamp;</li>
+<li>organization;</li>
+<li>connector;</li>
+<li>device identifier;</li>
+<li>telemetry event ID;</li>
+<li>asset ID;</li>
+<li>position estimate ID when present;</li>
+<li>sanitized log excerpt;</li>
+<li>deployed release version;</li>
+<li>recent configuration changes.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-operations-field-commissioning-md"></a></p>
+<h1 id="field-commissioning-guide">Field Commissioning Guide</h1>
+<h2 id="objective_1">Objective</h2>
+<p>Define a baseline procedure for installing, validating, and calibrating LoraTrack in an industrial facility.</p>
+<h2 id="suggested-roles">Suggested Roles</h2>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project lead</td>
+<td>Scope, work windows, and acceptance.</td>
+</tr>
+<tr>
+<td>OT/IT engineering</td>
+<td>Network, access, servers, security, and integrations.</td>
+</tr>
+<tr>
+<td>RF/IoT specialist</td>
+<td>Devices, beacons, trackers, and gateways.</td>
+</tr>
+<tr>
+<td>LoraTrack administrator</td>
+<td>Organizations, users, connectors, and configuration.</td>
+</tr>
+<tr>
+<td>Customer operations</td>
+<td>Use case validation and acceptance criteria.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>Current floor plan.</li>
+<li>Real dimensions in meters.</li>
+<li>Asset inventory.</li>
+<li>Device inventory.</li>
+<li>TTI, MQTT, or Meraki connectivity as required.</li>
+<li>LoraTrack environment access.</li>
+<li>Approved credentials and tokens.</li>
+<li>Authorized installation window.</li>
+<li>Defined success criteria.</li>
+</ul>
+<h2 id="step-1-environment">Step 1: Environment</h2>
+<ol>
+<li>Confirm the deployed release version.</li>
+<li>Confirm <code>APP_DEBUG=false</code>.</li>
+<li>Confirm scheduler operation every minute.</li>
+<li>Confirm scheduled telemetry processing.</li>
+<li>Confirm SMTP if alerts are used.</li>
+<li>Confirm backups.</li>
+<li>Confirm basic monitoring.</li>
+</ol>
+<h2 id="step-2-organization-and-users">Step 2: Organization and Users</h2>
+<ol>
+<li>Create organization.</li>
+<li>Create administrator.</li>
+<li>Configure branding if required.</li>
+<li>Invite users.</li>
+<li>Assign roles by responsibility.</li>
+<li>Validate access with a non-admin user.</li>
+</ol>
+<h2 id="step-3-floor-plans">Step 3: Floor Plans</h2>
+<ol>
+<li>Create location.</li>
+<li>Upload raster plan or preview image.</li>
+<li>Register real width and height in meters.</li>
+<li>Verify orientation.</li>
+<li>Draw operational zones.</li>
+<li>Store evidence of dimensions used.</li>
+</ol>
+<h2 id="step-4-fixed-devices">Step 4: Fixed Devices</h2>
+<ol>
+<li>Register beacons or scanners.</li>
+<li>Install physically.</li>
+<li>Register coordinates on the floor plan.</li>
+<li>Confirm correct type: <code>beacon</code> or <code>scanner</code>.</li>
+<li>Confirm status <code>active</code>.</li>
+<li>Register initial RSSI parameters:
+   - reference RSSI;
+   - path loss exponent.</li>
+</ol>
+<h2 id="step-5-connectors">Step 5: Connectors</h2>
+<h3 id="tti">TTI</h3>
+<ol>
+<li>Create TTI connector.</li>
+<li>Generate a long token.</li>
+<li>Activate connector.</li>
+<li>Configure webhook in TTI.</li>
+<li>Send a test payload.</li>
+<li>Confirm event is <code>processed</code>.</li>
+<li>Confirm observations in <code>signal_observations</code>.</li>
+</ol>
+<h3 id="mqtt_1">MQTT</h3>
+<ol>
+<li>Create MQTT connector.</li>
+<li>Validate host, port, TLS, and credentials.</li>
+<li>Run listener.</li>
+<li>Confirm message reception.</li>
+</ol>
+<h3 id="catalog_1">Catalog</h3>
+<ol>
+<li>Create connector.</li>
+<li>Test connection.</li>
+<li>Run synchronization.</li>
+<li>Validate imported products and SKUs.</li>
+</ol>
+<h2 id="step-6-assets-and-assignments">Step 6: Assets and Assignments</h2>
+<ol>
+<li>Create or import assets.</li>
+<li>Register trackers or mobile beacons.</li>
+<li>Assign device to asset.</li>
+<li>Select strategy:
+   - <code>fixed_beacons_mobile_tracker</code>;
+   - <code>mobile_beacon_fixed_scanners</code>.</li>
+<li>Validate start date.</li>
+<li>Avoid duplicate active assignments.</li>
+</ol>
+<h2 id="step-7-position-validation">Step 7: Position Validation</h2>
+<ol>
+<li>Place asset at a known point.</li>
+<li>Wait for or force an uplink.</li>
+<li>Confirm <code>telemetry_events</code>.</li>
+<li>Confirm at least three valid observations.</li>
+<li>Confirm <code>position_estimates</code>.</li>
+<li>Compare calculated position with real point.</li>
+<li>Record observed error.</li>
+<li>Repeat in multiple points.</li>
+</ol>
+<h2 id="step-8-calibration">Step 8: Calibration</h2>
+<p>Use the floor plan calibration workbench:</p>
+<ol>
+<li>Select strategy.</li>
+<li>Enter real X/Y point.</li>
+<li>Enter median RSSI per anchor.</li>
+<li>Review RMSE and residuals.</li>
+<li>Adjust reference RSSI and path loss exponent.</li>
+<li>Apply only if the estimate improves.</li>
+<li>Keep calibration history.</li>
+</ol>
+<h2 id="step-9-acceptance-criteria">Step 9: Acceptance Criteria</h2>
+<p>Examples:</p>
+<ul>
+<li>telemetry processed under N seconds;</li>
+<li>percentage of uplinks with valid position;</li>
+<li>median error below N meters in pilot zone;</li>
+<li>map updates within expected interval;</li>
+<li>track view shows expected history;</li>
+<li>SMTP alerts reach recipients;</li>
+<li>dashboards load within target time;</li>
+<li>users only see their organization.</li>
+</ul>
+<h2 id="step-10-operational-handover">Step 10: Operational Handover</h2>
+<p>Deliver:</p>
+<ul>
+<li>customer-managed credentials;</li>
+<li>connector list;</li>
+<li>token rotation owners;</li>
+<li>device inventory;</li>
+<li>location and floor plan map;</li>
+<li>calibration parameters;</li>
+<li>runbooks;</li>
+<li>support procedure;</li>
+<li>accepted risks.</li>
+</ul>
+<h2 id="commissioning-evidence">Commissioning Evidence</h2>
+<p>Store:</p>
+<ul>
+<li>date and time;</li>
+<li>release version;</li>
+<li>participants;</li>
+<li>floor plan used;</li>
+<li>test points;</li>
+<li>position results;</li>
+<li>detected errors;</li>
+<li>corrective actions;</li>
+<li>counterpart approval or sign-off.</li>
+</ul>
+<div class="page-break"></div>
+
+<p><a id="docs-integrations-tti-md"></a></p>
+<h1 id="tti-integration">TTI Integration</h1>
+<p>LoraTrack receives uplinks from The Things Stack through HTTPS. TTI remains responsible for the LoRaWAN network, gateways, devices, and delivery.</p>
+<h2 id="inbound-contract">Inbound Contract</h2>
+<ul>
+<li>Endpoint: <code>POST /api/v1/ingest/tti/{connector}</code></li>
+<li>Authentication: <code>Authorization: Bearer &lt;token&gt;</code></li>
+<li>Accepted response: HTTP 202</li>
+<li>Idempotent identity: stable hash of device, session, frame counter, and TTI timestamp</li>
+</ul>
+<p>LoraTrack stores <code>raw_payload</code>, receive time, and the normalized version. The job extracts <code>decoded_payload</code>, <code>frm_payload</code>, <code>rx_metadata</code>, frame counter, port, and device information.</p>
+<p>Reference: <a href="https://www.thethingsindustries.com/docs/integrations/webhooks/">https://www.thethingsindustries.com/docs/integrations/webhooks/</a></p>
+<div class="page-break"></div>
+
+<p><a id="docs-integrations-sap-md"></a></p>
+<h1 id="sap-s4hana-integration">SAP S/4HANA Integration</h1>
+<p>The initial connector consumes Product Master through OData (<code>API_PRODUCT_SRV</code>). The base URL and path are configurable to support different deployments.</p>
+<h2 id="normalization">Normalization</h2>
+<table>
+<thead>
+<tr>
+<th>SAP</th>
+<th>LoraTrack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Product</code></td>
+<td>external reference and SKU code</td>
+</tr>
+<tr>
+<td><code>ProductDescription</code></td>
+<td>product/SKU name</td>
+</tr>
+<tr>
+<td><code>BaseUnit</code></td>
+<td>base unit</td>
+</tr>
+<tr>
+<td><code>ProductType</code></td>
+<td>attribute</td>
+</tr>
+<tr>
+<td><code>ProductGroup</code></td>
+<td>attribute</td>
+</tr>
+</tbody>
+</table>
+<p>Codes are stored as text and preserve leading zeroes. Each reference is unique by connector and SAP identifier. A checksum avoids unnecessary writes.</p>
+<p>Product Master does not represent stock by plant or warehouse. That capability requires a separate API and synchronizer.</p>
+<p>Reference: <a href="https://api.sap.com/api/API_PRODUCT_SRV/overview">https://api.sap.com/api/API_PRODUCT_SRV/overview</a></p>
+</body>
+</html>

@@ -72,6 +72,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+<<<<<<< HEAD
     public function test_user_can_request_a_temporary_password_reset_link(): void
     {
         Notification::fake();
@@ -143,6 +144,28 @@ class AuthenticationTest extends TestCase
                 return true;
             }
         );
+=======
+    public function test_invalid_login_shows_a_safe_credentials_message(): void
+    {
+        User::factory()->create([
+            'email' => 'usuario@example.test',
+            'password' => 'correct-password',
+        ]);
+
+        $this->from(route('login'))->post('/login', [
+            'email' => 'usuario@example.test',
+            'password' => 'incorrect-password',
+        ])->assertRedirect(route('login'))
+            ->assertSessionHasErrors([
+                'email' => 'La combinación de correo y contraseña no es válida.',
+            ]);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('La combinación de correo y contraseña no es válida.');
+
+        $this->assertGuest();
+>>>>>>> 970032ead3398b4e82d2190ceb26a7e664b451c6
     }
 
     public function test_viewer_cannot_manage_connectors(): void
