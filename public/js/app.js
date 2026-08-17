@@ -4,20 +4,39 @@ document.querySelectorAll('[data-responsive-nav]').forEach((sidebar) => {
     sidebar.classList.add('nav-enhanced');
     const toggle = sidebar.querySelector('[data-nav-toggle]');
     const panel = sidebar.querySelector('[data-nav-panel]');
+    const backdrop = document.querySelector('[data-nav-backdrop]');
     if (!toggle || !panel) return;
 
     const setOpen = (open, restoreFocus = false) => {
         sidebar.classList.toggle('is-nav-open', open);
+        document.body.classList.toggle('has-open-navigation', open);
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         toggle.setAttribute('aria-label', open ? 'Cerrar menú principal' : 'Abrir menú principal');
+        if (backdrop) backdrop.hidden = !open;
+        if (open) window.setTimeout(() => panel.querySelector('a')?.focus(), 0);
         if (restoreFocus) toggle.focus();
     };
 
     toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+    backdrop?.addEventListener('click', () => setOpen(false, true));
     panel.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setOpen(false)));
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
             setOpen(false, true);
+            return;
+        }
+        if (event.key === 'Tab' && toggle.getAttribute('aria-expanded') === 'true' && !window.matchMedia('(min-width: 64rem)').matches) {
+            const focusable = [toggle, ...panel.querySelectorAll('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+                .filter((element) => !element.disabled && element.getClientRects().length > 0);
+            const first = focusable[0];
+            const last = focusable.at(-1);
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last?.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first?.focus();
+            }
         }
     });
     window.addEventListener('resize', () => {

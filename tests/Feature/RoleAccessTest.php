@@ -61,6 +61,7 @@ class RoleAccessTest extends TestCase
             ->assertSee('Usuarios y grupos')
             ->assertSee('data-responsive-nav', false)
             ->assertSee('data-nav-toggle', false)
+            ->assertSee('data-nav-backdrop', false)
             ->assertSee('aria-controls="sidebar-navigation"', false)
             ->assertSee('aria-expanded="false"', false);
         $this->actingAs($admin)->get(route('connectors.index'))->assertOk();

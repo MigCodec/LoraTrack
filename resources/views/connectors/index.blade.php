@@ -10,6 +10,25 @@
         @endforeach
     </section>
 
+    <section class="panel mt-10" aria-labelledby="scheduled-tasks-title">
+        <div class="panel-header"><div><h2 id="scheduled-tasks-title" class="panel-title">Tareas programadas</h2><p class="panel-subtitle">Última ejecución conocida por el scheduler de Laravel</p></div><span class="text-xs text-slate-500">Los datos aparecen después de ejecutar cada tarea al menos una vez</span></div>
+        <div class="scheduled-task-grid">
+            @foreach($scheduledTasks as $task)
+                @php($status = $task['status'])
+                <article class="scheduled-task-card is-{{ $task['state'] }}">
+                    <header><span class="scheduled-task-state"><i></i>{{ ['healthy' => 'Correcta', 'failed' => 'Falló', 'running' => 'En ejecución', 'never' => 'Sin ejecución'][$task['state']] }}</span><span class="scheduled-task-count">{{ $status?->run_count ?? 0 }} ejecuciones</span></header>
+                    <h3>{{ $task['label'] }}</h3>
+                    <code>{{ $task['command'] }}</code>
+                    <dl>
+                        <div><dt>Último inicio</dt><dd title="{{ $status?->last_started_at?->format('d-m-Y H:i:s') }}">{{ $status?->last_started_at?->diffForHumans() ?? 'Nunca' }}</dd></div>
+                        <div><dt>Duración</dt><dd>{{ $status?->last_duration_ms !== null ? number_format($status->last_duration_ms).' ms' : '—' }}</dd></div>
+                    </dl>
+                    @if($status?->last_error)<p class="scheduled-task-error" title="{{ $status->last_error }}">{{ Str::limit($status->last_error, 120) }}</p>@endif
+                </article>
+            @endforeach
+        </div>
+    </section>
+
     <section class="panel mt-10"><div class="panel-header"><div><h2 class="panel-title">Conectores configurados</h2><p class="panel-subtitle">Estado, actividad, eventos y acceso al log operacional</p></div></div>
         @if($connectors->isEmpty())<div class="empty-state">Aún no hay conectores configurados.</div>@else
             <div class="table-wrap"><table class="data-table"><thead><tr><th>Nombre</th><th>Proveedor</th><th>Estado operacional</th><th>Eventos</th><th>Última actividad</th><th>Acciones</th></tr></thead><tbody>

@@ -76,6 +76,7 @@
             </div>
             </div>
         </aside>
+        <button type="button" class="sidebar-backdrop" data-nav-backdrop aria-label="Cerrar menú principal" hidden></button>
 
         <main class="min-w-0 flex-1 lg:ml-64 @yield('main_class')">
             <header class="border-b border-slate-200 bg-white px-6 py-5 lg:px-10 @yield('header_class')">

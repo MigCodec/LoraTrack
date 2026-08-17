@@ -12,6 +12,7 @@ use App\Enums\ConnectorStatus;
 use App\Http\Requests\StoreConnectorRequest;
 use App\Models\Connector;
 use App\Models\FloorPlan;
+use App\Models\ScheduledCommandStatus;
 use App\Models\TelemetryEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,9 +25,28 @@ class ConnectorController extends Controller
 {
     public function index(ConnectorRegistry $registry): View
     {
+        $commandStatuses = ScheduledCommandStatus::query()->get()->keyBy('task');
+
         return view('connectors.index', [
             'definitions' => collect($registry->all())->groupBy(fn (array $item) => $item['kind']->value),
             'connectors' => Connector::query()->latest()->get(),
+            'scheduledTasks' => collect(config('scheduled-tasks'))->map(function (array $definition, string $task) use ($commandStatuses): array {
+                $status = $commandStatuses->get($task);
+                $isRunning = $status?->last_started_at
+                    && (! $status->last_finished_at || $status->last_started_at->gt($status->last_finished_at));
+                $hasFailed = $status?->last_failed_at
+                    && (! $status->last_succeeded_at || $status->last_failed_at->gt($status->last_succeeded_at));
+
+                return [
+                    'task' => $task,
+                    'label' => $definition['label'],
+                    'command' => trim($definition['command'].' '.collect($definition['arguments'] ?? [])
+                        ->map(fn (mixed $value, string|int $key): string => is_int($key) ? (string) $value : "{$key}={$value}")
+                        ->implode(' ')),
+                    'status' => $status,
+                    'state' => $isRunning ? 'running' : ($hasFailed ? 'failed' : ($status ? 'healthy' : 'never')),
+                ];
+            })->values(),
         ]);
     }
 

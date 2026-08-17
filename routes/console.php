@@ -8,16 +8,16 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('loratrack:evaluate-alerts')->everyTenMinutes()->withoutOverlapping();
-Schedule::command('loratrack:process-meraki-webhooks --limit=3')
+Schedule::command('loratrack:run-scheduled evaluate-alerts')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled process-meraki-webhooks')
     ->everyMinute()
     ->onOneServer()
     ->withoutOverlapping(10)
     ->runInBackground();
-Schedule::command('loratrack:process-meraki-observations')->everyMinute()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:process-tti-uplinks')->everyMinute()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:process-mqtt-telemetry')->everyMinute()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:process-catalog-syncs')->everyMinute()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:sync-telemetry-counters')->everyFiveMinutes()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:manage-telemetry-storage')->hourly()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:prune-meraki-history')->hourly()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled process-meraki-observations')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled process-tti-uplinks')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled process-mqtt-telemetry')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled process-catalog-syncs')->everyMinute()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled sync-telemetry-counters')->everyFiveMinutes()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled manage-telemetry-storage')->hourly()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled prune-meraki-history')->hourly()->onOneServer()->withoutOverlapping();
