@@ -10,6 +10,9 @@ use Illuminate\Support\Carbon;
 
 class MerakiAccessPointRegistrar
 {
+    /** @var array<string, Device> */
+    private array $registered = [];
+
     /** @param array<string, mixed> $reading */
     public function register(array $reading, Carbon $seenAt, string $networkId): ?Device
     {
@@ -18,12 +21,22 @@ class MerakiAccessPointRegistrar
             return null;
         }
 
-        $device = Device::query()->firstOrNew(['identifier' => $identifier]);
+        if (isset($this->registered[$identifier])) {
+            return $this->registered[$identifier];
+        }
+
+        $device = Device::query()
+            ->withExists([
+                'assignments as has_active_assignments' => fn ($query) => $query->whereNull('ended_at'),
+                'installations as has_active_installations' => fn ($query) => $query->whereNull('ended_at'),
+            ])
+            ->where('identifier', $identifier)
+            ->first() ?? Device::query()->make(['identifier' => $identifier]);
         if ($device->exists && $device->type !== 'scanner') {
-            $hasActiveUsage = $device->assignments()->whereNull('ended_at')->exists()
-                || $device->installations()->whereNull('ended_at')->exists();
+            $hasActiveUsage = (bool) $device->has_active_assignments
+                || (bool) $device->has_active_installations;
             if ($hasActiveUsage) {
-                return $device;
+                return $this->registered[$identifier] = $device;
             }
         }
 
@@ -34,7 +47,7 @@ class MerakiAccessPointRegistrar
             'serial' => $reading['apSerial'] ?? null,
             'reported_latitude' => $reading['lat'] ?? null,
             'reported_longitude' => $reading['lng'] ?? null,
-            'installation_status' => $device->exists && $device->installations()->whereNull('ended_at')->exists()
+            'installation_status' => $device->exists && (bool) $device->has_active_installations
                 ? 'installed'
                 : 'pending_floor_plan',
         ], fn (mixed $value): bool => $value !== null);
@@ -54,7 +67,7 @@ class MerakiAccessPointRegistrar
                 : $currentLastSeen,
         ])->save();
 
-        return $device;
+        return $this->registered[$identifier] = $device;
     }
 
     private function formattedMac(string $identifier): string

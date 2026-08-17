@@ -838,7 +838,6 @@ class MerakiLocationWebhookTest extends TestCase
     {
         (new ProcessMerakiLocationObservation($event->id))->handle(
             app(ZoneClassifier::class),
-            app(MerakiEventRetention::class),
             app(MerakiAccessPointRegistrar::class),
         );
     }

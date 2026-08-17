@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Connectors\Meraki\MerakiAccessPointRegistrar;
-use App\Connectors\Meraki\MerakiEventRetention;
 use App\Enums\ConnectorStatus;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
@@ -29,10 +28,11 @@ class ProcessMerakiLocationObservation
 
     public function handle(
         ZoneClassifier $zones,
-        MerakiEventRetention $retention,
         MerakiAccessPointRegistrar $accessPoints,
     ): void {
-        $event = TelemetryEvent::query()->findOrFail($this->telemetryEventId);
+        $event = TelemetryEvent::query()
+            ->with(['organization', 'connector'])
+            ->findOrFail($this->telemetryEventId);
         if (! $event->organization?->active) {
             throw new \RuntimeException('La organización del evento Meraki no está activa.');
         }
@@ -159,7 +159,6 @@ class ProcessMerakiLocationObservation
                         ->orWhere('last_success_at', '<', now()->subMinute());
                 })
                 ->update(['last_success_at' => now(), 'last_error' => null]);
-            $retention->prune($event);
         } catch (Throwable $exception) {
             $event->forceFill([
                 'processing_status' => 'failed',

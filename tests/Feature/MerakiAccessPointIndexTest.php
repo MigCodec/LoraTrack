@@ -91,6 +91,13 @@ class MerakiAccessPointIndexTest extends TestCase
                 'observed_at' => now()->subMinute(),
             ]);
         }
+        SignalObservation::query()->create([
+            'telemetry_event_id' => $event->id,
+            'transmitter_mac' => 'AA:BB:CC:DD:EE:99',
+            'receiver_identifier' => 'E455A815A238',
+            'rssi' => -80,
+            'observed_at' => now()->subDays(7),
+        ]);
 
         $this->actingAs($admin)->get(route('meraki-access-points.index'))
             ->assertOk()
