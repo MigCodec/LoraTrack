@@ -40,6 +40,8 @@ class ConnectorController extends Controller
                 return [
                     'task' => $task,
                     'label' => $definition['label'],
+                    'description' => $definition['description'],
+                    'frequency' => $definition['frequency'],
                     'command' => trim($definition['command'].' '.collect($definition['arguments'] ?? [])
                         ->map(fn (mixed $value, string|int $key): string => is_int($key) ? (string) $value : "{$key}={$value}")
                         ->implode(' ')),
