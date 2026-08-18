@@ -31,10 +31,10 @@ class ProcessMerakiObservations extends Command
     ): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 1000],
+            'options' => ['min_range' => 1, 'max_range' => 1000000],
         ]);
         if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 1000.');
+            $this->error('--limit debe ser un entero entre 1 y 1.000.000.');
 
             return self::FAILURE;
         }
