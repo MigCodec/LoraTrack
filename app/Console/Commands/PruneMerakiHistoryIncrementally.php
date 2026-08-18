@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Console\Concerns\ResolvesTenantProcessingLimits;
 use App\Connectors\Meraki\MerakiEventRetention;
 use App\Models\Organization;
+use App\Tenancy\OrganizationContext;
 use Illuminate\Console\Command;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +49,11 @@ class PruneMerakiHistoryIncrementally extends Command
         $reachedLimit = false;
         $selected = ['events' => 0, 'observations' => 0];
 
-        $organizations = Organization::query()->where('active', true)->orderBy('id')->get();
+        $organizationsQuery = Organization::query()->where('active', true)->orderBy('id');
+        if ($organizationId = app(OrganizationContext::class)->id()) {
+            $organizationsQuery->whereKey($organizationId);
+        }
+        $organizations = $organizationsQuery->get();
         foreach ($organizations as $organization) {
             $limit = $override ?? max(1, (int) ($organization->storage_cleanup_max_events ?? 10000));
             if ($this->option('dry-run')) {

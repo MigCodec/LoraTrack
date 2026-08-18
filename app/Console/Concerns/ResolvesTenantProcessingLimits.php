@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Concerns;
 
 use App\Models\Organization;
+use App\Tenancy\OrganizationContext;
 use Illuminate\Support\Collection;
 
 trait ResolvesTenantProcessingLimits
@@ -31,8 +32,12 @@ trait ResolvesTenantProcessingLimits
     /** @return Collection<string, int> */
     private function tenantLimits(string $column, int $default, ?int $override = null): Collection
     {
-        return Organization::query()
-            ->where('active', true)
+        $query = Organization::query()->where('active', true);
+        if ($organizationId = app(OrganizationContext::class)->id()) {
+            $query->whereKey($organizationId);
+        }
+
+        return $query
             ->orderBy('id')
             ->pluck($column, 'id')
             ->map(fn (mixed $value): int => $override ?? max(1, (int) ($value ?? $default)));

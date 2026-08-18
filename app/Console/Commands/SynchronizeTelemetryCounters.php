@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Tenancy\OrganizationContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +17,9 @@ class SynchronizeTelemetryCounters extends Command
     public function handle(): int
     {
         $query = DB::table('connectors')->select('id')->orderBy('id');
+        if ($organizationId = app(OrganizationContext::class)->id()) {
+            $query->where('organization_id', $organizationId);
+        }
         if (filled($this->option('connector'))) {
             $query->where('id', (string) $this->option('connector'));
         }

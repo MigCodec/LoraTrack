@@ -27,6 +27,7 @@ class ManageTelemetryStorage extends Command
         $organizations = Organization::query()
             ->where('active', true)
             ->where('storage_cleanup_enabled', true)
+            ->when($context->id(), fn ($query, string $organizationId) => $query->whereKey($organizationId))
             ->orderBy('id')
             ->get();
 

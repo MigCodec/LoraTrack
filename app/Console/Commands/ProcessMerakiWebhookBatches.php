@@ -35,9 +35,13 @@ class ProcessMerakiWebhookBatches extends Command
         }
 
         $batchIds = collect();
-        $organizations = Organization::query()
+        $organizationsQuery = Organization::query()
             ->where('active', true)
-            ->orderBy('id')
+            ->orderBy('id');
+        if ($organizationId = app(OrganizationContext::class)->id()) {
+            $organizationsQuery->whereKey($organizationId);
+        }
+        $organizations = $organizationsQuery
             ->get(['id', 'meraki_webhook_batch_limit', 'meraki_webhook_max_attempts']);
         foreach ($organizations as $organization) {
             $organizationId = (string) $organization->id;

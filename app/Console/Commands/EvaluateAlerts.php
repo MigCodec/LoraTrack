@@ -28,6 +28,9 @@ class EvaluateAlerts extends Command
     public function handle(): int
     {
         $context = app(OrganizationContext::class);
+        if ($context->organization()) {
+            return $this->evaluateOrganization();
+        }
         $organizations = Organization::query()->where('active', true)->get();
         if ($organizations->isEmpty()) {
             return $this->evaluateOrganization();

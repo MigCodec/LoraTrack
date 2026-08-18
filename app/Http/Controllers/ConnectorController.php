@@ -12,8 +12,9 @@ use App\Enums\ConnectorStatus;
 use App\Http\Requests\StoreConnectorRequest;
 use App\Models\Connector;
 use App\Models\FloorPlan;
-use App\Models\ScheduledCommandStatus;
 use App\Models\TelemetryEvent;
+use App\Scheduling\OrganizationTaskScheduler;
+use App\Tenancy\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,9 +25,11 @@ use Throwable;
 
 class ConnectorController extends Controller
 {
-    public function index(ConnectorRegistry $registry): View
+    public function index(ConnectorRegistry $registry, OrganizationContext $context, OrganizationTaskScheduler $scheduler): View
     {
-        $commandStatuses = ScheduledCommandStatus::query()->get()->keyBy('task');
+        $organization = $context->organization();
+        abort_unless($organization, 404);
+        $commandStatuses = $scheduler->synchronize($organization)->keyBy('task');
 
         return view('connectors.index', [
             'definitions' => collect($registry->all())->groupBy(fn (array $item) => $item['kind']->value),
@@ -42,12 +45,14 @@ class ConnectorController extends Controller
                     'task' => $task,
                     'label' => $definition['label'],
                     'description' => $definition['description'],
-                    'frequency' => $definition['frequency'],
+                    'frequency' => $status?->enabled ? 'Cada '.$status->interval_minutes.' min' : 'Deshabilitada',
                     'command' => trim($definition['command'].' '.collect($definition['arguments'] ?? [])
                         ->map(fn (mixed $value, string|int $key): string => is_int($key) ? (string) $value : "{$key}={$value}")
                         ->implode(' ')),
                     'status' => $status,
-                    'state' => $isRunning ? 'running' : ($hasFailed ? 'failed' : ($status ? 'healthy' : 'never')),
+                    'state' => $status && ! $status->enabled
+                        ? 'disabled'
+                        : ($isRunning ? 'running' : ($hasFailed ? 'failed' : ($status?->run_count > 0 ? 'healthy' : 'never'))),
                 ];
             })->values(),
         ]);

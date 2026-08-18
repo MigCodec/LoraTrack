@@ -32,6 +32,7 @@ use App\Http\Controllers\PayloadDecoderProfileController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PublicDocumentationController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\ScheduledTaskController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ZoneController;
@@ -137,6 +138,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/connectors', [ConnectorController::class, 'index'])->name('connectors.index');
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+        Route::put('/settings/scheduled-tasks/{task}', [ScheduledTaskController::class, 'update'])->name('settings.scheduled-tasks.update');
+        Route::post('/settings/scheduled-tasks/{task}/run', [ScheduledTaskController::class, 'run'])->name('settings.scheduled-tasks.run');
         Route::get('/connectors/live-metrics', [ConnectorController::class, 'liveMetrics'])->name('connectors.live-metrics');
         Route::get('/connectors/{connector}', [ConnectorController::class, 'show'])->name('connectors.show');
         Route::get('/connectors/{connector}/events/{telemetryEvent}', [ConnectorController::class, 'showEvent'])->name('connectors.events.show');

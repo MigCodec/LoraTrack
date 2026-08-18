@@ -18,6 +18,7 @@
         'running' => $scheduledTasks->where('state', 'running')->count(),
         'failed' => $scheduledTasks->where('state', 'failed')->count(),
         'never' => $scheduledTasks->where('state', 'never')->count(),
+        'disabled' => $scheduledTasks->where('state', 'disabled')->count(),
     ])
     <section class="panel mt-10 scheduler-center" aria-labelledby="scheduled-tasks-title">
         <div class="scheduler-center-header">
@@ -30,6 +31,7 @@
                 ['running', 'En ejecución', $scheduledSummary['running']],
                 ['failed', 'Con error', $scheduledSummary['failed']],
                 ['never', 'Sin historial', $scheduledSummary['never']],
+                ['disabled', 'Deshabilitadas', $scheduledSummary['disabled']],
             ] as [$state, $label, $count])
                 <div class="scheduler-summary-item is-{{ $state }}"><span class="scheduler-summary-symbol" aria-hidden="true"></span><span><strong>{{ $count }}</strong><small>{{ $label }}</small></span></div>
             @endforeach
@@ -43,6 +45,7 @@
                     'failed' => ['Requiere atención', 'error'],
                     'running' => ['En ejecución', 'disabled'],
                     'never' => ['Sin historial', 'disabled'],
+                    'disabled' => ['Deshabilitada', 'disabled'],
                 ][$task['state']])
                 <article class="scheduler-row is-{{ $task['state'] }}" role="listitem">
                     <div class="scheduler-task-identity"><span class="scheduler-task-icon" aria-hidden="true"><x-nav-icon name="connectors"/></span><span><strong>{{ $task['label'] }}</strong><small>{{ $task['description'] }}</small></span></div>
