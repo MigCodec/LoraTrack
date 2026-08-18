@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiClientDeviceRegistrar;
-use App\Enums\ConnectorProvider;
 use App\Jobs\ProcessMerakiLocationObservation;
 use App\Models\Connector;
 use App\Models\TelemetryEvent;
@@ -56,25 +55,33 @@ class ProcessMerakiObservations extends Command
         }
 
         $commandStartedAt = hrtime(true);
-        $loadStartedAt = hrtime(true);
+        $idSelectionStartedAt = hrtime(true);
         // Select only the covering-index columns while ordering. Pulling large JSON
         // payloads through this query makes MariaDB materialize/sort them before LIMIT.
         $eventIds = TelemetryEvent::query()
             ->where('event_type', 'meraki_location')
             ->where('processing_status', 'pending')
-            ->whereHas('connector', fn ($query) => $query->where('provider', ConnectorProvider::MerakiLocation->value))
             ->orderBy('received_at')
             ->limit($limit)
             ->pluck('id');
+        $idSelectionDurationMs = $this->elapsedMs($idSelectionStartedAt);
+
+        $payloadLoadStartedAt = hrtime(true);
         $eventsById = TelemetryEvent::query()
+            ->select([
+                'id', 'organization_id', 'connector_id', 'device_id', 'event_type',
+                'observed_at', 'received_at', 'processed_at', 'raw_payload',
+                'processing_status', 'processing_error',
+            ])
             ->with(['organization', 'connector'])
             ->whereKey($eventIds)
             ->get();
+        $payloadLoadDurationMs = $this->elapsedMs($payloadLoadStartedAt);
         $eventsById = $eventsById->keyBy('id');
         $events = $eventIds
             ->map(fn (string $eventId): ?TelemetryEvent => $eventsById->get($eventId))
             ->filter();
-        $loadDurationMs = $this->elapsedMs($loadStartedAt);
+        $loadDurationMs = $idSelectionDurationMs + $payloadLoadDurationMs;
 
         $processed = 0;
         $failed = 0;
@@ -134,6 +141,8 @@ class ProcessMerakiObservations extends Command
                 $eventProfiles,
                 $queryGroups,
                 $loadDurationMs,
+                $idSelectionDurationMs,
+                $payloadLoadDurationMs,
                 $this->elapsedMs($commandStartedAt),
                 $queryCount,
                 $queryTimeMs,
@@ -168,6 +177,8 @@ class ProcessMerakiObservations extends Command
         array $events,
         array $groups,
         float $loadDurationMs,
+        float $idSelectionDurationMs,
+        float $payloadLoadDurationMs,
         float $totalDurationMs,
         int $queryCount,
         float $queryTimeMs,
@@ -176,6 +187,8 @@ class ProcessMerakiObservations extends Command
         $this->components->info('Perfil de rendimiento');
         $this->table(['Metrica', 'Valor'], [
             ['Carga inicial', number_format($loadDurationMs, 1).' ms'],
+            ['Seleccion de IDs', number_format($idSelectionDurationMs, 1).' ms'],
+            ['Carga de payloads', number_format($payloadLoadDurationMs, 1).' ms'],
             ['Tiempo total', number_format($totalDurationMs, 1).' ms'],
             ['Consultas SQL', number_format($queryCount)],
             ['Tiempo informado por SQL', number_format($queryTimeMs, 1).' ms'],
