@@ -30,13 +30,13 @@ class WatchMerakiWebhooks extends Command
         do {
             $this->newLine();
             $this->line(sprintf(
-                '<fg=gray>[%s]</> Ejecutando <info>loratrack:process-meraki-webhooks --limit=%d</info>',
+                '<fg=gray>[%s]</> Ejecutando <info>loratrack:process-meraki-observations --limit=%d</info>',
                 now()->format('Y-m-d H:i:s'),
                 $limit,
             ));
 
             try {
-                $exitCode = $this->call('loratrack:process-meraki-webhooks', ['--limit' => $limit]);
+                $exitCode = $this->call('loratrack:process-meraki-observations', ['--limit' => $limit]);
                 $lastExitCode = $exitCode;
                 if ($exitCode === self::SUCCESS) {
                     $this->line('<fg=green>Ciclo finalizado correctamente.</>');
