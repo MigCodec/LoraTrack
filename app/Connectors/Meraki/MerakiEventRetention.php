@@ -84,7 +84,8 @@ class MerakiEventRetention
     public function staleCount(): int
     {
         return Organization::query()->get()->sum(
-            fn (Organization $organization): int => $this->staleQuery($this->cutoff($organization), $organization->id)->count(),
+            fn (Organization $organization): int => $this->observedStaleQuery($this->cutoff($organization), $organization->id)->count()
+                + $this->receivedStaleQuery($this->cutoff($organization), $organization->id)->count(),
         );
     }
 
@@ -125,26 +126,42 @@ class MerakiEventRetention
 
     private function staleIds(Carbon $cutoff, int $limit, string $organizationId)
     {
-        return $this->staleQuery($cutoff, $organizationId)
+        $safeLimit = max(1, min(1000, $limit));
+        $ids = $this->observedStaleQuery($cutoff, $organizationId)
             ->orderBy('observed_at')
             ->orderBy('received_at')
             ->orderBy('id')
-            ->limit(max(1, min(1000, $limit)))
+            ->limit($safeLimit)
             ->pluck('id');
+
+        $remaining = $safeLimit - $ids->count();
+        if ($remaining > 0) {
+            $ids->push(...$this->receivedStaleQuery($cutoff, $organizationId)
+                ->orderBy('received_at')
+                ->orderBy('id')
+                ->limit($remaining)
+                ->pluck('id'));
+        }
+
+        return $ids;
     }
 
-    private function staleQuery(Carbon $cutoff, string $organizationId)
+    private function observedStaleQuery(Carbon $cutoff, string $organizationId)
     {
         return TelemetryEvent::query()
             ->withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('event_type', 'meraki_location')
-            ->where(function ($query) use ($cutoff): void {
-                $query->where('observed_at', '<', $cutoff)
-                    ->orWhere(function ($receivedQuery) use ($cutoff): void {
-                        $receivedQuery->whereNull('observed_at')
-                            ->where('received_at', '<', $cutoff);
-                    });
-            });
+            ->where('observed_at', '<', $cutoff);
+    }
+
+    private function receivedStaleQuery(Carbon $cutoff, string $organizationId)
+    {
+        return TelemetryEvent::query()
+            ->withoutGlobalScopes()
+            ->where('organization_id', $organizationId)
+            ->where('event_type', 'meraki_location')
+            ->whereNull('observed_at')
+            ->where('received_at', '<', $cutoff);
     }
 }

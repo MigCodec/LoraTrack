@@ -58,9 +58,21 @@ class PruneMerakiHistoryIncrementally extends Command
             $batches++;
         }
 
+        $durationMs = (hrtime(true) - $startedAt) / 1_000_000;
+
         if ($this->option('dry-run')) {
             $this->warn('El modo --dry-run del comando incremental no elimina registros.');
             $this->info("Eventos que seleccionaria este ciclo: {$selected['events']}.");
+
+            if ($profile) {
+                $this->table(['Metrica', 'Valor'], [
+                    ['Eventos seleccionados', number_format($selected['events'])],
+                    ['Observaciones que se eliminarian por cascada', number_format($selected['observations'])],
+                    ['Consultas SQL', number_format($queryCount)],
+                    ['Tiempo SQL', number_format($queryTimeMs, 1).' ms'],
+                    ['Tiempo total', number_format($durationMs, 1).' ms'],
+                ]);
+            }
 
             return self::SUCCESS;
         }
@@ -69,7 +81,6 @@ class PruneMerakiHistoryIncrementally extends Command
         $remainingLabel = $reachedLimit
             ? 'No verificado; se alcanzo el limite solicitado'
             : 'No se encontraron mas en este ciclo';
-        $durationMs = (hrtime(true) - $startedAt) / 1_000_000;
         $this->info("Eventos Meraki eliminados: {$deletedEvents}.");
         $this->line("Pendientes: {$remainingLabel}.");
 

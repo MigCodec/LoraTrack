@@ -49,12 +49,27 @@ class PruneMerakiHistoryIncrementallyTest extends TestCase
         $this->artisan('loratrack:prune-meraki-history-incremental', [
             '--limit' => 1,
             '--dry-run' => true,
+            '--profile' => true,
         ])
             ->expectsOutputToContain('no elimina registros')
             ->expectsOutputToContain('Eventos que seleccionaria este ciclo: 1')
+            ->expectsOutputToContain('Tiempo total')
             ->assertSuccessful();
 
         $this->assertDatabaseCount('telemetry_events', 1);
+    }
+
+    public function test_command_prunes_old_received_event_without_observed_timestamp(): void
+    {
+        $connector = $this->connector();
+        $event = $this->oldEvent($connector, 1);
+        $event->forceFill(['observed_at' => null])->save();
+
+        $this->artisan('loratrack:prune-meraki-history-incremental', ['--limit' => 1])
+            ->expectsOutputToContain('Eventos Meraki eliminados: 1')
+            ->assertSuccessful();
+
+        $this->assertDatabaseMissing('telemetry_events', ['id' => $event->id]);
     }
 
     private function connector(): Connector
