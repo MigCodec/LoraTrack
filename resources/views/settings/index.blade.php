@@ -3,7 +3,7 @@
 @section('heading', 'Configuración')
 @push('styles')<link rel="stylesheet" href="{{ asset('css/scheduler-settings.css') }}?v={{ filemtime(public_path('css/scheduler-settings.css')) }}">@endpush
 @section('content')
-    <form class="mx-auto max-w-5xl space-y-6" method="POST" action="{{ route('settings.update') }}">
+    <form class="mx-auto max-w-7xl space-y-6" method="POST" action="{{ route('settings.update') }}">
         @csrf
         @method('PUT')
 
@@ -87,18 +87,25 @@
         <div class="flex justify-end"><button class="btn-primary">Guardar configuración</button></div>
     </form>
 
+    @php($taskSummary = collect($scheduledTasks)->countBy('state'))
     <section class="scheduler-settings" aria-labelledby="scheduler-settings-title">
         <div class="scheduler-settings-header">
-            <div><span class="scheduler-settings-kicker">Centro de automatización</span><h2 id="scheduler-settings-title">Tareas programadas</h2><p>Configura la cadencia de {{ $organization->name }}, revisa su estado y ejecuta tareas autorizadas bajo demanda.</p></div>
+            <div class="scheduler-settings-heading"><span class="scheduler-setting-symbol" aria-hidden="true"><x-nav-icon name="settings"/></span><div><span class="scheduler-settings-kicker">Centro de automatización</span><h2 id="scheduler-settings-title">Tareas programadas</h2><p>Configura la cadencia de {{ $organization->name }}, revisa su estado y ejecuta tareas autorizadas bajo demanda.</p></div></div>
             <div class="scheduler-settings-health"><i aria-hidden="true"></i><span>Dispatcher activo cada minuto</span></div>
         </div>
+        <div class="scheduler-settings-summary" aria-label="Resumen de tareas programadas">
+            @foreach([['healthy', 'Correctas'], ['running', 'En ejecución'], ['failed', 'Con error'], ['never', 'Sin historial'], ['disabled', 'Deshabilitadas']] as [$state, $label])
+                <div class="scheduler-summary-card is-{{ $state }}"><i aria-hidden="true"></i><strong>{{ $taskSummary->get($state, 0) }}</strong><span>{{ $label }}</span></div>
+            @endforeach
+        </div>
+        <div class="scheduler-settings-columns" aria-hidden="true"><span>Automatización</span><span>Estado e historial</span><span>Programación</span><span>Acción</span></div>
         <div class="scheduler-settings-list">
             @foreach($scheduledTasks as $task)
                 @php($record = $task['record'])
                 @php($definition = $task['definition'])
                 @php($stateLabel = ['healthy' => 'Correcta', 'failed' => 'Con error', 'running' => 'En ejecución', 'never' => 'Sin historial', 'disabled' => 'Deshabilitada'][$task['state']])
                 <article class="scheduler-setting-row is-{{ $task['state'] }}">
-                    <div class="scheduler-setting-main"><span class="scheduler-setting-symbol" aria-hidden="true"><x-nav-icon name="settings"/></span><div><h3>{{ $definition['label'] }}</h3><p>{{ $definition['description'] }}</p><code>{{ $definition['command'] }}</code></div></div>
+                    <div class="scheduler-setting-main"><span class="scheduler-setting-symbol" aria-hidden="true"><x-nav-icon name="settings"/></span><div><h3>{{ $definition['label'] }}</h3><p>{{ $definition['description'] }}</p><details class="scheduler-command"><summary>Ver comando</summary><code>{{ $definition['command'] }}</code></details></div></div>
                     <div class="scheduler-setting-state"><span class="scheduler-state-pill is-{{ $task['state'] }}"><i aria-hidden="true"></i>{{ $stateLabel }}</span><small>Última ejecución</small><strong>{{ $record->last_finished_at?->diffForHumans() ?? 'Aún no ejecutada' }}</strong>@if($record->last_duration_ms !== null)<span>{{ number_format($record->last_duration_ms) }} ms · {{ number_format($record->run_count) }} ejecuciones</span>@endif @if($record->last_error)<p class="scheduler-setting-error">{{ Str::limit($record->last_error, 180) }}</p>@endif</div>
                     <form class="scheduler-setting-config" method="POST" action="{{ route('settings.scheduled-tasks.update', $record->task) }}">@csrf @method('PUT')<label class="scheduler-toggle"><input type="hidden" name="enabled" value="0"><input type="checkbox" name="enabled" value="1" @checked($record->enabled)><span aria-hidden="true"></span><b>Habilitada</b></label><label><span>Ejecutar cada</span><span class="scheduler-interval-input"><input type="number" name="interval_minutes" min="{{ $definition['minimum_interval'] }}" max="{{ $definition['maximum_interval'] }}" value="{{ $record->interval_minutes }}" required><b>min</b></span></label><button class="scheduler-save-button">Guardar</button></form>
                     <form class="scheduler-run-form" method="POST" action="{{ route('settings.scheduled-tasks.run', $record->task) }}" @if(in_array($record->task, ['manage-telemetry-storage', 'prune-meraki-history'], true)) onsubmit="return confirm('Esta tarea puede eliminar datos según las políticas configuradas. ¿Ejecutar ahora?')" @endif>@csrf<button class="scheduler-run-button" @disabled($task['state'] === 'running')><span aria-hidden="true">▶</span> Ejecutar ahora</button><small>Próxima: {{ $record->enabled ? ($record->next_run_at?->diffForHumans() ?? 'pendiente') : 'deshabilitada' }}</small></form>

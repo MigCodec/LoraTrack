@@ -13,55 +13,6 @@
         @endforeach
     </section>
 
-    @php($scheduledSummary = [
-        'healthy' => $scheduledTasks->where('state', 'healthy')->count(),
-        'running' => $scheduledTasks->where('state', 'running')->count(),
-        'failed' => $scheduledTasks->where('state', 'failed')->count(),
-        'never' => $scheduledTasks->where('state', 'never')->count(),
-        'disabled' => $scheduledTasks->where('state', 'disabled')->count(),
-    ])
-    <section class="panel mt-10 scheduler-center" aria-labelledby="scheduled-tasks-title">
-        <div class="scheduler-center-header">
-            <div class="scheduler-center-heading"><span class="scheduler-center-icon"><x-nav-icon name="health"/></span><div><p class="scheduler-center-eyebrow">Centro de automatización</p><h2 id="scheduled-tasks-title">Tareas programadas</h2><p>Supervisa la ejecución de los procesos que mantienen conectores y telemetría al día.</p></div></div>
-            <span class="scheduler-center-updated">Información registrada por Laravel Scheduler</span>
-        </div>
-        <div class="scheduler-summary" aria-label="Resumen de tareas">
-            @foreach([
-                ['healthy', 'Correctas', $scheduledSummary['healthy']],
-                ['running', 'En ejecución', $scheduledSummary['running']],
-                ['failed', 'Con error', $scheduledSummary['failed']],
-                ['never', 'Sin historial', $scheduledSummary['never']],
-                ['disabled', 'Deshabilitadas', $scheduledSummary['disabled']],
-            ] as [$state, $label, $count])
-                <div class="scheduler-summary-item is-{{ $state }}"><span class="scheduler-summary-symbol" aria-hidden="true"></span><span><strong>{{ $count }}</strong><small>{{ $label }}</small></span></div>
-            @endforeach
-        </div>
-        <div class="scheduler-list" role="list" aria-label="Historial de tareas programadas">
-            <div class="scheduler-list-columns" aria-hidden="true"><span>Automatización</span><span>Frecuencia</span><span>Última ejecución</span><span>Duración</span><span>Estado</span></div>
-            @foreach($scheduledTasks as $task)
-                @php($status = $task['status'])
-                @php($stateMeta = [
-                    'healthy' => ['Correcta', 'active'],
-                    'failed' => ['Requiere atención', 'error'],
-                    'running' => ['En ejecución', 'disabled'],
-                    'never' => ['Sin historial', 'disabled'],
-                    'disabled' => ['Deshabilitada', 'disabled'],
-                ][$task['state']])
-                <article class="scheduler-row is-{{ $task['state'] }}" role="listitem">
-                    <div class="scheduler-task-identity"><span class="scheduler-task-icon" aria-hidden="true"><x-nav-icon name="connectors"/></span><span><strong>{{ $task['label'] }}</strong><small>{{ $task['description'] }}</small></span></div>
-                    <div class="scheduler-row-field"><small>Frecuencia</small><span>{{ $task['frequency'] }}</span></div>
-                    <div class="scheduler-row-field"><small>Última ejecución</small><span title="{{ $status?->last_started_at?->format('d-m-Y H:i:s') }}">{{ $status?->last_started_at?->diffForHumans() ?? 'Aún no ejecutada' }}</span><small>{{ $status?->last_started_at?->format('d-m-Y H:i:s') }}</small></div>
-                    <div class="scheduler-row-field"><small>Duración</small><span>{{ $status?->last_duration_ms !== null ? number_format($status->last_duration_ms).' ms' : '—' }}</span><small>{{ number_format($status?->run_count ?? 0) }} ejecuciones</small></div>
-                    <div class="scheduler-row-status"><span class="status-badge status-{{ $stateMeta[1] }}"><i aria-hidden="true"></i>{{ $stateMeta[0] }}</span></div>
-                    <details class="scheduler-diagnostics">
-                        <summary>Detalles técnicos</summary>
-                        <div><span>Comando</span><code>{{ $task['command'] }}</code>@if($status?->last_error)<span>Último error</span><p>{{ Str::limit($status->last_error, 300) }}</p>@endif</div>
-                    </details>
-                </article>
-            @endforeach
-        </div>
-    </section>
-
     <section class="panel mt-10" data-connectors-live data-endpoint="{{ route('connectors.live-metrics') }}"><div class="panel-header"><div><h2 class="panel-title">Conectores configurados</h2><p class="panel-subtitle">Estado, actividad, eventos y acceso al log operacional</p></div><span class="connectors-live-status" data-live-status role="status" aria-live="polite"><i aria-hidden="true"></i><span>Actualización cada 5 s</span></span></div>
         @if($connectors->isEmpty())<div class="empty-state">Aún no hay conectores configurados.</div>@else
             <div class="table-wrap"><table class="data-table"><thead><tr><th>Nombre</th><th>Proveedor</th><th>Estado operacional</th><th>Eventos</th><th>Última actividad</th><th>Acciones</th></tr></thead><tbody>

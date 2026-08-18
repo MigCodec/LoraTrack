@@ -13,7 +13,6 @@ use App\Http\Requests\StoreConnectorRequest;
 use App\Models\Connector;
 use App\Models\FloorPlan;
 use App\Models\TelemetryEvent;
-use App\Scheduling\OrganizationTaskScheduler;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,36 +24,14 @@ use Throwable;
 
 class ConnectorController extends Controller
 {
-    public function index(ConnectorRegistry $registry, OrganizationContext $context, OrganizationTaskScheduler $scheduler): View
+    public function index(ConnectorRegistry $registry, OrganizationContext $context): View
     {
         $organization = $context->organization();
         abort_unless($organization, 404);
-        $commandStatuses = $scheduler->synchronize($organization)->keyBy('task');
 
         return view('connectors.index', [
             'definitions' => collect($registry->all())->groupBy(fn (array $item) => $item['kind']->value),
             'connectors' => Connector::query()->latest()->get(),
-            'scheduledTasks' => collect(config('scheduled-tasks'))->map(function (array $definition, string $task) use ($commandStatuses): array {
-                $status = $commandStatuses->get($task);
-                $isRunning = $status?->last_started_at
-                    && (! $status->last_finished_at || $status->last_started_at->gt($status->last_finished_at));
-                $hasFailed = $status?->last_failed_at
-                    && (! $status->last_succeeded_at || $status->last_failed_at->gt($status->last_succeeded_at));
-
-                return [
-                    'task' => $task,
-                    'label' => $definition['label'],
-                    'description' => $definition['description'],
-                    'frequency' => $status?->enabled ? 'Cada '.$status->interval_minutes.' min' : 'Deshabilitada',
-                    'command' => trim($definition['command'].' '.collect($definition['arguments'] ?? [])
-                        ->map(fn (mixed $value, string|int $key): string => is_int($key) ? (string) $value : "{$key}={$value}")
-                        ->implode(' ')),
-                    'status' => $status,
-                    'state' => $status && ! $status->enabled
-                        ? 'disabled'
-                        : ($isRunning ? 'running' : ($hasFailed ? 'failed' : ($status?->run_count > 0 ? 'healthy' : 'never'))),
-                ];
-            })->values(),
         ]);
     }
 
