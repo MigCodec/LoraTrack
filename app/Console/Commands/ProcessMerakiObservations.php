@@ -57,14 +57,23 @@ class ProcessMerakiObservations extends Command
 
         $commandStartedAt = hrtime(true);
         $loadStartedAt = hrtime(true);
-        $events = TelemetryEvent::query()
-            ->with(['organization', 'connector'])
+        // Select only the covering-index columns while ordering. Pulling large JSON
+        // payloads through this query makes MariaDB materialize/sort them before LIMIT.
+        $eventIds = TelemetryEvent::query()
             ->where('event_type', 'meraki_location')
             ->where('processing_status', 'pending')
             ->whereHas('connector', fn ($query) => $query->where('provider', ConnectorProvider::MerakiLocation->value))
             ->orderBy('received_at')
             ->limit($limit)
+            ->pluck('id');
+        $eventsById = TelemetryEvent::query()
+            ->with(['organization', 'connector'])
+            ->whereKey($eventIds)
             ->get();
+        $eventsById = $eventsById->keyBy('id');
+        $events = $eventIds
+            ->map(fn (string $eventId): ?TelemetryEvent => $eventsById->get($eventId))
+            ->filter();
         $loadDurationMs = $this->elapsedMs($loadStartedAt);
 
         $processed = 0;
