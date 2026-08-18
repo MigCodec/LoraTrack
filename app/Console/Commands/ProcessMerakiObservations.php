@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Enums\ConnectorProvider;
 use App\Jobs\ProcessMerakiLocationObservation;
 use App\Models\TelemetryEvent;
@@ -17,7 +18,7 @@ class ProcessMerakiObservations extends Command
 
     protected $description = 'Procesa observaciones Meraki pendientes desde el scheduler.';
 
-    public function handle(): int
+    public function handle(MerakiAccessPointRegistrar $accessPoints): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1, 'max_range' => 1000],
@@ -40,7 +41,10 @@ class ProcessMerakiObservations extends Command
         $failed = 0;
         foreach ($eventIds as $eventId) {
             try {
-                app()->call([new ProcessMerakiLocationObservation((string) $eventId), 'handle']);
+                app()->call(
+                    [new ProcessMerakiLocationObservation((string) $eventId), 'handle'],
+                    ['accessPoints' => $accessPoints],
+                );
                 $processed++;
             } catch (Throwable $exception) {
                 $failed++;
