@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
 
 class MerakiAccessPointIndexController extends Controller
 {
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, MerakiEventRetention $retention): JsonResponse
     {
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
@@ -54,7 +54,10 @@ class MerakiAccessPointIndexController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        $observationsByReceiver = $this->observationSummary($accessPoints->getCollection()->pluck('identifier'));
+        $observationsByReceiver = $this->observationSummary(
+            $accessPoints->getCollection()->pluck('identifier'),
+            $retention->retentionDays(),
+        );
 
         $rows = $accessPoints->getCollection()->map(function (Device $accessPoint) use ($observationsByReceiver): array {
             $installation = $accessPoint->installations->first();
@@ -101,7 +104,7 @@ class MerakiAccessPointIndexController extends Controller
         ]);
     }
 
-    private function observationSummary(Collection $identifiers): Collection
+    private function observationSummary(Collection $identifiers, int $retentionDays): Collection
     {
         $receiverIdentifiers = $identifiers
             ->filter()
@@ -116,7 +119,7 @@ class MerakiAccessPointIndexController extends Controller
             ->selectRaw('receiver_identifier, COUNT(DISTINCT transmitter_mac) as clients_count, MAX(observed_at) as last_observed_at')
             ->whereIn('receiver_identifier', $receiverIdentifiers)
             ->whereNotNull('receiver_identifier')
-            ->where('observed_at', '>=', now()->subDays(MerakiEventRetention::RETENTION_DAYS))
+            ->where('observed_at', '>=', now()->subDays($retentionDays))
             ->groupBy('receiver_identifier')
             ->get()
             ->keyBy('receiver_identifier');

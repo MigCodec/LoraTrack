@@ -11,5 +11,5 @@ return [
     'process-catalog-syncs' => ['label' => 'Sincronizaciones de catálogo', 'description' => 'Ejecuta importaciones de productos solicitadas.', 'frequency' => 'Cada minuto', 'command' => 'loratrack:process-catalog-syncs'],
     'sync-telemetry-counters' => ['label' => 'Contadores de telemetría', 'description' => 'Actualiza los indicadores visibles en conectores.', 'frequency' => 'Cada 5 minutos', 'command' => 'loratrack:sync-telemetry-counters'],
     'manage-telemetry-storage' => ['label' => 'Gestión de almacenamiento', 'description' => 'Controla límites y mantenimiento de telemetría.', 'frequency' => 'Cada hora', 'command' => 'loratrack:manage-telemetry-storage'],
-    'prune-meraki-history' => ['label' => 'Retención histórica Meraki', 'description' => 'Elimina historial vencido de forma controlada.', 'frequency' => 'Cada hora', 'command' => 'loratrack:prune-meraki-history'],
+    'prune-meraki-history' => ['label' => 'Retención histórica Meraki', 'description' => 'Elimina historial vencido de forma incremental.', 'frequency' => 'Cada hora', 'command' => 'loratrack:prune-meraki-history-incremental', 'arguments' => ['--limit' => 1000, '--batch-size' => 100]],
 ];

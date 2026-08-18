@@ -59,6 +59,7 @@
                 @if(auth()->user()->isAdmin())
                     <p class="nav-section-label">Administración</p>
                     <a class="nav-link {{ request()->routeIs('organizations.*') ? 'nav-link-active' : '' }}" href="{{ route('organizations.index') }}"><x-nav-icon name="organizations"/><span>Identidad de empresa</span></a>
+                    <a class="nav-link {{ request()->routeIs('settings.*') ? 'nav-link-active' : '' }}" href="{{ route('settings.index') }}"><x-nav-icon name="settings"/><span>Configuración</span></a>
                     <a class="nav-link {{ request()->routeIs('connectors.*') ? 'nav-link-active' : '' }}" href="{{ route('connectors.index') }}"><x-nav-icon name="connectors"/><span>Conectores</span></a>
                     <a class="nav-link {{ request()->routeIs('users.*') ? 'nav-link-active' : '' }}" href="{{ route('users.index') }}"><x-nav-icon name="users"/><span>Usuarios y grupos</span></a>
                 @endif

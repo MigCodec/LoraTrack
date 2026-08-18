@@ -128,6 +128,7 @@ class DeviceController extends Controller
 
     public function apHistory(Request $request, Device $device): JsonResponse
     {
+        $retentionDays = app(MerakiEventRetention::class)->retentionDays();
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
@@ -142,7 +143,7 @@ class DeviceController extends Controller
                     'from' => null,
                     'to' => null,
                     'total' => 0,
-                    'retention_days' => MerakiEventRetention::RETENTION_DAYS,
+                    'retention_days' => $retentionDays,
                 ],
             ]);
         }
@@ -151,7 +152,7 @@ class DeviceController extends Controller
             ->select(['receiver_identifier', 'rssi', 'observed_at', 'metadata'])
             ->where('transmitter_mac', $normalizedIdentifier)
             ->whereNotNull('receiver_identifier')
-            ->where('observed_at', '>=', now()->subDays(MerakiEventRetention::RETENTION_DAYS))
+            ->where('observed_at', '>=', now()->subDays($retentionDays))
             ->latest('observed_at')
             ->paginate(25, ['*'], 'page', (int) ($validated['page'] ?? 1))
             ->withQueryString();
@@ -171,7 +172,7 @@ class DeviceController extends Controller
                 'from' => $history->firstItem(),
                 'to' => $history->lastItem(),
                 'total' => $history->total(),
-                'retention_days' => MerakiEventRetention::RETENTION_DAYS,
+                'retention_days' => $retentionDays,
             ],
         ]);
     }

@@ -36,33 +36,6 @@
                 @endif
             </div>
 
-            <details class="rounded-xl border border-slate-200 p-4">
-                <summary class="cursor-pointer font-semibold text-slate-950">Configuración avanzada</summary>
-                <div class="mt-4 grid gap-4">
-                    <label class="flex items-start gap-3">
-                        <input type="hidden" name="storage_cleanup_enabled" value="0">
-                        <input class="mt-1" type="checkbox" name="storage_cleanup_enabled" value="1" @checked(old('storage_cleanup_enabled', $current->storage_cleanup_enabled))>
-                        <span>
-                            <strong class="block text-sm text-slate-900">Liberar telemetría antigua por presión de almacenamiento</strong>
-                            <span class="mt-1 block text-xs leading-relaxed text-slate-500">Función temporal. Cada hora comprueba el almacenamiento. Si la ocupación supera el 50%, elimina hasta 10.000 eventos y sus RSSI más antiguos de esta empresa por ejecución.</span>
-                        </span>
-                    </label>
-                    <label class="field-label">Retención mínima de telemetría
-                        <span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">Nunca se eliminarán eventos más recientes que este período. Las posiciones históricas se conservan.</span>
-                        <span class="mt-2 flex max-w-sm items-center gap-2">
-                            <input class="field-input" type="number" name="telemetry_retention_days" min="7" max="3650" value="{{ old('telemetry_retention_days', $current->telemetry_retention_days ?? 30) }}" required>
-                            <span class="text-sm text-slate-500">días</span>
-                        </span>
-                    </label>
-                    <dl class="grid gap-3 text-xs text-slate-600 sm:grid-cols-3">
-                        <div><dt class="font-semibold text-slate-800">Última medición</dt><dd class="mt-1">{{ $current->storage_checked_at?->format('d-m-Y H:i') ?? 'Pendiente' }}</dd></div>
-                        <div><dt class="font-semibold text-slate-800">Ocupación medida</dt><dd class="mt-1">{{ $current->last_storage_utilization_percent === null ? '—' : number_format($current->last_storage_utilization_percent, 2).'%' }}</dd></div>
-                        <div><dt class="font-semibold text-slate-800">Eventos eliminados</dt><dd class="mt-1">{{ number_format($current->storage_cleanup_deleted_events ?? 0) }}</dd></div>
-                    </dl>
-                    <p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">La medición requiere acceso al volumen donde vive la base de datos. Si la base es remota y ese volumen no está disponible para Laravel, el proceso falla de forma segura y no elimina información.</p>
-                </div>
-            </details>
-
             <button class="btn-primary">Guardar configuración de empresa</button>
         </form>
 

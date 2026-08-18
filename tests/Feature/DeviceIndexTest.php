@@ -205,7 +205,7 @@ class DeviceIndexTest extends TestCase
             ->assertOk()
             ->assertJsonCount(25, 'data')
             ->assertJsonPath('meta.total', 27)
-            ->assertJsonPath('meta.retention_days', 6)
+            ->assertJsonPath('meta.retention_days', 2)
             ->assertJsonPath('data.0.ap_mac', 'AP0000000001')
             ->assertJsonMissing(['ap_mac' => 'APOLD000001']);
 

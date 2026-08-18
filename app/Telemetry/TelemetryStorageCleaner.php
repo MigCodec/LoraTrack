@@ -12,7 +12,7 @@ class TelemetryStorageCleaner
 {
     public const BATCH_SIZE = 1000;
 
-    public function deleteOldestBatch(Organization $organization): int
+    public function deleteOldestBatch(Organization $organization, int $limit = self::BATCH_SIZE): int
     {
         $cutoff = now()->subDays(max(7, (int) $organization->telemetry_retention_days));
         $ids = TelemetryEvent::query()
@@ -20,7 +20,7 @@ class TelemetryStorageCleaner
             ->where('received_at', '<', $cutoff)
             ->orderBy('received_at')
             ->orderBy('id')
-            ->limit(self::BATCH_SIZE)
+            ->limit(max(1, min(self::BATCH_SIZE, $limit)))
             ->pluck('id');
 
         if ($ids->isEmpty()) {

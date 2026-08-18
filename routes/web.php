@@ -31,6 +31,7 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PayloadDecoderProfileController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PublicDocumentationController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ZoneController;
@@ -134,6 +135,8 @@ Route::middleware('auth')->group(function (): void {
         Route::put('/organization', [OrganizationController::class, 'update'])->name('organizations.update');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::get('/connectors', [ConnectorController::class, 'index'])->name('connectors.index');
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::get('/connectors/live-metrics', [ConnectorController::class, 'liveMetrics'])->name('connectors.live-metrics');
         Route::get('/connectors/{connector}', [ConnectorController::class, 'show'])->name('connectors.show');
         Route::get('/connectors/{connector}/events/{telemetryEvent}', [ConnectorController::class, 'showEvent'])->name('connectors.events.show');

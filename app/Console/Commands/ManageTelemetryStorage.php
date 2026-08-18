@@ -15,10 +15,6 @@ use Throwable;
 
 class ManageTelemetryStorage extends Command
 {
-    private const THRESHOLD_PERCENT = 50.0;
-
-    private const MAX_BATCHES_PER_ORGANIZATION = 10;
-
     protected $signature = 'loratrack:manage-telemetry-storage {--dry-run : Medir sin eliminar telemetría}';
 
     protected $description = 'Mide presión de almacenamiento y elimina telemetría antigua de tenants que lo autorizaron.';
@@ -60,21 +56,25 @@ class ManageTelemetryStorage extends Command
             ])->save();
         }
 
-        if ($usage->utilizationPercent <= self::THRESHOLD_PERCENT || $this->option('dry-run')) {
-            $this->info($usage->utilizationPercent <= self::THRESHOLD_PERCENT
-                ? 'La ocupación no supera el umbral del 50%; no se eliminó telemetría.'
-                : 'Modo dry-run: no se eliminó telemetría.');
+        if ($this->option('dry-run')) {
+            $this->info('Modo dry-run: no se eliminó telemetría.');
 
             return self::SUCCESS;
         }
 
         foreach ($organizations as $organization) {
+            $threshold = (float) ($organization->storage_cleanup_threshold_percent ?? 50);
+            if ($usage->utilizationPercent <= $threshold) {
+                $this->line("{$organization->name}: ocupación bajo el umbral de {$threshold}%; sin eliminaciones.");
+                continue;
+            }
             $context->set($organization);
             $deleted = 0;
+            $maximum = max(1, (int) ($organization->storage_cleanup_max_events ?? 10000));
 
             try {
-                for ($batch = 0; $batch < self::MAX_BATCHES_PER_ORGANIZATION; $batch++) {
-                    $batchDeleted = $cleaner->deleteOldestBatch($organization);
+                while ($deleted < $maximum) {
+                    $batchDeleted = $cleaner->deleteOldestBatch($organization, $maximum - $deleted);
                     $deleted += $batchDeleted;
                     if ($batchDeleted < TelemetryStorageCleaner::BATCH_SIZE) {
                         break;

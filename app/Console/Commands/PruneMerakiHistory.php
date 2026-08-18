@@ -18,7 +18,7 @@ class PruneMerakiHistory extends Command
     public function handle(MerakiEventRetention $retention): int
     {
         $stale = $retention->staleCount();
-        $this->info('Eventos Meraki vencidos por retencion de '.MerakiEventRetention::RETENTION_DAYS." dias: {$stale}.");
+        $this->info("Eventos Meraki vencidos segun la retencion de cada organizacion: {$stale}.");
         if ($this->option('dry-run') || $stale === 0) {
             return self::SUCCESS;
         }
