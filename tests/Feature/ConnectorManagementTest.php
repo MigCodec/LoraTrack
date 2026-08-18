@@ -21,9 +21,44 @@ class ConnectorManagementTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('connectors.index'))->assertOk();
 
+        $response
+            ->assertSee('data-connectors-live', false)
+            ->assertSee(route('connectors.live-metrics'), false)
+            ->assertSee('js/connectors-live.js', false);
+
         foreach (ConnectorProvider::cases() as $provider) {
             $response->assertSee('data-provider-icon="'.$provider->value.'"', false);
         }
+    }
+
+    public function test_admin_can_poll_connector_live_metrics(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $connector = Connector::query()->create([
+            'name' => 'TTI live',
+            'provider' => ConnectorProvider::TtiWebhook,
+            'kind' => 'telemetry',
+            'status' => 'active',
+            'configuration' => [],
+            'credentials' => [],
+            'telemetry_events_count' => 14,
+            'processed_events_count' => 12,
+            'failed_events_count' => 2,
+            'last_activity_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('connectors.live-metrics'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $connector->id)
+            ->assertJsonPath('data.0.telemetry_events_count', 14)
+            ->assertJsonPath('data.0.processed_events_count', 12)
+            ->assertJsonPath('data.0.failed_events_count', 2)
+            ->assertJsonMissingPath('data.0.credentials');
+
+        $this->actingAs(User::factory()->create(['role' => UserRole::Viewer]))
+            ->getJson(route('connectors.live-metrics'))
+            ->assertForbidden();
     }
 
     public function test_tti_form_offers_secure_token_generator(): void

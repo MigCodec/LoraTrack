@@ -14,6 +14,7 @@ use App\Models\Connector;
 use App\Models\FloorPlan;
 use App\Models\ScheduledCommandStatus;
 use App\Models\TelemetryEvent;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -49,6 +50,31 @@ class ConnectorController extends Controller
                     'state' => $isRunning ? 'running' : ($hasFailed ? 'failed' : ($status ? 'healthy' : 'never')),
                 ];
             })->values(),
+        ]);
+    }
+
+    public function liveMetrics(): JsonResponse
+    {
+        $connectors = Connector::query()
+            ->select([
+                'id', 'telemetry_events_count', 'processed_events_count',
+                'failed_events_count', 'last_activity_at', 'last_tested_at',
+            ])
+            ->latest()
+            ->get()
+            ->map(fn (Connector $connector): array => [
+                'id' => $connector->getRouteKey(),
+                'telemetry_events_count' => $connector->telemetry_events_count,
+                'processed_events_count' => $connector->processed_events_count,
+                'failed_events_count' => $connector->failed_events_count,
+                'last_activity_label' => $connector->last_activity_at?->diffForHumans()
+                    ?? $connector->last_tested_at?->diffForHumans()
+                    ?? 'Sin actividad',
+            ]);
+
+        return response()->json([
+            'data' => $connectors,
+            'refreshed_at' => now()->toIso8601String(),
         ]);
     }
 

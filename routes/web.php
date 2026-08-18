@@ -134,6 +134,7 @@ Route::middleware('auth')->group(function (): void {
         Route::put('/organization', [OrganizationController::class, 'update'])->name('organizations.update');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::get('/connectors', [ConnectorController::class, 'index'])->name('connectors.index');
+        Route::get('/connectors/live-metrics', [ConnectorController::class, 'liveMetrics'])->name('connectors.live-metrics');
         Route::get('/connectors/{connector}', [ConnectorController::class, 'show'])->name('connectors.show');
         Route::get('/connectors/{connector}/events/{telemetryEvent}', [ConnectorController::class, 'showEvent'])->name('connectors.events.show');
         Route::get('/connectors/create/{provider}', [ConnectorController::class, 'create'])->name('connectors.create');
