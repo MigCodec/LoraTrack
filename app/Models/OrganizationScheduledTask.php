@@ -13,7 +13,20 @@ class OrganizationScheduledTask extends Model
     use BelongsToOrganization;
     use HasUlids;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'task',
+        'enabled',
+        'interval_minutes',
+        'next_run_at',
+        'last_started_at',
+        'last_finished_at',
+        'last_succeeded_at',
+        'last_failed_at',
+        'last_duration_ms',
+        'last_exit_code',
+        'last_error',
+        'run_count',
+    ];
 
     protected function casts(): array
     {
