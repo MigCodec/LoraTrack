@@ -19,7 +19,7 @@ class WatchMerakiWebhooks extends Command
     public function handle(): int
     {
         $interval = $this->integerOption('interval', 1, 3600);
-        $limit = $this->integerOption('limit', 1, 100);
+        $limit = $this->integerOption('limit', 1, 100000);
         if ($interval === null || $limit === null) {
             return self::INVALID;
         }
