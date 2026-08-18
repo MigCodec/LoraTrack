@@ -33,7 +33,7 @@ class BackfillMerakiAccessPoints extends Command
         $context = app(OrganizationContext::class);
         $events = TelemetryEvent::query()
             ->withoutGlobalScopes()
-            ->with('connector.organization')
+            ->with(['connector.organization', 'signalObservations:id,telemetry_event_id,receiver_identifier,rssi'])
             ->where('event_type', 'meraki_location')
             ->latest('received_at')
             ->limit($limit)
@@ -44,7 +44,8 @@ class BackfillMerakiAccessPoints extends Command
         $detectable = 0;
 
         foreach ($events as $event) {
-            if ($event->connector?->provider !== ConnectorProvider::MerakiLocation || ! $event->organization?->active) {
+            $organization = $event->connector?->organization;
+            if ($event->connector?->provider !== ConnectorProvider::MerakiLocation || ! $organization?->active) {
                 continue;
             }
 
@@ -56,10 +57,21 @@ class BackfillMerakiAccessPoints extends Command
                 ->values();
 
             if ($readings->isEmpty()) {
+                $readings = $event->signalObservations
+                    ->filter(fn ($observation): bool => filled($observation->receiver_identifier))
+                    ->map(fn ($observation): array => [
+                        'apMac' => $observation->receiver_identifier,
+                        'rssi' => $observation->rssi,
+                    ])
+                    ->unique('apMac')
+                    ->values();
+            }
+
+            if ($readings->isEmpty()) {
                 continue;
             }
 
-            $context->set($event->organization);
+            $context->set($organization);
             try {
                 foreach ($readings as $reading) {
                     $key = $event->organization_id.'|'.mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $reading['apMac']) ?? '');

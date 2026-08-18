@@ -27,6 +27,12 @@ class OperationalSettingsTest extends TestCase
         $this->actingAs($admin)->withSession(['organization_id' => $first->id])
             ->put(route('settings.update'), [
                 'meraki_retention_days' => 2,
+                'meraki_webhook_batch_limit' => 75,
+                'meraki_webhook_max_attempts' => 5,
+                'meraki_observation_limit' => 500,
+                'tti_uplink_limit' => 25,
+                'mqtt_message_limit' => 30,
+                'catalog_sync_limit' => 2,
                 'storage_cleanup_enabled' => 1,
                 'telemetry_retention_days' => 21,
                 'storage_cleanup_threshold_percent' => 65.5,
@@ -35,6 +41,12 @@ class OperationalSettingsTest extends TestCase
 
         $first->refresh();
         $this->assertSame(2, $first->meraki_retention_days);
+        $this->assertSame(75, $first->meraki_webhook_batch_limit);
+        $this->assertSame(5, $first->meraki_webhook_max_attempts);
+        $this->assertSame(500, $first->meraki_observation_limit);
+        $this->assertSame(25, $first->tti_uplink_limit);
+        $this->assertSame(30, $first->mqtt_message_limit);
+        $this->assertSame(2, $first->catalog_sync_limit);
         $this->assertTrue($first->storage_cleanup_enabled);
         $this->assertSame(21, $first->telemetry_retention_days);
         $this->assertSame(65.5, $first->storage_cleanup_threshold_percent);

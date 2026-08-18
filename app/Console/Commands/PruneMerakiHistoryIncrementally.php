@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesTenantProcessingLimits;
 use App\Connectors\Meraki\MerakiEventRetention;
+use App\Models\Organization;
 use Illuminate\Console\Command;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 
 class PruneMerakiHistoryIncrementally extends Command
 {
+    use ResolvesTenantProcessingLimits;
+
     protected $signature = 'loratrack:prune-meraki-history-incremental
-        {--limit=1 : Cantidad maxima de eventos a eliminar}
+        {--limit= : Sobrescribe el maximo por organizacion}
         {--batch-size=100 : Eventos eliminados por lote}
         {--dry-run : Selecciona los registros sin eliminarlos}
         {--profile : Muestra metricas de eliminacion y rendimiento SQL}';
@@ -21,9 +25,9 @@ class PruneMerakiHistoryIncrementally extends Command
 
     public function handle(MerakiEventRetention $retention): int
     {
-        $limit = $this->integerOption('limit', 1, 100000);
+        $override = $this->optionalIntegerOption('limit', 1, 100000);
         $batchSize = $this->integerOption('batch-size', 1, 1000);
-        if ($limit === null || $batchSize === null) {
+        if ($override === -1 || $batchSize === null) {
             return self::INVALID;
         }
 
@@ -41,21 +45,32 @@ class PruneMerakiHistoryIncrementally extends Command
         $deletedEvents = 0;
         $deletedObservations = 0;
         $batches = 0;
+        $reachedLimit = false;
+        $selected = ['events' => 0, 'observations' => 0];
 
-        while ($deletedEvents < $limit) {
-            $currentLimit = min($batchSize, $limit - $deletedEvents);
+        $organizations = Organization::query()->where('active', true)->orderBy('id')->get();
+        foreach ($organizations as $organization) {
+            $limit = $override ?? max(1, (int) ($organization->storage_cleanup_max_events ?? 10000));
             if ($this->option('dry-run')) {
-                $selected = $retention->previewBatch($currentLimit, $profile);
-                break;
+                $preview = $retention->previewBatchForOrganization($organization, min($batchSize, $limit), $profile);
+                $selected['events'] += $preview['events'];
+                $selected['observations'] += $preview['observations'];
+                continue;
             }
 
-            $result = $retention->pruneBatch($currentLimit, $profile);
-            if ($result['events'] === 0) {
-                break;
+            $tenantDeleted = 0;
+            while ($tenantDeleted < $limit) {
+                $currentLimit = min($batchSize, $limit - $tenantDeleted);
+                $result = $retention->pruneBatchForOrganization($organization, $currentLimit, $profile);
+                if ($result['events'] === 0) {
+                    break;
+                }
+                $tenantDeleted += $result['events'];
+                $deletedEvents += $result['events'];
+                $deletedObservations += $result['observations'];
+                $batches++;
             }
-            $deletedEvents += $result['events'];
-            $deletedObservations += $result['observations'];
-            $batches++;
+            $reachedLimit = $reachedLimit || $tenantDeleted >= $limit;
         }
 
         $durationMs = (hrtime(true) - $startedAt) / 1_000_000;
@@ -77,7 +92,6 @@ class PruneMerakiHistoryIncrementally extends Command
             return self::SUCCESS;
         }
 
-        $reachedLimit = $deletedEvents >= $limit;
         $remainingLabel = $reachedLimit
             ? 'No verificado; se alcanzo el limite solicitado'
             : 'No se encontraron mas en este ciclo';

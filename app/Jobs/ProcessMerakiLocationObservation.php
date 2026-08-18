@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiClientDeviceRegistrar;
+use App\Connectors\Meraki\MerakiEventPayloadCompactor;
 use App\Enums\ConnectorStatus;
 use App\Models\AssetDeviceAssignment;
 use App\Models\MerakiFloorPlanMapping;
@@ -16,7 +17,6 @@ use App\Positioning\BleObservationExtractor;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -37,12 +37,20 @@ class ProcessMerakiLocationObservation
         ZoneClassifier $zones,
         MerakiAccessPointRegistrar $accessPoints,
         ?MerakiClientDeviceRegistrar $clients = null,
+        ?MerakiEventPayloadCompactor $payloadCompactor = null,
     ): void {
         $event = TelemetryEvent::query()
             ->with(['organization', 'connector'])
             ->findOrFail($this->telemetryEventId);
 
-        $this->process($event, $zones, $accessPoints, $clients ?? app(MerakiClientDeviceRegistrar::class));
+        $this->process(
+            $event,
+            $zones,
+            $accessPoints,
+            $clients ?? app(MerakiClientDeviceRegistrar::class),
+            true,
+            $payloadCompactor ?? app(MerakiEventPayloadCompactor::class),
+        );
     }
 
     public function process(
@@ -51,6 +59,7 @@ class ProcessMerakiLocationObservation
         MerakiAccessPointRegistrar $accessPoints,
         MerakiClientDeviceRegistrar $clients,
         bool $updateConnector = true,
+        ?MerakiEventPayloadCompactor $payloadCompactor = null,
     ): void {
         if (! $event->organization?->active) {
             throw new \RuntimeException('La organización del evento Meraki no está activa.');
@@ -79,19 +88,6 @@ class ProcessMerakiLocationObservation
             }
 
             $device = $clients->register($record, $event->observed_at ?? $event->received_at);
-
-            $event->forceFill([
-                'device_id' => $device->id,
-                'normalized_payload' => Arr::except($record, ['raw']),
-                'raw_payload' => [
-                    'version' => $record['version'] ?? null,
-                    'type' => $record['type'] ?? null,
-                    'network_id' => $record['network_id'] ?? null,
-                    'client_mac' => $clientMac,
-                    'observed_at' => $record['observed_at'] ?? null,
-                    'source_summary' => $record['source_summary'] ?? [],
-                ],
-            ]);
 
             $signalRows = [];
             foreach (($record['reporting_aps'] ?? []) as $accessPoint) {
@@ -149,7 +145,12 @@ class ProcessMerakiLocationObservation
                 $this->storePosition($event, $assignment, $record, $zones);
             }
 
+            $compacted = ($payloadCompactor ?? app(MerakiEventPayloadCompactor::class))->compact($record);
             $event->forceFill([
+                'device_id' => $device->id,
+                'raw_payload' => $compacted['raw_payload'],
+                'normalized_payload' => $compacted['normalized_payload'],
+                'payload_storage_version' => MerakiEventPayloadCompactor::STORAGE_VERSION,
                 'processing_status' => 'processed',
                 'processed_at' => now(),
                 'processing_error' => null,

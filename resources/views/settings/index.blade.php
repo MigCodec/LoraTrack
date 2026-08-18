@@ -27,6 +27,36 @@
             </div>
         </section>
 
+        <section class="panel overflow-hidden" aria-labelledby="processing-title">
+            <div class="panel-header"><div><h2 id="processing-title" class="panel-title">Capacidad de procesamiento</h2><p class="panel-subtitle">Máximos aplicados por organización en cada ejecución programada</p></div></div>
+            <div class="grid gap-6 p-6 md:grid-cols-2">
+                <label class="field-label">Lotes webhook Meraki
+                    <span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">Lotes de entrada normalizados por minuto. Auméntalo cuando la bandeja crezca.</span>
+                    <input class="field-input mt-3 max-w-48" type="number" name="meraki_webhook_batch_limit" min="1" max="100" value="{{ old('meraki_webhook_batch_limit', $organization->meraki_webhook_batch_limit ?? 100) }}" required>
+                </label>
+                <label class="field-label">Observaciones Meraki
+                    <span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">Eventos normalizados que se convierten en dispositivos, señales y posiciones por minuto.</span>
+                    <input class="field-input mt-3 max-w-48" type="number" name="meraki_observation_limit" min="1" max="100000" value="{{ old('meraki_observation_limit', $organization->meraki_observation_limit ?? 100) }}" required>
+                </label>
+                <label class="field-label">Intentos por lote Meraki
+                    <span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">Cantidad máxima de intentos antes de dejar un lote fallido para revisión.</span>
+                    <input class="field-input mt-3 max-w-48" type="number" name="meraki_webhook_max_attempts" min="1" max="10" value="{{ old('meraki_webhook_max_attempts', $organization->meraki_webhook_max_attempts ?? 3) }}" required>
+                </label>
+                <label class="field-label">Uplinks TTI
+                    <span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">Uplinks pendientes procesados por minuto.</span>
+                    <input class="field-input mt-3 max-w-48" type="number" name="tti_uplink_limit" min="1" max="1000" value="{{ old('tti_uplink_limit', $organization->tti_uplink_limit ?? 10) }}" required>
+                </label>
+                <label class="field-label">Mensajes MQTT
+                    <span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">Mensajes pendientes procesados por minuto.</span>
+                    <input class="field-input mt-3 max-w-48" type="number" name="mqtt_message_limit" min="1" max="1000" value="{{ old('mqtt_message_limit', $organization->mqtt_message_limit ?? 10) }}" required>
+                </label>
+                <label class="field-label">Sincronizaciones de catálogo
+                    <span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">Solicitudes de sincronización iniciadas por minuto.</span>
+                    <input class="field-input mt-3 max-w-48" type="number" name="catalog_sync_limit" min="1" max="10" value="{{ old('catalog_sync_limit', $organization->catalog_sync_limit ?? 1) }}" required>
+                </label>
+            </div>
+        </section>
+
         <section class="panel overflow-hidden" aria-labelledby="storage-title">
             <div class="panel-header"><div><h2 id="storage-title" class="panel-title">Protección de almacenamiento</h2><p class="panel-subtitle">Límites automáticos aplicados por el mantenimiento horario</p></div></div>
             <div class="space-y-6 p-6">

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesTenantProcessingLimits;
 use App\Enums\ConnectorProvider;
 use App\Jobs\ProcessTtiUplink;
 use App\Models\TelemetryEvent;
@@ -13,28 +14,31 @@ use Throwable;
 
 class ProcessTtiUplinks extends Command
 {
-    protected $signature = 'loratrack:process-tti-uplinks {--limit=3 : Cantidad maxima de uplinks, entre 1 y 3}';
+    use ResolvesTenantProcessingLimits;
 
-    protected $description = 'Procesa hasta tres uplinks TTI pendientes desde el scheduler.';
+    protected $signature = 'loratrack:process-tti-uplinks {--limit= : Sobrescribe el limite por organizacion (1 a 1000)}';
+
+    protected $description = 'Procesa uplinks TTI pendientes usando el limite de cada organizacion.';
 
     public function handle(): int
     {
-        $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 3],
-        ]);
-        if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 3.');
-
-            return self::FAILURE;
+        $override = $this->optionalIntegerOption('limit', 1, 1000);
+        if ($override === -1) {
+            return self::INVALID;
         }
 
-        $eventIds = TelemetryEvent::query()
-            ->where('event_type', 'uplink')
-            ->where('processing_status', 'pending')
-            ->whereHas('connector', fn ($query) => $query->where('provider', ConnectorProvider::TtiWebhook->value))
-            ->orderBy('received_at')
-            ->limit($limit)
-            ->pluck('id');
+        $eventIds = collect();
+        foreach ($this->tenantLimits('tti_uplink_limit', 10, $override) as $organizationId => $limit) {
+            $eventIds->push(...TelemetryEvent::query()
+                ->withoutGlobalScopes()
+                ->where('organization_id', $organizationId)
+                ->where('event_type', 'uplink')
+                ->where('processing_status', 'pending')
+                ->whereHas('connector', fn ($query) => $query->withoutGlobalScopes()->where('provider', ConnectorProvider::TtiWebhook->value))
+                ->orderBy('received_at')
+                ->limit($limit)
+                ->pluck('id'));
+        }
 
         $processed = 0;
         $failed = 0;

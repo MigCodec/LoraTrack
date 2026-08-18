@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesTenantProcessingLimits;
 use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiClientDeviceRegistrar;
+use App\Connectors\Meraki\MerakiEventPayloadCompactor;
 use App\Jobs\ProcessMerakiLocationObservation;
 use App\Models\Connector;
 use App\Models\TelemetryEvent;
@@ -18,8 +20,10 @@ use Throwable;
 
 class ProcessMerakiObservations extends Command
 {
+    use ResolvesTenantProcessingLimits;
+
     protected $signature = 'loratrack:process-meraki-observations
-        {--limit=100 : Cantidad maxima de observaciones}
+        {--limit= : Sobrescribe el limite por organizacion (1 a 100000)}
         {--profile : Muestra tiempos y consultas para diagnosticar rendimiento}';
 
     protected $description = 'Procesa observaciones Meraki pendientes desde el scheduler.';
@@ -27,16 +31,13 @@ class ProcessMerakiObservations extends Command
     public function handle(
         MerakiAccessPointRegistrar $accessPoints,
         MerakiClientDeviceRegistrar $clients,
+        MerakiEventPayloadCompactor $payloadCompactor,
         ZoneClassifier $zones,
     ): int
     {
-        $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 1000000],
-        ]);
-        if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 1.000.000.');
-
-            return self::FAILURE;
+        $override = $this->optionalIntegerOption('limit', 1, 100000);
+        if ($override === -1) {
+            return self::INVALID;
         }
 
         $profile = (bool) $this->option('profile');
@@ -58,12 +59,17 @@ class ProcessMerakiObservations extends Command
         $idSelectionStartedAt = hrtime(true);
         // Select only the covering-index columns while ordering. Pulling large JSON
         // payloads through this query makes MariaDB materialize/sort them before LIMIT.
-        $eventIds = TelemetryEvent::query()
-            ->where('event_type', 'meraki_location')
-            ->where('processing_status', 'pending')
-            ->orderBy('received_at')
-            ->limit($limit)
-            ->pluck('id');
+        $eventIds = collect();
+        foreach ($this->tenantLimits('meraki_observation_limit', 100, $override) as $organizationId => $limit) {
+            $eventIds->push(...TelemetryEvent::query()
+                ->withoutGlobalScopes()
+                ->where('organization_id', $organizationId)
+                ->where('event_type', 'meraki_location')
+                ->where('processing_status', 'pending')
+                ->orderBy('received_at')
+                ->limit($limit)
+                ->pluck('id'));
+        }
         $idSelectionDurationMs = $this->elapsedMs($idSelectionStartedAt);
 
         $payloadLoadStartedAt = hrtime(true);
@@ -100,6 +106,7 @@ class ProcessMerakiObservations extends Command
                     $accessPoints,
                     $clients,
                     false,
+                    $payloadCompactor,
                 );
                 $processed++;
                 if ($event->processing_status === 'processed') {

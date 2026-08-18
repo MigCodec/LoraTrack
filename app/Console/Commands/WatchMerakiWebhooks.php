@@ -11,7 +11,7 @@ class WatchMerakiWebhooks extends Command
 {
     protected $signature = 'loratrack:watch-meraki-webhooks
         {--interval=5 : Segundos de espera entre ciclos}
-        {--limit=3 : Cantidad maxima de lotes procesados por ciclo}
+        {--limit= : Sobrescribe el limite de lotes por organizacion}
         {--once : Ejecuta un solo ciclo y termina}';
 
     protected $description = 'Procesa continuamente los webhooks Meraki y muestra cada resultado en la consola.';
@@ -19,8 +19,8 @@ class WatchMerakiWebhooks extends Command
     public function handle(): int
     {
         $interval = $this->integerOption('interval', 1, 3600);
-        $limit = $this->integerOption('limit', 1, 100000);
-        if ($interval === null || $limit === null) {
+        $limit = $this->optionalIntegerOption('limit', 1, 100);
+        if ($interval === null || $limit === -1) {
             return self::INVALID;
         }
 
@@ -29,14 +29,16 @@ class WatchMerakiWebhooks extends Command
 
         do {
             $this->newLine();
+            $arguments = $limit === null ? [] : ['--limit' => $limit];
+            $commandLabel = 'loratrack:process-meraki-webhooks'.($limit === null ? '' : " --limit={$limit}");
             $this->line(sprintf(
-                '<fg=gray>[%s]</> Ejecutando <info>loratrack:process-meraki-observations --limit=%d</info>',
+                '<fg=gray>[%s]</> Ejecutando <info>%s</info>',
                 now()->format('Y-m-d H:i:s'),
-                $limit,
+                $commandLabel,
             ));
 
             try {
-                $exitCode = $this->call('loratrack:process-meraki-observations', ['--limit' => $limit]);
+                $exitCode = $this->call('loratrack:process-meraki-webhooks', $arguments);
                 $lastExitCode = $exitCode;
                 if ($exitCode === self::SUCCESS) {
                     $this->line('<fg=green>Ciclo finalizado correctamente.</>');
@@ -70,5 +72,15 @@ class WatchMerakiWebhooks extends Command
         }
 
         return $value;
+    }
+
+    private function optionalIntegerOption(string $name, int $minimum, int $maximum): ?int
+    {
+        $raw = $this->option($name);
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        return $this->integerOption($name, $minimum, $maximum) ?? -1;
     }
 }

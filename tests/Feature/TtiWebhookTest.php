@@ -8,11 +8,13 @@ use App\Enums\ConnectorStatus;
 use App\Jobs\ProcessTtiUplink;
 use App\Models\Connector;
 use App\Models\Device;
+use App\Models\Organization;
 use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\PayloadProfileDecoder;
 use App\Positioning\TelemetryPositioningService;
 use App\Telemetry\AssetLastSeenUpdater;
+use App\Tenancy\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -20,6 +22,14 @@ use Tests\TestCase;
 class TtiWebhookTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $organization = Organization::query()->create(['name' => 'TTI Tests', 'slug' => 'tti-tests']);
+        app(OrganizationContext::class)->set($organization);
+    }
 
     public function test_tti_uplink_is_authenticated_and_deduplicated(): void
     {
@@ -96,6 +106,7 @@ class TtiWebhookTest extends TestCase
     public function test_tti_scheduler_processes_at_most_three_uplinks_per_execution(): void
     {
         Queue::fake();
+        Organization::query()->firstOrFail()->update(['tti_uplink_limit' => 3]);
         $connector = Connector::query()->create([
             'name' => 'TTI',
             'kind' => ConnectorKind::Telemetry,

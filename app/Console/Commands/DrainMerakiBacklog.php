@@ -167,9 +167,12 @@ class DrainMerakiBacklog extends Command
     private function eligibleBatchState(): array
     {
         $state = DB::table('meraki_webhook_batches')
+            ->join('organizations', 'organizations.id', '=', 'meraki_webhook_batches.organization_id')
             ->selectRaw('COUNT(*) as aggregate, COALESCE(SUM(attempts), 0) as attempts')
+            ->where('organizations.active', true)
             ->where(fn ($query) => $query->where('processing_status', 'pending')
-                ->orWhere(fn ($failed) => $failed->where('processing_status', 'failed')->where('attempts', '<', 3)))
+                ->orWhere(fn ($failed) => $failed->where('processing_status', 'failed')
+                    ->whereColumn('attempts', '<', 'organizations.meraki_webhook_max_attempts')))
             ->first();
 
         return [(int) ($state->aggregate ?? 0), (int) ($state->attempts ?? 0)];
@@ -178,8 +181,9 @@ class DrainMerakiBacklog extends Command
     private function terminalBatchCount(): int
     {
         return DB::table('meraki_webhook_batches')
+            ->join('organizations', 'organizations.id', '=', 'meraki_webhook_batches.organization_id')
             ->where('processing_status', 'failed')
-            ->where('attempts', '>=', 3)
+            ->whereColumn('attempts', '>=', 'organizations.meraki_webhook_max_attempts')
             ->count();
     }
 

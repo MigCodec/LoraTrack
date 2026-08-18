@@ -69,9 +69,38 @@ class MerakiEventRetention
     }
 
     /** @return array{events: int, observations: int} */
+    public function pruneBatchForOrganization(Organization $organization, int $limit, bool $countObservations = false): array
+    {
+        $ids = $this->staleIds($this->cutoff($organization), $limit, $organization->id);
+        if ($ids->isEmpty()) {
+            return ['events' => 0, 'observations' => 0];
+        }
+
+        $observations = $countObservations
+            ? SignalObservation::query()->withoutGlobalScopes()->whereIn('telemetry_event_id', $ids)->count()
+            : 0;
+        $events = TelemetryEvent::query()->withoutGlobalScopes()->whereIn('id', $ids)->delete();
+
+        return ['events' => $events, 'observations' => $observations];
+    }
+
+    /** @return array{events: int, observations: int} */
     public function previewBatch(int $limit, bool $countObservations = false): array
     {
         $ids = $this->staleIdsAcrossOrganizations($limit);
+
+        return [
+            'events' => $ids->count(),
+            'observations' => $countObservations
+                ? SignalObservation::query()->withoutGlobalScopes()->whereIn('telemetry_event_id', $ids)->count()
+                : 0,
+        ];
+    }
+
+    /** @return array{events: int, observations: int} */
+    public function previewBatchForOrganization(Organization $organization, int $limit, bool $countObservations = false): array
+    {
+        $ids = $this->staleIds($this->cutoff($organization), $limit, $organization->id);
 
         return [
             'events' => $ids->count(),

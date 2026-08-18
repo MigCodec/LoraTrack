@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\ResolvesTenantProcessingLimits;
 use App\Connectors\Meraki\MerakiPayloadNormalizer;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Models\MerakiWebhookBatch;
+use App\Models\Organization;
 use App\Support\TelemetryTimestamp;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Console\Command;
@@ -19,34 +21,43 @@ use Throwable;
 
 class ProcessMerakiWebhookBatches extends Command
 {
-    protected $signature = 'loratrack:process-meraki-webhooks {--limit=3 : Cantidad maxima de lotes a procesar}';
+    use ResolvesTenantProcessingLimits;
+
+    protected $signature = 'loratrack:process-meraki-webhooks {--limit= : Sobrescribe el limite por organizacion (1 a 100)}';
 
     protected $description = 'Normaliza los lotes Meraki recibidos y crea eventos de telemetria idempotentes.';
 
     public function handle(MerakiPayloadNormalizer $normalizer): int
     {
-        $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 100],
-        ]);
-        if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 100.');
-
-            return self::FAILURE;
+        $override = $this->optionalIntegerOption('limit', 1, 100);
+        if ($override === -1) {
+            return self::INVALID;
         }
 
-        $batchIds = MerakiWebhookBatch::query()
-            ->withoutGlobalScope('organization')
-            ->where(function ($query): void {
-                $query->where('processing_status', 'pending')
-                    ->orWhere(function ($failed): void {
-                        $failed->where('processing_status', 'failed')
-                            ->where('attempts', '<', 3);
-                    });
-            })
-            ->orderByRaw("CASE WHEN processing_status = 'pending' THEN 0 ELSE 1 END")
-            ->orderBy('received_at')
-            ->limit($limit)
-            ->pluck('id');
+        $batchIds = collect();
+        $organizations = Organization::query()
+            ->where('active', true)
+            ->orderBy('id')
+            ->get(['id', 'meraki_webhook_batch_limit', 'meraki_webhook_max_attempts']);
+        foreach ($organizations as $organization) {
+            $organizationId = (string) $organization->id;
+            $limit = $override ?? max(1, (int) $organization->meraki_webhook_batch_limit);
+            $maxAttempts = max(1, (int) $organization->meraki_webhook_max_attempts);
+            $batchIds->push(...MerakiWebhookBatch::query()
+                ->withoutGlobalScope('organization')
+                ->where('organization_id', $organizationId)
+                ->where(function ($query) use ($maxAttempts): void {
+                    $query->where('processing_status', 'pending')
+                        ->orWhere(function ($failed) use ($maxAttempts): void {
+                            $failed->where('processing_status', 'failed')
+                                ->where('attempts', '<', $maxAttempts);
+                        });
+                })
+                ->orderByRaw("CASE WHEN processing_status = 'pending' THEN 0 ELSE 1 END")
+                ->orderBy('received_at')
+                ->limit($limit)
+                ->pluck('id'));
+        }
 
         $processed = 0;
         foreach ($batchIds as $batchId) {
@@ -70,9 +81,12 @@ class ProcessMerakiWebhookBatches extends Command
                 ->withoutGlobalScope('organization')
                 ->lockForUpdate()
                 ->find($batchId);
-            if (! $candidate
-                || ! in_array($candidate->processing_status, ['pending', 'failed'], true)
-                || $candidate->attempts >= 3
+            if (! $candidate) {
+                return null;
+            }
+            $maxAttempts = (int) ($candidate->organization()->value('meraki_webhook_max_attempts') ?? 3);
+            if (! in_array($candidate->processing_status, ['pending', 'failed'], true)
+                || $candidate->attempts >= max(1, $maxAttempts)
             ) {
                 return null;
             }

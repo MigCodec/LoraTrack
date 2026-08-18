@@ -141,7 +141,8 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertEqualsWithDelta(2.5, (float) $position->accuracy_meters, 0.001);
         $this->assertTrue($asset->fresh()->last_seen_at->equalTo($event->observed_at));
         $this->assertArrayNotHasKey('rssi_records', $event->fresh()->raw_payload);
-        $this->assertCount(3, $event->fresh()->normalized_payload['rssi_records']);
+        $this->assertArrayNotHasKey('rssi_records', $event->fresh()->normalized_payload);
+        $this->assertSame(2, $event->fresh()->payload_storage_version);
     }
 
     public function test_scheduler_recovers_failed_batch_with_double_encoded_payload(): void
@@ -514,8 +515,9 @@ class MerakiLocationWebhookTest extends TestCase
         $this->process($event);
         $event->refresh();
         $this->assertSame('E455A815A240', $event->device->identifier);
-        $this->assertSame(3, $event->normalized_payload['source_summary']['reporting_ap_count']);
+        $this->assertSame(3, $event->raw_payload['source_summary']['reporting_ap_count']);
         $this->assertArrayNotHasKey('rssi_records', $event->raw_payload);
+        $this->assertArrayNotHasKey('reporting_aps', $event->normalized_payload);
         $scanners = Device::query()->where('type', 'scanner')->orderBy('identifier')->get();
         $this->assertCount(3, $scanners);
         $this->assertSame('AP-01', $scanners->firstWhere('identifier', 'E455A815A238')->name);

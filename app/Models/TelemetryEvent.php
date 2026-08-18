@@ -19,7 +19,7 @@ class TelemetryEvent extends Model
     protected $fillable = [
         'connector_id', 'device_id', 'external_event_id', 'event_type', 'observed_at',
         'received_at', 'processed_at', 'normalized_payload', 'raw_payload',
-        'processing_status', 'processing_error',
+        'processing_status', 'processing_error', 'payload_storage_version',
     ];
 
     protected function casts(): array
@@ -27,6 +27,7 @@ class TelemetryEvent extends Model
         return [
             'observed_at' => 'datetime', 'received_at' => 'datetime', 'processed_at' => 'datetime',
             'normalized_payload' => 'array', 'raw_payload' => 'array',
+            'payload_storage_version' => 'integer',
         ];
     }
 
