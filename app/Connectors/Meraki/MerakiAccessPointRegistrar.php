@@ -50,7 +50,7 @@ class MerakiAccessPointRegistrar
         }
 
         $metadata = $device->metadata ?? [];
-        $metadata['meraki'] = array_filter([
+        $metadata['meraki'] = array_replace($metadata['meraki'] ?? [], array_filter([
             'role' => 'access_point_scanner',
             'network_id' => $networkId !== '' ? $networkId : null,
             'serial' => $reading['apSerial'] ?? null,
@@ -59,7 +59,7 @@ class MerakiAccessPointRegistrar
             'installation_status' => $device->exists && (bool) $device->has_active_installations
                 ? 'installed'
                 : 'pending_floor_plan',
-        ], fn (mixed $value): bool => $value !== null);
+        ], fn (mixed $value): bool => $value !== null));
         $currentLastSeen = $device->last_seen_at;
         $name = trim((string) ($reading['apName'] ?? ''));
 

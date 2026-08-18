@@ -25,14 +25,26 @@ class MerakiObservationBatchCacheTest extends TestCase
         $firstSeenAt = now()->subMinute();
         $lastSeenAt = now();
         $this->event($organization, $connector, 'AABBCCDDEE01', 'event-one', $firstSeenAt);
-        $this->event($organization, $connector, 'AABBCCDDEE02', 'event-two', $lastSeenAt);
+        $this->event($organization, $connector, 'AABBCCDDEE01', 'event-two', $lastSeenAt);
 
         $accessPointSelects = 0;
-        DB::listen(function (QueryExecuted $query) use (&$accessPointSelects): void {
+        $clientSelects = 0;
+        $connectorUpdates = 0;
+        DB::listen(function (QueryExecuted $query) use (&$accessPointSelects, &$clientSelects, &$connectorUpdates): void {
             if (str_starts_with(mb_strtolower(ltrim($query->sql)), 'select')
                 && in_array('001122334455', $query->bindings, true)
             ) {
                 $accessPointSelects++;
+            }
+            if (str_starts_with(mb_strtolower(ltrim($query->sql)), 'select')
+                && in_array('AABBCCDDEE01', $query->bindings, true)
+            ) {
+                $clientSelects++;
+            }
+            if (str_starts_with(mb_strtolower(ltrim($query->sql)), 'update')
+                && str_contains(mb_strtolower($query->sql), 'connectors')
+            ) {
+                $connectorUpdates++;
             }
         });
 
@@ -40,8 +52,12 @@ class MerakiObservationBatchCacheTest extends TestCase
             ->assertSuccessful();
 
         $this->assertSame(1, $accessPointSelects);
+        $this->assertSame(1, $clientSelects);
+        $this->assertSame(1, $connectorUpdates);
         $this->assertSame(2, TelemetryEvent::query()->where('processing_status', 'processed')->count());
         $this->assertSame(1, Device::query()->where('identifier', '001122334455')->count());
+        $this->assertSame(1, Device::query()->where('identifier', 'AABBCCDDEE01')->count());
+        $this->assertNotNull($connector->fresh()->last_success_at);
         $this->assertTrue(
             Device::query()->where('identifier', '001122334455')->firstOrFail()->last_seen_at->equalTo($lastSeenAt),
         );
