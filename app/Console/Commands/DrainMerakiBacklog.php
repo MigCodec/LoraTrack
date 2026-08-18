@@ -15,7 +15,8 @@ class DrainMerakiBacklog extends Command
         {--observation-batch=1000 : Observaciones procesadas por cada proceso aislado}
         {--memory=512M : Límite de memoria de cada proceso hijo}
         {--child-timeout=900 : Timeout en segundos de cada proceso hijo}
-        {--max-runtime=0 : Duración máxima total en segundos; 0 procesa hasta vaciar la cola}';
+        {--max-runtime=0 : Duración máxima total en segundos; 0 procesa hasta vaciar la cola}
+        {--live-output : Muestra en tiempo real la salida y los errores de los procesos hijos}';
 
     protected $description = 'Vacía masivamente el backlog Meraki en una VM usando procesos aislados y memoria acotada.';
 
@@ -25,6 +26,10 @@ class DrainMerakiBacklog extends Command
         $childTimeout = $this->integerOption('child-timeout', 30, 3600);
         $maxRuntime = $this->integerOption('max-runtime', 0, 86400);
         $memory = strtoupper(trim((string) $this->option('memory')));
+        $liveOutput = (bool) $this->option('live-output');
+        $outputCallback = $liveOutput
+            ? fn (string $type, string $output) => $this->output->write($output)
+            : null;
         if ($observationBatch === null || $childTimeout === null || $maxRuntime === null) {
             return self::INVALID;
         }
@@ -64,10 +69,11 @@ class DrainMerakiBacklog extends Command
                         ['--limit' => 1],
                         $memory,
                         $childTimeout,
+                        $outputCallback,
                     );
                     [$afterBatches, $afterAttempts] = $this->eligibleBatchState();
                     $processedBatches += max(0, $beforeBatches - $afterBatches);
-                    $this->renderChildOutput($result->output);
+                    $this->renderChildOutput($result->output, $liveOutput);
                     $advanced = $afterBatches < $beforeBatches || $afterAttempts > $beforeAttempts;
                     if ($result->exitCode !== self::SUCCESS || ! $advanced) {
                         $failures++;
@@ -86,11 +92,12 @@ class DrainMerakiBacklog extends Command
                         ['--limit' => $observationBatch],
                         $memory,
                         $childTimeout,
+                        $outputCallback,
                     );
                     $afterObservations = $this->pendingObservationCount();
                     $advanced = max(0, $beforeObservations - $afterObservations);
                     $processedObservations += $advanced;
-                    $this->renderChildOutput($result->output);
+                    $this->renderChildOutput($result->output, $liveOutput);
                     if ($advanced === 0) {
                         $failures++;
                         $this->error('El proceso de observaciones no avanzó; se detiene para evitar un ciclo infinito.');
@@ -111,11 +118,17 @@ class DrainMerakiBacklog extends Command
                 }
             }
 
-            $counterResult = $runner->run('loratrack:sync-telemetry-counters', [], $memory, $childTimeout);
+            $counterResult = $runner->run(
+                'loratrack:sync-telemetry-counters',
+                [],
+                $memory,
+                $childTimeout,
+                $outputCallback,
+            );
             if ($counterResult->exitCode !== self::SUCCESS) {
                 $failures++;
                 $this->warn('No fue posible sincronizar los contadores al finalizar.');
-                $this->renderChildOutput($counterResult->output);
+                $this->renderChildOutput($counterResult->output, $liveOutput);
             }
 
             $remainingBatches = $this->eligibleBatchCount();
@@ -206,9 +219,9 @@ class DrainMerakiBacklog extends Command
         return $maxRuntime > 0 && (hrtime(true) - $startedAt) / 1_000_000_000 >= $maxRuntime;
     }
 
-    private function renderChildOutput(string $output): void
+    private function renderChildOutput(string $output, bool $alreadyRendered): void
     {
-        if ($output !== '') {
+        if (! $alreadyRendered && $output !== '') {
             $this->line($output);
         }
     }

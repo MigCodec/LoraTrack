@@ -8,12 +8,16 @@ use Symfony\Component\Process\Process;
 
 class IsolatedArtisanCommandRunner
 {
-    /** @param array<string, int|string|bool> $arguments */
+    /**
+     * @param  array<string, int|string|bool>  $arguments
+     * @param  (callable(string, string): void)|null  $outputCallback
+     */
     public function run(
         string $command,
         array $arguments,
         string $memoryLimit,
         int $timeoutSeconds,
+        ?callable $outputCallback = null,
     ): ArtisanProcessResult {
         $processArguments = [PHP_BINARY, '-d', "memory_limit={$memoryLimit}", base_path('artisan'), $command];
         foreach ($arguments as $name => $value) {
@@ -28,7 +32,7 @@ class IsolatedArtisanCommandRunner
         }
 
         $process = new Process($processArguments, base_path(), null, null, $timeoutSeconds);
-        $process->run();
+        $process->run($outputCallback);
 
         return new ArtisanProcessResult(
             $process->getExitCode() ?? 1,

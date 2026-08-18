@@ -50,7 +50,7 @@ class DrainMerakiBacklogTest extends TestCase
         $commands = [];
         $this->mock(IsolatedArtisanCommandRunner::class, function (MockInterface $mock) use (&$commands, $batch, $event): void {
             $mock->shouldReceive('run')->times(3)->andReturnUsing(
-                function (string $command, array $arguments, string $memory, int $timeout) use (&$commands, $batch, $event): ArtisanProcessResult {
+                function (string $command, array $arguments, string $memory, int $timeout, ?callable $outputCallback) use (&$commands, $batch, $event): ArtisanProcessResult {
                     $commands[] = [$command, $arguments, $memory, $timeout];
                     if ($command === 'loratrack:process-meraki-webhooks') {
                         $batch->delete();
@@ -88,5 +88,23 @@ class DrainMerakiBacklogTest extends TestCase
         $this->artisan('loratrack:drain-meraki-backlog', ['--memory' => '-1'])
             ->expectsOutputToContain('--memory debe usar un valor permitido')
             ->assertExitCode(2);
+    }
+
+    public function test_vm_command_can_stream_child_output_to_the_console(): void
+    {
+        $this->mock(IsolatedArtisanCommandRunner::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('run')->once()->andReturnUsing(
+                function (string $command, array $arguments, string $memory, int $timeout, ?callable $outputCallback): ArtisanProcessResult {
+                    $this->assertNotNull($outputCallback);
+                    $outputCallback('out', "Contadores sincronizados en vivo.\n");
+
+                    return new ArtisanProcessResult(0, 'Contadores sincronizados en vivo.');
+                },
+            );
+        });
+
+        $this->artisan('loratrack:drain-meraki-backlog', ['--live-output' => true])
+            ->expectsOutputToContain('Contadores sincronizados en vivo.')
+            ->assertSuccessful();
     }
 }
