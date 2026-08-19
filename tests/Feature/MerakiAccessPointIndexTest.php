@@ -10,6 +10,7 @@ use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
 use App\Models\Location;
+use App\Models\Organization;
 use App\Models\SignalObservation;
 use App\Models\TelemetryEvent;
 use App\Models\User;
@@ -105,6 +106,9 @@ class MerakiAccessPointIndexTest extends TestCase
             ->assertSee(route('api.meraki-access-points.index'), false)
             ->assertSee('data-meraki-access-points', false)
             ->assertDontSee('Scanner no Meraki');
+
+        Organization::query()->whereKey($admin->memberships()->value('organization_id'))
+            ->update(['telemetry_retention_days' => 6]);
 
         $this->actingAs($admin)->getJson(route('api.meraki-access-points.index'))
             ->assertOk()

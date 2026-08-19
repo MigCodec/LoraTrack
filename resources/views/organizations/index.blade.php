@@ -59,7 +59,7 @@
                     <div class="grid gap-4 md:grid-cols-2">
                         @foreach([
                             'telemetry_retention_days' => ['Telemetría y señales', 'Eventos normalizados, payload reducido y lecturas RSSI.', 'telemetry_days'],
-                            'position_history_retention_days' => ['Historial de posiciones', 'Estimaciones históricas; siempre conserva la última posición de cada activo.', 'position_history_days'],
+                            'position_history_retention_days' => ['Historial de posiciones', 'Todas las estimaciones históricas quedan sujetas a esta ventana.', 'position_history_days'],
                             'operational_log_retention_days' => ['Actividad operacional', 'Actividad de conectores, auditoría y alertas ya resueltas.', 'operational_log_days'],
                             'terminal_inbox_retention_days' => ['Bandeja de entrada Meraki', 'Todo lote recibido, cualquiera sea su estado de procesamiento.', 'terminal_inbox_days'],
                         ] as $field => [$label, $help, $recommendation])

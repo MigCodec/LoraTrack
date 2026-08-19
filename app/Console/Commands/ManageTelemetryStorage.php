@@ -58,6 +58,7 @@ class ManageTelemetryStorage extends Command
             $this->warn('No fue posible medir el volumen: '.$exception->getMessage());
         }
 
+        $retentionViolations = 0;
         foreach ($organizations as $organization) {
             if ($usage) {
                 $organization->forceFill([
@@ -97,12 +98,20 @@ class ManageTelemetryStorage extends Command
                     $result['terminal_inbox'],
                     $result['recovered_inbox'],
                 ));
+                $remaining = $cleaner->expiredCounts($organization);
+                $remainingCount = array_sum($remaining);
+                if ($remainingCount > 0) {
+                    $retentionViolations += $remainingCount;
+                    $this->error("{$organization->name}: quedan {$remainingCount} registros fuera de retención.");
+                } else {
+                    $this->info("{$organization->name}: retención verificada, sin registros vencidos.");
+                }
             } finally {
                 $context->set(null);
             }
         }
 
-        return self::SUCCESS;
+        return $retentionViolations === 0 ? self::SUCCESS : self::FAILURE;
     }
 
     private function usageMessage(DatabaseStorageUsage $usage): string

@@ -36,18 +36,7 @@ class TelemetryStorageCleaner
             ),
             'position_estimates' => $this->deleteInBatches(
                 DB::table('position_estimates')->where('organization_id', $organization->id)
-                    ->where('calculated_at', '<', now()->subDays($policy->positionHistoryDays))
-                    ->whereExists(function (Builder $newer): void {
-                        $newer->selectRaw('1')->from('position_estimates as newer_position')
-                            ->whereColumn('newer_position.asset_id', 'position_estimates.asset_id')
-                            ->where(function (Builder $chronology): void {
-                                $chronology->whereColumn('newer_position.calculated_at', '>', 'position_estimates.calculated_at')
-                                    ->orWhere(function (Builder $sameTime): void {
-                                        $sameTime->whereColumn('newer_position.calculated_at', '=', 'position_estimates.calculated_at')
-                                            ->whereColumn('newer_position.id', '>', 'position_estimates.id');
-                                    });
-                            });
-                    }),
+                    ->where('calculated_at', '<', now()->subDays($policy->positionHistoryDays)),
                 'position_estimates', $maxDeletesPerCategory, ['calculated_at', 'id'],
             ),
             'operational_logs' => $this->deleteInBatches(
@@ -85,6 +74,32 @@ class TelemetryStorageCleaner
     public function cutoff(Organization $organization): Carbon
     {
         return now()->subDays(TenantRetentionPolicy::for($organization)->telemetryDays);
+    }
+
+    /**
+     * @return array{telemetry_events: int, position_estimates: int, operational_logs: int, resolved_alerts: int, meraki_inbox: int}
+     */
+    public function expiredCounts(Organization $organization): array
+    {
+        $policy = TenantRetentionPolicy::for($organization);
+
+        return [
+            'telemetry_events' => $this->expiredTelemetryQuery($organization, $policy)->count(),
+            'position_estimates' => DB::table('position_estimates')
+                ->where('organization_id', $organization->id)
+                ->where('calculated_at', '<', now()->subDays($policy->positionHistoryDays))->count(),
+            'operational_logs' => DB::table('connector_activity_logs')
+                ->where('organization_id', $organization->id)
+                ->where('created_at', '<', now()->subDays($policy->operationalLogDays))->count()
+                + DB::table('audit_logs')->where('organization_id', $organization->id)
+                    ->where('created_at', '<', now()->subDays($policy->operationalLogDays))->count(),
+            'resolved_alerts' => DB::table('alerts')->where('organization_id', $organization->id)
+                ->whereNotNull('resolved_at')
+                ->where('resolved_at', '<', now()->subDays($policy->operationalLogDays))->count(),
+            'meraki_inbox' => DB::table('meraki_webhook_batches')
+                ->where('organization_id', $organization->id)
+                ->where('received_at', '<', now()->subDays($policy->terminalInboxDays))->count(),
+        ];
     }
 
     private function expiredTelemetryQuery(Organization $organization, TenantRetentionPolicy $policy): Builder

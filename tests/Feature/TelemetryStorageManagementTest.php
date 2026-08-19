@@ -71,6 +71,20 @@ class TelemetryStorageManagementTest extends TestCase
             'y' => 4,
             'calculated_at' => now()->subDays(5),
         ]);
+        $inactiveAsset = Asset::query()->create([
+            'organization_id' => $enabled->id,
+            'asset_tag' => 'EXPIRED-LAST-POSITION',
+            'name' => 'Activo sin posiciones recientes',
+        ]);
+        $expiredLastPosition = PositionEstimate::query()->create([
+            'organization_id' => $enabled->id,
+            'asset_id' => $inactiveAsset->id,
+            'algorithm' => 'meraki_location',
+            'algorithm_version' => '3.0',
+            'x' => 5,
+            'y' => 6,
+            'calculated_at' => now()->subDays(45),
+        ]);
         $this->mock(DatabaseStorageInspector::class, function (MockInterface $mock): void {
             $mock->shouldReceive('inspect')->once()->andReturn(
                 new DatabaseStorageUsage(600, 400, 60.0, 'test'),
@@ -85,8 +99,9 @@ class TelemetryStorageManagementTest extends TestCase
         $this->assertDatabaseHas('telemetry_events', ['id' => $oldDisabled->id]);
         $this->assertDatabaseMissing('position_estimates', ['id' => $position->id]);
         $this->assertDatabaseHas('position_estimates', ['id' => $latestPosition->id]);
+        $this->assertDatabaseMissing('position_estimates', ['id' => $expiredLastPosition->id]);
         $enabled->refresh();
-        $this->assertSame(2, $enabled->storage_cleanup_deleted_events);
+        $this->assertSame(3, $enabled->storage_cleanup_deleted_events);
         $this->assertSame(60.0, $enabled->last_storage_utilization_percent);
         $this->assertNotNull($enabled->storage_cleanup_at);
         $this->assertNull($disabled->fresh()->storage_checked_at);
@@ -176,6 +191,29 @@ class TelemetryStorageManagementTest extends TestCase
         $this->assertDatabaseMissing('telemetry_events', ['id' => $retryable->id]);
         $this->assertDatabaseMissing('telemetry_events', ['id' => $terminal->id]);
         $this->assertDatabaseMissing('meraki_webhook_batches', ['id' => $stuckId]);
+    }
+
+    public function test_command_fails_its_retention_audit_when_a_manual_limit_leaves_expired_rows(): void
+    {
+        $organization = Organization::query()->create([
+            'name' => 'Auditoría estricta',
+            'slug' => 'auditoria-estricta',
+            'storage_cleanup_enabled' => true,
+            'telemetry_retention_days' => 1,
+        ]);
+        $connector = $this->connector($organization);
+        $first = $this->event($organization, $connector, 'audit-old-1', now()->subDays(3));
+        $second = $this->event($organization, $connector, 'audit-old-2', now()->subDays(2));
+        $this->mock(DatabaseStorageInspector::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('inspect')->once()->andThrow(new \RuntimeException('Volumen remoto'));
+        });
+
+        $this->artisan('loratrack:manage-telemetry-storage', ['--max-delete' => 1])
+            ->expectsOutputToContain('queda')
+            ->assertFailed();
+
+        $this->assertDatabaseMissing('telemetry_events', ['id' => $first->id]);
+        $this->assertDatabaseHas('telemetry_events', ['id' => $second->id]);
     }
 
     private function connector(Organization $organization): Connector
