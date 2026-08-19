@@ -13,6 +13,7 @@ use App\Models\TelemetryEvent;
 use App\Telemetry\DatabaseStorageInspector;
 use App\Telemetry\DatabaseStorageUsage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -20,7 +21,7 @@ class TelemetryStorageManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_high_storage_pressure_deletes_only_old_telemetry_from_opted_in_tenants(): void
+    public function test_retention_deletes_expired_data_only_from_opted_in_tenants(): void
     {
         $enabled = Organization::query()->create([
             'name' => 'Limpieza habilitada',
@@ -61,6 +62,15 @@ class TelemetryStorageManagementTest extends TestCase
             'y' => 2,
             'calculated_at' => now()->subDays(45),
         ]);
+        $latestPosition = PositionEstimate::query()->create([
+            'organization_id' => $enabled->id,
+            'asset_id' => $asset->id,
+            'algorithm' => 'meraki_location',
+            'algorithm_version' => '3.0',
+            'x' => 3,
+            'y' => 4,
+            'calculated_at' => now()->subDays(5),
+        ]);
         $this->mock(DatabaseStorageInspector::class, function (MockInterface $mock): void {
             $mock->shouldReceive('inspect')->once()->andReturn(
                 new DatabaseStorageUsage(600, 400, 60.0, 'test'),
@@ -73,15 +83,16 @@ class TelemetryStorageManagementTest extends TestCase
         $this->assertDatabaseMissing('signal_observations', ['telemetry_event_id' => $oldEnabled->id]);
         $this->assertDatabaseHas('telemetry_events', ['id' => $recentEnabled->id]);
         $this->assertDatabaseHas('telemetry_events', ['id' => $oldDisabled->id]);
-        $this->assertDatabaseHas('position_estimates', ['id' => $position->id, 'telemetry_event_id' => null]);
+        $this->assertDatabaseMissing('position_estimates', ['id' => $position->id]);
+        $this->assertDatabaseHas('position_estimates', ['id' => $latestPosition->id]);
         $enabled->refresh();
-        $this->assertSame(1, $enabled->storage_cleanup_deleted_events);
+        $this->assertSame(2, $enabled->storage_cleanup_deleted_events);
         $this->assertSame(60.0, $enabled->last_storage_utilization_percent);
         $this->assertNotNull($enabled->storage_cleanup_at);
         $this->assertNull($disabled->fresh()->storage_checked_at);
     }
 
-    public function test_storage_at_or_below_fifty_percent_never_deletes_data(): void
+    public function test_retention_runs_even_when_storage_is_at_fifty_percent(): void
     {
         $organization = Organization::query()->create([
             'name' => 'Empresa',
@@ -99,8 +110,8 @@ class TelemetryStorageManagementTest extends TestCase
 
         $this->artisan('loratrack:manage-telemetry-storage')->assertSuccessful();
 
-        $this->assertDatabaseHas('telemetry_events', ['id' => $event->id]);
-        $this->assertNull($organization->fresh()->storage_cleanup_at);
+        $this->assertDatabaseMissing('telemetry_events', ['id' => $event->id]);
+        $this->assertNotNull($organization->fresh()->storage_cleanup_at);
     }
 
     public function test_dry_run_measures_but_does_not_delete(): void
@@ -121,6 +132,50 @@ class TelemetryStorageManagementTest extends TestCase
 
         $this->assertDatabaseHas('telemetry_events', ['id' => $event->id]);
         $this->assertSame(90.0, $organization->fresh()->last_storage_utilization_percent);
+    }
+
+    public function test_cleanup_removes_every_expired_status_and_preserves_only_work_inside_retention(): void
+    {
+        $organization = Organization::query()->create([
+            'name' => 'Recuperación',
+            'slug' => 'recuperacion',
+            'storage_cleanup_enabled' => true,
+            'telemetry_retention_days' => 1,
+            'terminal_inbox_retention_days' => 1,
+        ]);
+        $connector = $this->connector($organization);
+        $pending = $this->event($organization, $connector, 'pending-old', now()->subDays(5));
+        $pending->update(['processing_status' => 'pending']);
+        $recentPending = $this->event($organization, $connector, 'pending-recent', now()->subHours(6));
+        $recentPending->update(['processing_status' => 'pending']);
+        $retryable = $this->event($organization, $connector, 'failed-retryable', now()->subDays(5));
+        $retryable->update(['processing_status' => 'failed', 'processing_attempts' => 2]);
+        $terminal = $this->event($organization, $connector, 'failed-terminal', now()->subDays(5));
+        $terminal->update(['processing_status' => 'failed', 'processing_attempts' => 3]);
+        $stuckId = (string) \Illuminate\Support\Str::ulid();
+        DB::table('meraki_webhook_batches')->insert([
+            'id' => $stuckId,
+            'organization_id' => $organization->id,
+            'connector_id' => $connector->id,
+            'request_hash' => hash('sha256', 'stuck'),
+            'payload' => '{}',
+            'processing_status' => 'processing',
+            'attempts' => 1,
+            'received_at' => now()->subDays(5),
+            'created_at' => now()->subDays(5),
+            'updated_at' => now()->subDays(5),
+        ]);
+        $this->mock(DatabaseStorageInspector::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('inspect')->once()->andThrow(new \RuntimeException('Volumen remoto'));
+        });
+
+        $this->artisan('loratrack:manage-telemetry-storage')->assertSuccessful();
+
+        $this->assertDatabaseMissing('telemetry_events', ['id' => $pending->id]);
+        $this->assertDatabaseHas('telemetry_events', ['id' => $recentPending->id, 'processing_status' => 'pending']);
+        $this->assertDatabaseMissing('telemetry_events', ['id' => $retryable->id]);
+        $this->assertDatabaseMissing('telemetry_events', ['id' => $terminal->id]);
+        $this->assertDatabaseMissing('meraki_webhook_batches', ['id' => $stuckId]);
     }
 
     private function connector(Organization $organization): Connector

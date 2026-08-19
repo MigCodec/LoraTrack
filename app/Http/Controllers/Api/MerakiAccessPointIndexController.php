@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Connectors\Meraki\MerakiEventRetention;
 use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\SignalObservation;
+use App\Telemetry\TenantRetentionPolicy;
+use App\Tenancy\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -112,11 +113,13 @@ class MerakiAccessPointIndexController extends Controller
             return collect();
         }
 
+        $retentionDays = TenantRetentionPolicy::for(app(OrganizationContext::class)->organization())->telemetryDays;
+
         return SignalObservation::query()
             ->selectRaw('receiver_identifier, COUNT(DISTINCT transmitter_mac) as clients_count, MAX(observed_at) as last_observed_at')
             ->whereIn('receiver_identifier', $receiverIdentifiers)
             ->whereNotNull('receiver_identifier')
-            ->where('observed_at', '>=', now()->subDays(MerakiEventRetention::RETENTION_DAYS))
+            ->where('observed_at', '>=', now()->subDays($retentionDays))
             ->groupBy('receiver_identifier')
             ->get()
             ->keyBy('receiver_identifier');

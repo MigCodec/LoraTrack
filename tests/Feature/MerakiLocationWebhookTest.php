@@ -266,6 +266,41 @@ class MerakiLocationWebhookTest extends TestCase
         ]);
     }
 
+    public function test_meraki_observation_command_retries_failed_events_below_the_attempt_limit(): void
+    {
+        $organization = Organization::query()->create(['name' => 'Retry', 'slug' => 'retry']);
+        $connector = $this->connector($organization, '3');
+        $event = TelemetryEvent::query()->create([
+            'organization_id' => $organization->id,
+            'connector_id' => $connector->id,
+            'external_event_id' => hash('sha256', 'retryable-meraki-event'),
+            'event_type' => 'meraki_location',
+            'observed_at' => now()->subMinute(),
+            'received_at' => now()->subMinute(),
+            'raw_payload' => [
+                'version' => '3.0',
+                'type' => 'BLE',
+                'network_id' => 'L_RETRY',
+                'client_mac' => 'AA:BB:CC:DD:EE:99',
+                'client_name' => 'Beacon retry',
+                'observed_at' => now()->subMinute()->toIso8601String(),
+                'rssi_records' => [],
+            ],
+            'processing_status' => 'failed',
+            'processing_attempts' => 2,
+            'processing_error' => 'Fallo transitorio',
+        ]);
+
+        $this->artisan('loratrack:process-meraki-observations', ['--limit' => 10])->assertSuccessful();
+
+        $this->assertDatabaseHas('telemetry_events', [
+            'id' => $event->id,
+            'processing_status' => 'processed',
+            'processing_attempts' => 2,
+            'processing_error' => null,
+        ]);
+    }
+
     public function test_meraki_rejects_wrong_secret_and_wrong_major_version(): void
     {
         $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'acme']);
@@ -688,9 +723,9 @@ class MerakiLocationWebhookTest extends TestCase
         }
     }
 
-    public function test_meraki_history_prunes_events_older_than_six_days_per_device(): void
+    public function test_meraki_history_uses_the_tenant_retention_window_per_device(): void
     {
-        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'history-acme']);
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'history-acme', 'storage_cleanup_enabled' => true, 'telemetry_retention_days' => 6]);
         $connector = $this->connector($organization, '3');
         $device = Device::query()->create([
             'organization_id' => $organization->id,
@@ -727,9 +762,9 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertDatabaseHas('telemetry_events', ['id' => $recentEvent->id]);
     }
 
-    public function test_scheduled_pruner_deletes_meraki_history_older_than_six_days(): void
+    public function test_scheduled_pruner_deletes_meraki_history_using_tenant_policy(): void
     {
-        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'pruner-acme']);
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'pruner-acme', 'storage_cleanup_enabled' => true, 'telemetry_retention_days' => 6]);
         $connector = $this->connector($organization, '3');
         $device = Device::query()->create([
             'organization_id' => $organization->id,
@@ -772,9 +807,8 @@ class MerakiLocationWebhookTest extends TestCase
         }
 
         $this->artisan('loratrack:prune-meraki-history')
-            ->expectsOutput('Eventos Meraki vencidos por retencion de 6 dias: 3.')
-            ->expectsOutput('Eventos Meraki antiguos eliminados: 3.')
-            ->expectsOutput('Pendientes aproximados: 0.')
+            ->expectsOutput('ACME: 3 eventos Meraki vencidos (6 días).')
+            ->expectsOutput('ACME: 3 eventos eliminados.')
             ->assertSuccessful();
         $this->assertSame(2, TelemetryEvent::query()
             ->where('connector_id', $connector->id)
@@ -785,7 +819,7 @@ class MerakiLocationWebhookTest extends TestCase
 
     public function test_meraki_pruner_supports_dry_run_and_delete_limits(): void
     {
-        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'limited-pruner']);
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'limited-pruner', 'storage_cleanup_enabled' => true, 'telemetry_retention_days' => 6]);
         $connector = $this->connector($organization, '3');
         $device = Device::query()->create([
             'organization_id' => $organization->id,
@@ -803,17 +837,17 @@ class MerakiLocationWebhookTest extends TestCase
                 'observed_at' => now()->subDays(7)->subMinutes($index),
                 'received_at' => now()->subDays(7)->subMinutes($index),
                 'raw_payload' => ['client_mac' => $device->identifier],
+                'processing_status' => 'processed',
             ]);
         }
 
         $this->artisan('loratrack:prune-meraki-history', ['--dry-run' => true])
-            ->expectsOutput('Eventos Meraki vencidos por retencion de 6 dias: 5.')
+            ->expectsOutput('ACME: 5 eventos Meraki vencidos (6 días).')
             ->assertSuccessful();
         $this->assertSame(5, TelemetryEvent::query()->where('device_id', $device->id)->count());
 
         $this->artisan('loratrack:prune-meraki-history', ['--max-delete' => 2])
-            ->expectsOutput('Eventos Meraki antiguos eliminados: 2.')
-            ->expectsOutput('Pendientes aproximados: 3.')
+            ->expectsOutput('ACME: 2 eventos eliminados.')
             ->assertSuccessful();
         $this->assertSame(3, TelemetryEvent::query()->where('device_id', $device->id)->count());
     }

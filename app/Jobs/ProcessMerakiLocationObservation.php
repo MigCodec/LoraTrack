@@ -162,6 +162,7 @@ class ProcessMerakiLocationObservation
         } catch (Throwable $exception) {
             $event->forceFill([
                 'processing_status' => 'failed',
+                'processing_attempts' => $event->processing_attempts + 1,
                 'processing_error' => mb_substr($exception->getMessage(), 0, 1000),
             ])->saveQuietly();
             $event->connector()->update(['last_error' => mb_substr($exception->getMessage(), 0, 1000)]);

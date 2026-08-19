@@ -12,6 +12,7 @@ use App\Models\Device;
 use App\Models\DeviceInstallation;
 use App\Models\FloorPlan;
 use App\Models\Location;
+use App\Models\Organization;
 use App\Models\PositionEstimate;
 use App\Models\SignalObservation;
 use App\Models\TelemetryEvent;
@@ -155,15 +156,19 @@ class DeviceIndexTest extends TestCase
     public function test_device_ap_history_is_paginated_and_limited_to_retention_window(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $organization = Organization::query()->create(['name' => 'Historial AP', 'slug' => 'historial-ap', 'telemetry_retention_days' => 6]);
+        $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
         $device = Device::query()->create([
+            'organization_id' => $organization->id,
             'identifier' => 'AA:BB:CC:DD:EE:01',
             'name' => 'Beacon movil',
             'type' => 'beacon',
         ]);
-        $connector = Connector::query()->create(['name' => 'Meraki', 'kind' => 'telemetry', 'provider' => 'meraki_location', 'status' => 'active']);
+        $connector = Connector::query()->create(['organization_id' => $organization->id, 'name' => 'Meraki', 'kind' => 'telemetry', 'provider' => 'meraki_location', 'status' => 'active']);
 
         for ($index = 1; $index <= 27; $index++) {
             $event = TelemetryEvent::query()->create([
+                'organization_id' => $organization->id,
                 'connector_id' => $connector->id,
                 'device_id' => $device->id,
                 'external_event_id' => 'device-ap-history-'.$index,
@@ -174,6 +179,7 @@ class DeviceIndexTest extends TestCase
                 'processing_status' => 'processed',
             ]);
             SignalObservation::query()->create([
+                'organization_id' => $organization->id,
                 'telemetry_event_id' => $event->id,
                 'transmitter_mac' => 'AABBCCDDEE01',
                 'receiver_identifier' => sprintf('AP%010d', $index),
@@ -184,6 +190,7 @@ class DeviceIndexTest extends TestCase
         }
 
         $oldEvent = TelemetryEvent::query()->create([
+            'organization_id' => $organization->id,
             'connector_id' => $connector->id,
             'device_id' => $device->id,
             'external_event_id' => 'device-ap-history-old',
@@ -194,6 +201,7 @@ class DeviceIndexTest extends TestCase
             'processing_status' => 'processed',
         ]);
         SignalObservation::query()->create([
+            'organization_id' => $organization->id,
             'telemetry_event_id' => $oldEvent->id,
             'transmitter_mac' => 'AABBCCDDEE01',
             'receiver_identifier' => 'APOLD000001',
@@ -201,7 +209,7 @@ class DeviceIndexTest extends TestCase
             'observed_at' => now()->subDays(7),
         ]);
 
-        $this->actingAs($admin)->getJson(route('devices.ap-history', $device))
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])->getJson(route('devices.ap-history', $device))
             ->assertOk()
             ->assertJsonCount(25, 'data')
             ->assertJsonPath('meta.total', 27)
@@ -209,7 +217,7 @@ class DeviceIndexTest extends TestCase
             ->assertJsonPath('data.0.ap_mac', 'AP0000000001')
             ->assertJsonMissing(['ap_mac' => 'APOLD000001']);
 
-        $this->actingAs($admin)->getJson(route('devices.ap-history', [$device, 'page' => 2]))
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])->getJson(route('devices.ap-history', [$device, 'page' => 2]))
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.1.ap_mac', 'AP0000000027');

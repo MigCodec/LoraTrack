@@ -19,5 +19,4 @@ Schedule::command('loratrack:run-scheduled process-tti-uplinks')->everyMinute()-
 Schedule::command('loratrack:run-scheduled process-mqtt-telemetry')->everyMinute()->onOneServer()->withoutOverlapping();
 Schedule::command('loratrack:run-scheduled process-catalog-syncs')->everyMinute()->onOneServer()->withoutOverlapping();
 Schedule::command('loratrack:run-scheduled sync-telemetry-counters')->everyFiveMinutes()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:run-scheduled manage-telemetry-storage')->hourly()->onOneServer()->withoutOverlapping();
-Schedule::command('loratrack:run-scheduled prune-meraki-history')->hourly()->onOneServer()->withoutOverlapping();
+Schedule::command('loratrack:run-scheduled manage-telemetry-storage')->everyTenMinutes()->onOneServer()->withoutOverlapping();

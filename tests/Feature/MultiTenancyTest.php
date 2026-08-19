@@ -106,6 +106,67 @@ class MultiTenancyTest extends TestCase
         $this->assertSame('#14B8A6', $organization->accent_color);
     }
 
+    public function test_tenant_can_choose_manual_retention_without_a_seven_day_floor(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $organization = Organization::query()->create(['name' => 'Retención manual', 'slug' => 'retencion-manual']);
+        $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->put(route('organizations.update'), [
+                'name' => $organization->name,
+                'primary_color' => '#2563EB',
+                'secondary_color' => '#0F172A',
+                'accent_color' => '#14B8A6',
+                'storage_cleanup_enabled' => '1',
+                'use_system_recommended_retention' => '0',
+                'telemetry_retention_days' => 1,
+                'position_history_retention_days' => 2,
+                'operational_log_retention_days' => 3,
+                'terminal_inbox_retention_days' => 1,
+            ])->assertRedirect();
+
+        $organization->refresh();
+        $this->assertFalse($organization->use_system_recommended_retention);
+        $this->assertSame(1, $organization->telemetry_retention_days);
+        $this->assertSame(2, $organization->position_history_retention_days);
+        $this->assertSame(3, $organization->operational_log_retention_days);
+    }
+
+    public function test_system_recommendation_overrides_and_locks_manual_retention_values(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $organization = Organization::query()->create(['name' => 'Retención recomendada', 'slug' => 'retencion-recomendada']);
+        $organization->memberships()->create(['user_id' => $admin->id, 'role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->put(route('organizations.update'), [
+                'name' => $organization->name,
+                'primary_color' => '#2563EB',
+                'secondary_color' => '#0F172A',
+                'accent_color' => '#14B8A6',
+                'storage_cleanup_enabled' => '0',
+                'use_system_recommended_retention' => '1',
+                'telemetry_retention_days' => 999,
+                'position_history_retention_days' => 999,
+                'operational_log_retention_days' => 999,
+                'terminal_inbox_retention_days' => 999,
+            ])->assertRedirect();
+
+        $organization->refresh();
+        $this->assertTrue($organization->use_system_recommended_retention);
+        $this->assertTrue($organization->storage_cleanup_enabled);
+        $this->assertSame(1, $organization->telemetry_retention_days);
+        $this->assertSame(30, $organization->position_history_retention_days);
+        $this->assertSame(14, $organization->operational_log_retention_days);
+        $this->actingAs($admin)->withSession(['organization_id' => $organization->id])
+            ->get(route('organizations.index'))
+            ->assertOk()
+            ->assertSee('Usar configuración recomendada por el sistema')
+            ->assertSee('data-recommended-retention', false)
+            ->assertSee('disabled', false);
+    }
+
     public function test_favicon_uses_the_default_logo_without_tenant_branding(): void
     {
         $this->get(route('favicon'))

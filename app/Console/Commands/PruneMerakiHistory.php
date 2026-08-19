@@ -5,36 +5,39 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Connectors\Meraki\MerakiEventRetention;
+use App\Models\Organization;
+use App\Telemetry\TenantRetentionPolicy;
 use Illuminate\Console\Command;
 
 class PruneMerakiHistory extends Command
 {
     protected $signature = 'loratrack:prune-meraki-history
         {--dry-run : Contar eventos vencidos sin eliminarlos}
-        {--max-delete=10000 : Maximo de eventos a eliminar en esta ejecucion}';
+        {--max-delete=0 : Máximo por tenant; 0 procesa todo lo vencido}';
 
-    protected $description = 'Elimina eventos Meraki y observaciones asociadas anteriores a la retencion de seis dias.';
+    protected $description = 'Aplica a Meraki la ventana de retención configurada para cada tenant.';
 
     public function handle(MerakiEventRetention $retention): int
     {
-        $stale = $retention->staleCount();
-        $this->info('Eventos Meraki vencidos por retencion de '.MerakiEventRetention::RETENTION_DAYS." dias: {$stale}.");
-        if ($this->option('dry-run') || $stale === 0) {
-            return self::SUCCESS;
-        }
-
         $maxDeletes = filter_var($this->option('max-delete'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 100000],
+            'options' => ['min_range' => 0],
         ]);
         if ($maxDeletes === false) {
-            $this->error('--max-delete debe ser un entero entre 1 y 100000.');
+            $this->error('--max-delete debe ser cero o un entero positivo.');
 
-            return self::FAILURE;
+            return self::INVALID;
         }
 
-        $deleted = $retention->pruneAll($maxDeletes);
-        $this->info("Eventos Meraki antiguos eliminados: {$deleted}.");
-        $this->info('Pendientes aproximados: '.max(0, $stale - $deleted).'.');
+        Organization::query()->where('storage_cleanup_enabled', true)
+            ->orderBy('id')->each(function (Organization $organization) use ($retention, $maxDeletes): void {
+                $days = TenantRetentionPolicy::for($organization)->telemetryDays;
+                $stale = $retention->staleCount($organization);
+                $this->line("{$organization->name}: {$stale} eventos Meraki vencidos ({$days} días).");
+                if (! $this->option('dry-run') && $stale > 0) {
+                    $deleted = $retention->pruneAll($organization, $maxDeletes);
+                    $this->line("{$organization->name}: {$deleted} eventos eliminados.");
+                }
+            });
 
         return self::SUCCESS;
     }

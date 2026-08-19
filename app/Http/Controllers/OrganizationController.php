@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\OrganizationInvitation;
 use App\Models\User;
 use App\Tenancy\OrganizationContext;
+use App\Telemetry\TenantRetentionPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +26,7 @@ class OrganizationController extends Controller
     {
         return view('organizations.index', [
             'current' => app(OrganizationContext::class)->organization(),
+            'recommendedRetention' => TenantRetentionPolicy::recommended(),
         ]);
     }
 
@@ -39,7 +41,11 @@ class OrganizationController extends Controller
             'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'accent_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'storage_cleanup_enabled' => ['nullable', 'boolean'],
-            'telemetry_retention_days' => ['nullable', 'integer', 'between:7,3650'],
+            'use_system_recommended_retention' => ['nullable', 'boolean'],
+            'telemetry_retention_days' => ['nullable', 'integer', 'between:1,65535'],
+            'position_history_retention_days' => ['nullable', 'integer', 'between:1,65535'],
+            'operational_log_retention_days' => ['nullable', 'integer', 'between:1,65535'],
+            'terminal_inbox_retention_days' => ['nullable', 'integer', 'between:1,65535'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'remove_logo' => ['nullable', 'boolean'],
         ], [
@@ -57,12 +63,20 @@ class OrganizationController extends Controller
             $data['logo_path'] = $request->file('logo')->store("organizations/{$organization->id}/branding", 'local');
         }
 
-        $data['storage_cleanup_enabled'] = $request->boolean('storage_cleanup_enabled');
-        $data['telemetry_retention_days'] = $data['telemetry_retention_days'] ?? $organization->telemetry_retention_days ?? 30;
+        $useRecommended = $request->boolean('use_system_recommended_retention');
+        $data['use_system_recommended_retention'] = $useRecommended;
+        $data['storage_cleanup_enabled'] = $useRecommended || $request->boolean('storage_cleanup_enabled');
+        if ($useRecommended) {
+            $recommended = TenantRetentionPolicy::recommended();
+            $data['telemetry_retention_days'] = $recommended['telemetry_days'];
+            $data['position_history_retention_days'] = $recommended['position_history_days'];
+            $data['operational_log_retention_days'] = $recommended['operational_log_days'];
+            $data['terminal_inbox_retention_days'] = $recommended['terminal_inbox_days'];
+        }
         unset($data['logo'], $data['remove_logo']);
         $organization->update($data);
 
-        return back()->with('status', 'Identidad visual actualizada.');
+        return back()->with('status', 'Configuración de la empresa actualizada.');
     }
 
     public function logo(Request $request): StreamedResponse

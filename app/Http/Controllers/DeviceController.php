@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Connectors\Meraki\MerakiEventRetention;
 use App\Http\Requests\UpdateDeviceInstallationRequest;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Device;
@@ -15,6 +14,7 @@ use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
+use App\Telemetry\TenantRetentionPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -132,6 +132,7 @@ class DeviceController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
+        $retentionDays = TenantRetentionPolicy::for(app(OrganizationContext::class)->organization())->telemetryDays;
         $normalizedIdentifier = BleObservationExtractor::normalizeMac($device->identifier);
         if ($normalizedIdentifier === '') {
             return response()->json([
@@ -142,7 +143,7 @@ class DeviceController extends Controller
                     'from' => null,
                     'to' => null,
                     'total' => 0,
-                    'retention_days' => MerakiEventRetention::RETENTION_DAYS,
+                    'retention_days' => $retentionDays,
                 ],
             ]);
         }
@@ -151,7 +152,7 @@ class DeviceController extends Controller
             ->select(['receiver_identifier', 'rssi', 'observed_at', 'metadata'])
             ->where('transmitter_mac', $normalizedIdentifier)
             ->whereNotNull('receiver_identifier')
-            ->where('observed_at', '>=', now()->subDays(MerakiEventRetention::RETENTION_DAYS))
+            ->where('observed_at', '>=', now()->subDays($retentionDays))
             ->latest('observed_at')
             ->paginate(25, ['*'], 'page', (int) ($validated['page'] ?? 1))
             ->withQueryString();
@@ -171,7 +172,7 @@ class DeviceController extends Controller
                 'from' => $history->firstItem(),
                 'to' => $history->lastItem(),
                 'total' => $history->total(),
-                'retention_days' => MerakiEventRetention::RETENTION_DAYS,
+                'retention_days' => $retentionDays,
             ],
         ]);
     }

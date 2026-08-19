@@ -15,13 +15,11 @@ use Throwable;
 
 class ManageTelemetryStorage extends Command
 {
-    private const THRESHOLD_PERCENT = 50.0;
+    protected $signature = 'loratrack:manage-telemetry-storage
+        {--dry-run : Medir sin eliminar datos vencidos}
+        {--max-delete=0 : Máximo por categoría y tenant; 0 procesa todo lo vencido}';
 
-    private const MAX_BATCHES_PER_ORGANIZATION = 10;
-
-    protected $signature = 'loratrack:manage-telemetry-storage {--dry-run : Medir sin eliminar telemetría}';
-
-    protected $description = 'Mide presión de almacenamiento y elimina telemetría antigua de tenants que lo autorizaron.';
+    protected $description = 'Aplica la retención configurada por tenant y mide el almacenamiento cuando está disponible.';
 
     public function handle(
         DatabaseStorageInspector $inspector,
@@ -29,72 +27,76 @@ class ManageTelemetryStorage extends Command
         OrganizationContext $context,
     ): int {
         $organizations = Organization::query()
-            ->where('active', true)
             ->where('storage_cleanup_enabled', true)
             ->orderBy('id')
             ->get();
 
         if ($organizations->isEmpty()) {
-            $this->info('La limpieza automática de telemetría no está habilitada en ninguna organización.');
+            $this->info('La retención automática no está habilitada en ninguna organización.');
 
             return self::SUCCESS;
         }
 
+        $maxDeletes = filter_var($this->option('max-delete'), FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 0],
+        ]);
+        if ($maxDeletes === false) {
+            $this->error('--max-delete debe ser cero o un entero positivo.');
+
+            return self::INVALID;
+        }
+
+        $usage = null;
         try {
             $usage = $inspector->inspect();
+            $this->line($this->usageMessage($usage));
         } catch (Throwable $exception) {
-            Log::warning('No se pudo medir el almacenamiento de la base de datos; no se eliminó telemetría.', [
+            Log::warning('No se pudo medir el almacenamiento; la retención continuará por antigüedad.', [
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
             ]);
-            $this->error($exception->getMessage());
-
-            return self::FAILURE;
-        }
-
-        $this->line($this->usageMessage($usage));
-        foreach ($organizations as $organization) {
-            $organization->forceFill([
-                'last_storage_utilization_percent' => $usage->utilizationPercent,
-                'storage_checked_at' => now(),
-            ])->save();
-        }
-
-        if ($usage->utilizationPercent <= self::THRESHOLD_PERCENT || $this->option('dry-run')) {
-            $this->info($usage->utilizationPercent <= self::THRESHOLD_PERCENT
-                ? 'La ocupación no supera el umbral del 50%; no se eliminó telemetría.'
-                : 'Modo dry-run: no se eliminó telemetría.');
-
-            return self::SUCCESS;
+            $this->warn('No fue posible medir el volumen: '.$exception->getMessage());
         }
 
         foreach ($organizations as $organization) {
+            if ($usage) {
+                $organization->forceFill([
+                    'last_storage_utilization_percent' => $usage->utilizationPercent,
+                    'storage_checked_at' => now(),
+                ])->save();
+            }
+            if ($this->option('dry-run')) {
+                $this->line("{$organization->name}: modo diagnóstico; no se eliminó información.");
+                continue;
+            }
+
             $context->set($organization);
-            $deleted = 0;
-
             try {
-                for ($batch = 0; $batch < self::MAX_BATCHES_PER_ORGANIZATION; $batch++) {
-                    $batchDeleted = $cleaner->deleteOldestBatch($organization);
-                    $deleted += $batchDeleted;
-                    if ($batchDeleted < TelemetryStorageCleaner::BATCH_SIZE) {
-                        break;
-                    }
-                }
-
+                $result = $cleaner->clean($organization, $maxDeletes);
+                $deleted = $result['telemetry_events'] + $result['position_estimates']
+                    + $result['operational_logs'] + $result['resolved_alerts'] + $result['terminal_inbox'];
                 if ($deleted > 0) {
                     $organization->forceFill([
                         'storage_cleanup_at' => now(),
                         'storage_cleanup_deleted_events' => $organization->storage_cleanup_deleted_events + $deleted,
                     ])->save();
-                    Log::warning('Telemetría antigua eliminada por presión de almacenamiento.', [
+                    Log::warning('La política de retención eliminó datos vencidos.', [
                         'organization_id' => $organization->id,
-                        'deleted_events' => $deleted,
-                        'retention_days' => $organization->telemetry_retention_days,
-                        'utilization_percent' => $usage->utilizationPercent,
+                        'deleted_by_category' => $result,
+                        'utilization_percent' => $usage?->utilizationPercent,
                     ]);
                 }
 
-                $this->line("{$organization->name}: {$deleted} eventos eliminados.");
+                $this->line(sprintf(
+                    '%s: %d telemetrías, %d posiciones, %d logs, %d alertas resueltas y %d lotes vencidos eliminados; %d lotes interrumpidos detectados.',
+                    $organization->name,
+                    $result['telemetry_events'],
+                    $result['position_estimates'],
+                    $result['operational_logs'],
+                    $result['resolved_alerts'],
+                    $result['terminal_inbox'],
+                    $result['recovered_inbox'],
+                ));
             } finally {
                 $context->set(null);
             }

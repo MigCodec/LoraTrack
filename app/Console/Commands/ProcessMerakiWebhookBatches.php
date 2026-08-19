@@ -19,17 +19,17 @@ use Throwable;
 
 class ProcessMerakiWebhookBatches extends Command
 {
-    protected $signature = 'loratrack:process-meraki-webhooks {--limit=3 : Cantidad maxima de lotes a procesar}';
+    protected $signature = 'loratrack:process-meraki-webhooks {--limit=25 : Cantidad máxima de lotes a procesar}';
 
     protected $description = 'Normaliza los lotes Meraki recibidos y crea eventos de telemetria idempotentes.';
 
     public function handle(MerakiPayloadNormalizer $normalizer): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 100],
+            'options' => ['min_range' => 1, 'max_range' => 1000],
         ]);
         if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 100.');
+            $this->error('--limit debe ser un entero entre 1 y 1000.');
 
             return self::FAILURE;
         }

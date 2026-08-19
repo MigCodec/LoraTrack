@@ -53,7 +53,7 @@ class TtiWebhookTest extends TestCase
         $this->assertSame('2026-06-18 16:00:00', TelemetryEvent::query()->firstOrFail()->observed_at->format('Y-m-d H:i:s'));
         Queue::assertNotPushed(ProcessTtiUplink::class);
         $this->assertSame('pending', TelemetryEvent::query()->firstOrFail()->processing_status);
-        $this->artisan('loratrack:process-tti-uplinks')->assertSuccessful();
+        $this->artisan('loratrack:process-tti-uplinks', ['--limit' => 3])->assertSuccessful();
         $this->assertSame('processed', TelemetryEvent::query()->firstOrFail()->processing_status);
     }
 
@@ -117,7 +117,7 @@ class TtiWebhookTest extends TestCase
             ], $headers)->assertAccepted();
         }
 
-        $this->artisan('loratrack:process-tti-uplinks')->assertSuccessful();
+        $this->artisan('loratrack:process-tti-uplinks', ['--limit' => 3])->assertSuccessful();
 
         $this->assertSame(3, TelemetryEvent::query()->where('processing_status', 'processed')->count());
         $this->assertSame(1, TelemetryEvent::query()->where('processing_status', 'pending')->count());

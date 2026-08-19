@@ -13,24 +13,29 @@ use Throwable;
 
 class ProcessMerakiObservations extends Command
 {
-    protected $signature = 'loratrack:process-meraki-observations {--limit=100 : Cantidad maxima de observaciones}';
+    protected $signature = 'loratrack:process-meraki-observations {--limit=1000 : Cantidad máxima de observaciones}';
 
     protected $description = 'Procesa observaciones Meraki pendientes desde el scheduler.';
 
     public function handle(): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 1000],
+            'options' => ['min_range' => 1, 'max_range' => 10000],
         ]);
         if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 1000.');
+            $this->error('--limit debe ser un entero entre 1 y 10000.');
 
             return self::FAILURE;
         }
 
         $eventIds = TelemetryEvent::query()
             ->where('event_type', 'meraki_location')
-            ->where('processing_status', 'pending')
+            ->where(function ($query): void {
+                $query->where('processing_status', 'pending')
+                    ->orWhere(function ($failed): void {
+                        $failed->where('processing_status', 'failed')->where('processing_attempts', '<', 3);
+                    });
+            })
             ->whereHas('connector', fn ($query) => $query->where('provider', ConnectorProvider::MerakiLocation->value))
             ->orderBy('received_at')
             ->limit($limit)

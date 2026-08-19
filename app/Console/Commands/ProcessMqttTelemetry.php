@@ -13,24 +13,29 @@ use Throwable;
 
 class ProcessMqttTelemetry extends Command
 {
-    protected $signature = 'loratrack:process-mqtt-telemetry {--limit=3 : Cantidad maxima de mensajes, entre 1 y 3}';
+    protected $signature = 'loratrack:process-mqtt-telemetry {--limit=500 : Cantidad máxima de mensajes}';
 
-    protected $description = 'Procesa hasta tres mensajes MQTT pendientes desde el scheduler.';
+    protected $description = 'Procesa mensajes MQTT pendientes y reintenta fallos recuperables desde el scheduler.';
 
     public function handle(): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1, 'max_range' => 3],
+            'options' => ['min_range' => 1, 'max_range' => 10000],
         ]);
         if ($limit === false) {
-            $this->error('--limit debe ser un entero entre 1 y 3.');
+            $this->error('--limit debe ser un entero entre 1 y 10000.');
 
             return self::FAILURE;
         }
 
         $eventIds = TelemetryEvent::query()
             ->where('event_type', 'mqtt')
-            ->where('processing_status', 'pending')
+            ->where(function ($query): void {
+                $query->where('processing_status', 'pending')
+                    ->orWhere(function ($failed): void {
+                        $failed->where('processing_status', 'failed')->where('processing_attempts', '<', 3);
+                    });
+            })
             ->whereHas('connector', fn ($query) => $query->where('provider', ConnectorProvider::Mqtt->value))
             ->orderBy('received_at')
             ->limit($limit)

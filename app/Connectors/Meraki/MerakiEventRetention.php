@@ -4,78 +4,76 @@ declare(strict_types=1);
 
 namespace App\Connectors\Meraki;
 
+use App\Models\Organization;
 use App\Models\TelemetryEvent;
+use App\Telemetry\TenantRetentionPolicy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 class MerakiEventRetention
 {
-    public const RETENTION_DAYS = 6;
-
     public function prune(TelemetryEvent $event, int $limit = 1000): int
     {
         if (! $event->device_id || $event->event_type !== 'meraki_location') {
             return 0;
         }
+        $organization = Organization::query()->find($event->organization_id);
+        if (! $organization?->storage_cleanup_enabled) {
+            return 0;
+        }
 
-        return $this->deleteStaleQuery($this->cutoff(), $limit)
-            ->where('organization_id', $event->organization_id)
+        return $this->deleteStaleQuery($organization, $limit)
             ->where('connector_id', $event->connector_id)
             ->where('device_id', $event->device_id)
             ->whereKeyNot($event->id)
             ->delete();
     }
 
-    public function pruneAll(int $maxDeletes = 10000): int
+    public function pruneAll(Organization $organization, int $maxDeletes = 0): int
     {
         $deleted = 0;
-        $cutoff = $this->cutoff();
         do {
-            $remaining = $maxDeletes - $deleted;
+            $remaining = $maxDeletes > 0 ? $maxDeletes - $deleted : 1000;
             if ($remaining <= 0) {
                 break;
             }
-
-            $batchDeleted = $this->deleteStaleQuery($cutoff, min(1000, $remaining))->delete();
+            $batchDeleted = $this->deleteStaleQuery($organization, min(1000, $remaining))->delete();
             $deleted += $batchDeleted;
-        } while ($batchDeleted > 0 && $deleted < $maxDeletes);
+        } while ($batchDeleted > 0 && ($maxDeletes === 0 || $deleted < $maxDeletes));
 
         return $deleted;
     }
 
-    public function staleCount(): int
+    public function staleCount(Organization $organization): int
     {
-        return $this->staleQuery($this->cutoff())->count();
+        return $this->staleQuery($organization)->count();
     }
 
-    public function cutoff(): Carbon
+    public function cutoff(Organization $organization): Carbon
     {
-        return now()->subDays(self::RETENTION_DAYS);
+        return now()->subDays(TenantRetentionPolicy::for($organization)->telemetryDays);
     }
 
-    private function deleteStaleQuery(Carbon $cutoff, int $limit)
+    private function deleteStaleQuery(Organization $organization, int $limit): Builder
     {
-        $ids = $this->staleQuery($cutoff)
-            ->orderBy('observed_at')
-            ->orderBy('received_at')
-            ->orderBy('id')
-            ->limit(max(1, min(1000, $limit)))
-            ->pluck('id');
+        $ids = $this->staleQuery($organization)
+            ->orderBy('observed_at')->orderBy('received_at')->orderBy('id')
+            ->limit(max(1, min(1000, $limit)))->pluck('id');
 
-        return TelemetryEvent::query()
-            ->withoutGlobalScopes()
-            ->whereIn('id', $ids);
+        return TelemetryEvent::query()->withoutGlobalScopes()->whereIn('id', $ids);
     }
 
-    private function staleQuery(Carbon $cutoff)
+    private function staleQuery(Organization $organization): Builder
     {
-        return TelemetryEvent::query()
-            ->withoutGlobalScopes()
+        $cutoff = $this->cutoff($organization);
+
+        return TelemetryEvent::query()->withoutGlobalScopes()
+            ->where('organization_id', $organization->id)
             ->where('event_type', 'meraki_location')
-            ->where(function ($query) use ($cutoff): void {
+            ->where(function (Builder $query) use ($cutoff): void {
                 $query->where('observed_at', '<', $cutoff)
-                    ->orWhere(function ($receivedQuery) use ($cutoff): void {
-                        $receivedQuery->whereNull('observed_at')
-                            ->where('received_at', '<', $cutoff);
+                    ->orWhere(function (Builder $receivedQuery) use ($cutoff): void {
+                        $receivedQuery->whereNull('observed_at')->where('received_at', '<', $cutoff);
                     });
             });
     }
