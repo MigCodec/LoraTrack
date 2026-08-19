@@ -29,6 +29,18 @@ class TelemetryCounterUpdater
         ]);
     }
 
+    public function recordBulkStatusChanged(string $connectorId, string $from, string $to, int $count): void
+    {
+        if ($count < 1 || $from === $to) {
+            return;
+        }
+
+        $this->applyDelta($connectorId, [
+            $this->columnForStatus($from) => -$count,
+            $this->columnForStatus($to) => $count,
+        ]);
+    }
+
     public function recordStatusChanged(TelemetryEvent $event): void
     {
         $oldStatus = (string) $event->getOriginal('processing_status');

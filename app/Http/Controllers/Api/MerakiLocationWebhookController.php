@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Connectors\ConnectorRejectedRequestRecorder;
+use App\Connectors\Meraki\SynchronousMerakiWebhookProcessor;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Controllers\Controller;
@@ -35,6 +36,7 @@ class MerakiLocationWebhookController extends Controller
         Request $request,
         Connector $connector,
         ConnectorRejectedRequestRecorder $rejections,
+        SynchronousMerakiWebhookProcessor $synchronousProcessor,
     ): JsonResponse
     {
         abort_unless($connector->provider === ConnectorProvider::MerakiLocation, 404);
@@ -82,8 +84,25 @@ class MerakiLocationWebhookController extends Controller
 
         unset($payload['secret']);
         $now = now();
+        $synchronous = filter_var(
+            $connector->configuration['synchronous_processing'] ?? false,
+            FILTER_VALIDATE_BOOL,
+        );
+        if ($synchronous) {
+            $result = $synchronousProcessor->process($connector, $payload, $majorVersion, $now);
+
+            return response()->json([
+                'accepted' => true,
+                'duplicate' => $result['accepted'] === 0,
+                'processing_mode' => 'synchronous',
+                'fully_processed' => $result['failed'] === 0,
+                'events' => $result,
+            ], 200);
+        }
+
+        $batchId = (string) Str::ulid();
         $inserted = DB::table('meraki_webhook_batches')->insertOrIgnore([
-            'id' => (string) Str::ulid(),
+            'id' => $batchId,
             'organization_id' => $connector->organization_id,
             'connector_id' => $connector->id,
             'request_hash' => hash('sha256', $request->getContent()),
@@ -98,6 +117,8 @@ class MerakiLocationWebhookController extends Controller
         return response()->json([
             'accepted' => true,
             'duplicate' => $inserted === 0,
+            'processing_mode' => 'scheduled',
+            'fully_processed' => false,
         ], 200);
     }
 

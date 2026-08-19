@@ -40,6 +40,13 @@ class ConnectorRegistry
                         'options' => ['3' => 'v3.x (recomendada)', '2' => 'v2.1 (compatibilidad)'],
                     ],
                     'network_id' => ['label' => 'Network ID permitido (opcional)', 'type' => 'text', 'required' => false],
+                    'synchronous_processing' => [
+                        'label' => 'Procesar completamente durante la solicitud webhook',
+                        'type' => 'checkbox',
+                        'required' => false,
+                        'default' => false,
+                        'help' => 'Ejecuta normalización, telemetría, señales y posicionamiento antes de responder. Actívalo sólo si el servidor completa cada webhook dentro del timeout de Meraki.',
+                    ],
                 ],
                 'credentials' => [
                     'validator' => ['label' => 'Validator de Meraki', 'type' => 'password', 'required' => true, 'min' => 8],

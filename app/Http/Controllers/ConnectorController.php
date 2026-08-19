@@ -231,16 +231,20 @@ class ConnectorController extends Controller
         $validated = $request->validate([
             'validator' => ['nullable', 'string', 'min:8', 'max:255'],
             'shared_secret' => ['nullable', 'string', 'min:16', 'max:255'],
+            'synchronous_processing' => ['sometimes', 'boolean'],
         ]);
         $validator = trim((string) ($validated['validator'] ?? ''));
         $sharedSecret = trim((string) ($validated['shared_secret'] ?? ''));
-        if ($validator === '' && $sharedSecret === '') {
+        if ($validator === '' && $sharedSecret === '' && ! $request->has('synchronous_processing')) {
             throw ValidationException::withMessages([
-                'validator' => 'Ingresa el validator de Meraki o un shared secret nuevo.',
+                'validator' => 'Modifica el modo de procesamiento o ingresa una credencial nueva.',
             ]);
         }
-
         $credentials = $connector->credentials ?? [];
+        $configuration = $connector->configuration ?? [];
+        if (array_key_exists('synchronous_processing', $validated)) {
+            $configuration['synchronous_processing'] = (bool) $validated['synchronous_processing'];
+        }
         $changed = [];
         if ($validator !== '') {
             $credentials['validator'] = $validator;
@@ -251,14 +255,20 @@ class ConnectorController extends Controller
             $changed[] = 'shared_secret';
         }
 
-        $connector->forceFill(['credentials' => $credentials])->save();
+        $connector->forceFill([
+            'credentials' => $credentials,
+            'configuration' => $configuration,
+        ])->save();
         $connector->logActivity(
             'meraki_credentials_rotated',
             'Credenciales del receptor Meraki actualizadas. Los valores anteriores modificados dejaron de ser válidos.',
             'warning',
-            ['changed' => $changed],
+            [
+                'changed' => $changed,
+                'processing_mode' => ($configuration['synchronous_processing'] ?? false) ? 'synchronous' : 'scheduled',
+            ],
         );
 
-        return back()->with('status', 'Credenciales Meraki actualizadas. Actualiza Meraki Dashboard si cambiaste el shared secret.');
+        return back()->with('status', 'Configuración del receptor Meraki actualizada.');
     }
 }

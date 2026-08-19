@@ -81,6 +81,7 @@ class ConnectorManagementTest extends TestCase
             ->assertOk()
             ->assertSee('v3.x (recomendada)')
             ->assertSee('v2.1 (compatibilidad)')
+            ->assertSee('Procesar completamente durante la solicitud webhook')
             ->assertSee('Validator de Meraki')
             ->assertSee('Shared secret');
     }
@@ -102,7 +103,7 @@ class ConnectorManagementTest extends TestCase
 
         $this->actingAs($admin)->get(route('connectors.show', $connector))
             ->assertOk()
-            ->assertSee('Actualizar validator o shared secret')
+            ->assertSee('Configuración del receptor')
             ->assertSee('Validator proporcionado por Meraki')
             ->assertSee('Generar secret seguro')
             ->assertDontSee('validator-original')
@@ -129,6 +130,11 @@ class ConnectorManagementTest extends TestCase
             'connector_id' => $connector->id,
             'event' => 'meraki_credentials_rotated',
         ]);
+
+        $this->actingAs($admin)->put(route('connectors.meraki-credentials.update', $connector), [
+            'synchronous_processing' => '1',
+        ])->assertRedirect();
+        $this->assertTrue((bool) $connector->fresh()->configuration['synchronous_processing']);
     }
 
     public function test_empty_meraki_credential_update_is_rejected(): void

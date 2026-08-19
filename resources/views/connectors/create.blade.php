@@ -23,7 +23,7 @@
                                 @if($field['type'] === 'checkbox')
                                     <input type="hidden" name="configuration[{{ $key }}]" value="0">
                                     <input class="rounded border-slate-300" type="checkbox" name="configuration[{{ $key }}]" value="1" @checked(old("configuration.$key", $field['default'] ?? false))>
-                                    {{ $field['label'] }}
+                                    <span><span class="block">{{ $field['label'] }}</span>@if(isset($field['help']))<span class="mt-1 block text-xs font-normal leading-relaxed text-slate-500">{{ $field['help'] }}</span>@endif</span>
                                 @elseif($field['type'] === 'select')
                                     {{ $field['label'] }}
                                     <select class="field-input" name="configuration[{{ $key }}]" @required($field['required'])>

@@ -34,8 +34,8 @@
             </div>
 
             <details class="mt-6 rounded-xl border border-slate-200 p-4">
-                <summary class="cursor-pointer font-semibold text-slate-950">Actualizar validator o shared secret</summary>
-                <p class="mt-2 text-xs leading-relaxed text-slate-500">Los valores actuales están cifrados y no se muestran. Completa solamente el valor que quieras reemplazar.</p>
+                <summary class="cursor-pointer font-semibold text-slate-950">Configuración del receptor</summary>
+                <p class="mt-2 text-xs leading-relaxed text-slate-500">Define cómo se procesa cada webhook. Las credenciales actuales están cifradas y sólo debes completar las que quieras reemplazar.</p>
                 <form class="mt-4 grid gap-4 md:grid-cols-2" method="POST" action="{{ route('connectors.meraki-credentials.update', $connector) }}">
                     @csrf
                     @method('PUT')
@@ -50,8 +50,13 @@
                             <button class="text-xs font-semibold text-brand-primary" type="button" data-copy-secret="meraki-secret-update">Copiar</button>
                         </span>
                     </label>
+                    <label class="md:col-span-2 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <input type="hidden" name="synchronous_processing" value="0">
+                        <input class="mt-1 rounded border-slate-300" type="checkbox" name="synchronous_processing" value="1" @checked((bool) ($connector->configuration['synchronous_processing'] ?? false))>
+                        <span><strong class="block text-sm text-slate-900">Procesar y guardar inmediatamente</strong><span class="mt-1 block text-xs leading-relaxed text-slate-500">Normaliza el lote, crea la telemetría y calcula señales y posiciones antes de responder a Meraki. Reduce el retraso, pero aumenta la duración del webhook y el riesgo de que Meraki reintente si el servidor supera su timeout.</span></span>
+                    </label>
                     <div class="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">Si reemplazas el shared secret, debes copiar el mismo valor en Meraki Dashboard antes del siguiente envío. El valor anterior dejará de funcionar inmediatamente.</div>
-                    <div class="md:col-span-2"><button class="btn-primary">Actualizar credenciales</button></div>
+                    <div class="md:col-span-2"><button class="btn-primary">Guardar configuración</button></div>
                 </form>
             </details>
 

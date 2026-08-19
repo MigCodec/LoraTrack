@@ -32,6 +32,27 @@ class MerakiLocationWebhookTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_meraki_can_process_the_complete_pipeline_inside_the_webhook_request(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'acme-sync']);
+        $connector = $this->connector($organization, '3');
+        $configuration = $connector->configuration;
+        $configuration['synchronous_processing'] = true;
+        $connector->update(['configuration' => $configuration]);
+
+        $this->postJson(
+            route('api.meraki.ingest', $connector),
+            $this->versionThreePayload('aa:bb:cc:dd:ee:01'),
+        )
+            ->assertOk()
+            ->assertJsonPath('processing_mode', 'synchronous')
+            ->assertJsonPath('fully_processed', true);
+
+        $this->assertDatabaseCount('meraki_webhook_batches', 0);
+        $this->assertDatabaseCount('telemetry_events', 1);
+        $this->assertDatabaseHas('telemetry_events', ['processing_status' => 'processed']);
+    }
+
     public function test_meraki_v3_registers_mac_deduplicates_and_uses_provider_position(): void
     {
         Queue::fake();
