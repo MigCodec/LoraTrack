@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\ScheduledCommandStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -26,13 +27,27 @@ class RunScheduledTask extends Command
             return self::INVALID;
         }
 
+        $result = Cache::lock("loratrack:scheduled-task:{$task}", 21600)->get(
+            fn (): int => $this->executeTask($task, $definition),
+        );
+        if ($result === false) {
+            $this->warn("La tarea {$task} ya está en ejecución.");
+
+            return self::FAILURE;
+        }
+
+        return $result;
+    }
+
+    /** @param array<string, mixed> $definition */
+    private function executeTask(string $task, array $definition): int
+    {
         $startedAt = now();
         $startedAtMonotonic = hrtime(true);
         ScheduledCommandStatus::query()->updateOrCreate(
             ['task' => $task],
             [
                 'last_started_at' => $startedAt,
-                'run_requested_at' => null,
                 'last_finished_at' => null,
                 'last_exit_code' => null,
                 'last_error' => null,

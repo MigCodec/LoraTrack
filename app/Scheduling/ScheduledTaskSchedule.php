@@ -25,10 +25,6 @@ class ScheduledTaskSchedule
     public function isDue(string $task): bool
     {
         $status = ScheduledCommandStatus::query()->find($task);
-        if ($status?->run_requested_at && (! $status->last_started_at || $status->run_requested_at->gt($status->last_started_at))) {
-            return true;
-        }
-
         if (! $status?->last_started_at) {
             return true;
         }

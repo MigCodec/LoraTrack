@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Scheduling\ScheduledTaskSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class ScheduledCommandStatusTest extends TestCase
@@ -108,20 +109,36 @@ class ScheduledCommandStatusTest extends TestCase
             ->assertSee('disabled', false);
     }
 
-    public function test_admin_can_request_a_priority_run_and_wrapper_consumes_it(): void
+    public function test_ajax_force_runs_immediately_without_waiting_for_scheduler(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
-        $this->actingAs($admin)->post(route('settings.automation.run', 'sync-telemetry-counters'))
-            ->assertRedirect()
-            ->assertSessionHas('status');
+        $this->actingAs($admin)->postJson(route('settings.automation.run', 'sync-telemetry-counters'))
+            ->assertOk()
+            ->assertJsonPath('completed', true)
+            ->assertJsonPath('successful', true)
+            ->assertJsonPath('run_count', 1)
+            ->assertJsonPath('exit_code', 0);
 
         $status = ScheduledCommandStatus::query()->findOrFail('sync-telemetry-counters');
-        $this->assertNotNull($status->run_requested_at);
-        $this->assertTrue(app(ScheduledTaskSchedule::class)->isDue('sync-telemetry-counters'));
+        $this->assertSame(1, $status->run_count);
+        $this->assertNotNull($status->last_finished_at);
+    }
 
-        $this->artisan('loratrack:run-scheduled', ['task' => 'sync-telemetry-counters'])->assertSuccessful();
-        $this->assertNull($status->fresh()->run_requested_at);
+    public function test_force_execution_does_not_overlap_an_already_running_task(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $lock = Cache::lock('loratrack:scheduled-task:sync-telemetry-counters', 60);
+        $this->assertTrue($lock->get());
+
+        try {
+            $this->actingAs($admin)->postJson(route('settings.automation.run', 'sync-telemetry-counters'))
+                ->assertConflict()
+                ->assertJsonPath('completed', false);
+            $this->assertDatabaseMissing('scheduled_command_statuses', ['task' => 'sync-telemetry-counters']);
+        } finally {
+            $lock->release();
+        }
     }
 
     public function test_invalid_frequency_and_unknown_forced_task_are_rejected(): void

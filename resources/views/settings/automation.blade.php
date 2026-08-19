@@ -4,7 +4,7 @@
 @section('content')
     @php($summary = [
         'healthy' => $tasks->where('state', 'healthy')->count(),
-        'running' => $tasks->whereIn('state', ['running', 'requested'])->count(),
+        'running' => $tasks->where('state', 'running')->count(),
         'failed' => $tasks->where('state', 'failed')->count(),
         'never' => $tasks->where('state', 'never')->count(),
     ])
@@ -47,7 +47,7 @@
             @php($status = $task['status'])
             @php($stateMeta = [
                 'healthy' => ['Correcta', 'active'], 'failed' => ['Requiere atención', 'error'],
-                'running' => ['En ejecución', 'disabled'], 'requested' => ['Solicitada', 'disabled'],
+                'running' => ['En ejecución', 'disabled'],
                 'never' => ['Sin historial', 'disabled'],
             ][$task['state']])
             <article class="automation-task is-{{ $task['state'] }}">
@@ -66,10 +66,10 @@
                         <small>{{ $task['frequency'] }} @if($recommendedMode) · recomendado por el sistema @endif</small>
                     </label>
                     <dl class="automation-task-metrics">
-                        <div><dt>Último inicio</dt><dd>{{ $status?->last_started_at?->diffForHumans() ?? 'Nunca' }}</dd><small>{{ $status?->last_started_at?->format('d-m-Y H:i:s') }}</small></div>
-                        <div><dt>Próxima ejecución</dt><dd>{{ $task['state'] === 'requested' ? 'Siguiente ciclo' : ($task['next_run_at']?->diffForHumans() ?? 'Al iniciar scheduler') }}</dd><small>{{ $task['next_run_at']?->format('d-m-Y H:i:s') }}</small></div>
-                        <div><dt>Duración</dt><dd>{{ $status?->last_duration_ms !== null ? number_format($status->last_duration_ms).' ms' : '—' }}</dd><small>{{ number_format($status?->run_count ?? 0) }} ejecuciones</small></div>
-                        <div><dt>Código de salida</dt><dd>{{ $status?->last_exit_code ?? '—' }}</dd><small>{{ $status?->last_succeeded_at ? 'Correcta '.$status->last_succeeded_at->diffForHumans() : 'Sin ejecución correcta' }}</small></div>
+                        <div><dt>Último inicio</dt><dd data-run-started>{{ $status?->last_started_at?->diffForHumans() ?? 'Nunca' }}</dd><small>{{ $status?->last_started_at?->format('d-m-Y H:i:s') }}</small></div>
+                        <div><dt>Próxima ejecución</dt><dd>{{ $task['next_run_at']?->diffForHumans() ?? 'Al iniciar scheduler' }}</dd><small>{{ $task['next_run_at']?->format('d-m-Y H:i:s') }}</small></div>
+                        <div><dt>Duración</dt><dd data-run-duration>{{ $status?->last_duration_ms !== null ? number_format($status->last_duration_ms).' ms' : '—' }}</dd><small data-run-count>{{ number_format($status?->run_count ?? 0) }} ejecuciones</small></div>
+                        <div><dt>Código de salida</dt><dd data-run-exit>{{ $status?->last_exit_code ?? '—' }}</dd><small>{{ $status?->last_succeeded_at ? 'Correcta '.$status->last_succeeded_at->diffForHumans() : 'Sin ejecución correcta' }}</small></div>
                     </dl>
                 </div>
 
@@ -78,9 +78,10 @@
                         <summary>Información técnica</summary>
                         <div><span>Identificador</span><code>{{ $task['task'] }}</code><span>Comando ejecutado</span><code>{{ $task['command'] }}</code>@if($status?->last_error)<span>Último error</span><p class="automation-error">{{ $status->last_error }}</p>@endif</div>
                     </details>
-                    <form method="POST" action="{{ route('settings.automation.run', $task['task']) }}">
+                    <form method="POST" action="{{ route('settings.automation.run', $task['task']) }}" data-automation-run-form>
                         @csrf
-                        <button class="automation-run-button" type="submit" @disabled(in_array($task['state'], ['running', 'requested'], true))><span aria-hidden="true">▶</span>{{ $task['state'] === 'requested' ? 'Ejecución solicitada' : 'Forzar ejecución' }}</button>
+                        <button class="automation-run-button" type="submit" @disabled($task['state'] === 'running')><span class="automation-run-symbol" aria-hidden="true">▶</span><span data-run-label>Forzar ejecución</span></button>
+                        <p class="automation-run-result" data-run-result aria-live="polite"></p>
                     </form>
                 </footer>
             </article>
@@ -113,5 +114,44 @@
             toggle.addEventListener('change', function () { applyMode(true); });
             applyMode(false);
         }
+
+        document.querySelectorAll('[data-automation-run-form]').forEach(function (form) {
+            form.addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const button = form.querySelector('.automation-run-button');
+                const label = form.querySelector('[data-run-label]');
+                const result = form.querySelector('[data-run-result]');
+                const card = form.closest('.automation-task');
+                button.disabled = true;
+                button.classList.add('is-loading');
+                label.textContent = 'Ejecutando comando…';
+                result.className = 'automation-run-result';
+                result.textContent = 'La ejecución comenzó y se mantendrá activa aunque no recargues la página.';
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                        body: new FormData(form)
+                    });
+                    const data = await response.json();
+                    result.textContent = data.message;
+                    result.classList.add(data.successful ? 'is-success' : 'is-error');
+                    if (data.completed) {
+                        card.querySelector('[data-run-duration]').textContent = Number(data.duration_ms || 0).toLocaleString() + ' ms';
+                        card.querySelector('[data-run-count]').textContent = Number(data.run_count || 0).toLocaleString() + ' ejecuciones';
+                        card.querySelector('[data-run-exit]').textContent = data.exit_code ?? '—';
+                        card.querySelector('[data-run-started]').textContent = 'recién';
+                    }
+                } catch (error) {
+                    result.textContent = 'No fue posible obtener el resultado del comando. Revisa el estado antes de volver a ejecutarlo.';
+                    result.classList.add('is-error');
+                } finally {
+                    button.disabled = false;
+                    button.classList.remove('is-loading');
+                    label.textContent = 'Forzar ejecución';
+                }
+            });
+        });
     </script>
 @endsection

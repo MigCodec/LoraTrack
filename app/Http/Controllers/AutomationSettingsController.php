@@ -8,9 +8,13 @@ use App\Http\Requests\UpdateAutomationSettingsRequest;
 use App\Models\ScheduledCommandStatus;
 use App\Models\SchedulerSetting;
 use App\Scheduling\ScheduledTaskSchedule;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class AutomationSettingsController extends Controller
 {
@@ -26,8 +30,6 @@ class AutomationSettingsController extends Controller
                 && (! $status->last_finished_at || $status->last_started_at->gt($status->last_finished_at));
             $hasFailed = $status?->last_failed_at
                 && (! $status->last_succeeded_at || $status->last_failed_at->gt($status->last_succeeded_at));
-            $isRequested = $status?->run_requested_at
-                && (! $status->last_started_at || $status->run_requested_at->gt($status->last_started_at));
 
             return [
                 'task' => $task,
@@ -42,7 +44,7 @@ class AutomationSettingsController extends Controller
                     ->implode(' ')),
                 'status' => $status,
                 'next_run_at' => $status?->last_started_at?->copy()->addMinutes($interval),
-                'state' => $isRunning ? 'running' : ($isRequested ? 'requested' : ($hasFailed ? 'failed' : ($status?->last_started_at ? 'healthy' : 'never'))),
+                'state' => $isRunning ? 'running' : ($hasFailed ? 'failed' : ($status?->last_started_at ? 'healthy' : 'never')),
             ];
         })->values();
 
@@ -71,15 +73,37 @@ class AutomationSettingsController extends Controller
             : 'Intervalos de automatización actualizados.');
     }
 
-    public function run(string $task): RedirectResponse
+    public function run(Request $request, string $task): RedirectResponse|JsonResponse
     {
         abort_unless(is_array(config("scheduled-tasks.{$task}")), 404);
 
-        ScheduledCommandStatus::query()->updateOrCreate(
-            ['task' => $task],
-            ['run_requested_at' => now()],
-        );
+        $runCountBefore = (int) (ScheduledCommandStatus::query()->whereKey($task)->value('run_count') ?? 0);
+        try {
+            $exitCode = Artisan::call('loratrack:run-scheduled', ['task' => $task]);
+        } catch (Throwable) {
+            $exitCode = 1;
+        }
+        $status = ScheduledCommandStatus::query()->find($task);
+        $didRun = (int) ($status?->run_count ?? 0) > $runCountBefore;
+        $successful = $didRun && $exitCode === 0;
 
-        return back()->with('status', 'Ejecución prioritaria solicitada. El scheduler iniciará la tarea en su siguiente ciclo disponible.');
+        if ($request->expectsJson()) {
+            return response()->json([
+                'completed' => $didRun,
+                'successful' => $successful,
+                'message' => $didRun
+                    ? ($successful ? 'Ejecución completada correctamente.' : 'La ejecución terminó con errores.')
+                    : 'La tarea ya está siendo ejecutada por otro proceso.',
+                'run_count' => (int) ($status?->run_count ?? 0),
+                'duration_ms' => $status?->last_duration_ms,
+                'exit_code' => $status?->last_exit_code,
+                'last_started_at' => $status?->last_started_at?->toIso8601String(),
+                'last_finished_at' => $status?->last_finished_at?->toIso8601String(),
+            ], $didRun ? ($successful ? 200 : 422) : 409);
+        }
+
+        return $successful
+            ? back()->with('status', 'Ejecución completada correctamente.')
+            : back()->withErrors(['automation' => $didRun ? 'La ejecución terminó con errores.' : 'La tarea ya está en ejecución.']);
     }
 }
