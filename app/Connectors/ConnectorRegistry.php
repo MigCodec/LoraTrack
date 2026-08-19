@@ -40,6 +40,12 @@ class ConnectorRegistry
                         'options' => ['3' => 'v3.x (recomendada)', '2' => 'v2.1 (compatibilidad)'],
                     ],
                     'network_id' => ['label' => 'Network ID permitido (opcional)', 'type' => 'text', 'required' => false],
+                    'process_webhooks_inline' => [
+                        'label' => 'Procesar automáticamente cada POST después de responder a Meraki',
+                        'type' => 'checkbox',
+                        'required' => false,
+                        'default' => false,
+                    ],
                 ],
                 'credentials' => [
                     'validator' => ['label' => 'Validator de Meraki', 'type' => 'password', 'required' => true, 'min' => 8],

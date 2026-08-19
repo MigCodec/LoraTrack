@@ -32,6 +32,7 @@ class RunScheduledTask extends Command
             ['task' => $task],
             [
                 'last_started_at' => $startedAt,
+                'run_requested_at' => null,
                 'last_finished_at' => null,
                 'last_exit_code' => null,
                 'last_error' => null,

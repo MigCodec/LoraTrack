@@ -13,7 +13,9 @@ use Throwable;
 
 class ProcessMerakiObservations extends Command
 {
-    protected $signature = 'loratrack:process-meraki-observations {--limit=1000 : Cantidad máxima de observaciones}';
+    protected $signature = 'loratrack:process-meraki-observations
+        {--limit=1000 : Cantidad máxima de observaciones}
+        {--connector= : Limita el procesamiento a un conector Meraki}';
 
     protected $description = 'Procesa observaciones Meraki pendientes desde el scheduler.';
 
@@ -28,6 +30,7 @@ class ProcessMerakiObservations extends Command
             return self::FAILURE;
         }
 
+        $connectorId = trim((string) $this->option('connector'));
         $eventIds = TelemetryEvent::query()
             ->where('event_type', 'meraki_location')
             ->where(function ($query): void {
@@ -37,6 +40,7 @@ class ProcessMerakiObservations extends Command
                     });
             })
             ->whereHas('connector', fn ($query) => $query->where('provider', ConnectorProvider::MerakiLocation->value))
+            ->when($connectorId !== '', fn ($query) => $query->where('connector_id', $connectorId))
             ->orderBy('received_at')
             ->limit($limit)
             ->pluck('id');

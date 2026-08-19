@@ -44,6 +44,35 @@
         </section>
     @endif
 
+    @if($connector->provider->value === 'meraki_location')
+        @php($automaticMerakiProcessing = filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL))
+        <section class="meraki-processing-mode {{ $automaticMerakiProcessing ? 'is-automatic' : 'is-scheduled' }}" aria-labelledby="meraki-processing-title">
+            <div class="meraki-processing-copy">
+                <span class="meraki-processing-eyebrow">Flujo de procesamiento</span>
+                <h3 id="meraki-processing-title">{{ $automaticMerakiProcessing ? 'Automático por cada POST' : 'Programado mediante scheduler' }}</h3>
+                <p>{{ $automaticMerakiProcessing
+                    ? 'LoraTrack responde primero a Meraki y luego normaliza el lote y calcula sus observaciones sin esperar la siguiente tarea programada.'
+                    : 'LoraTrack almacena cada POST de forma segura y el scheduler procesa posteriormente los lotes y sus observaciones.' }}</p>
+                <dl>
+                    <div><dt>Respuesta HTTP</dt><dd>Inmediata, antes del procesamiento</dd></div>
+                    <div><dt>Respaldo</dt><dd>El scheduler continúa recuperando pendientes</dd></div>
+                </dl>
+            </div>
+            <form method="POST" action="{{ route('connectors.meraki-processing-mode.update', $connector) }}">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="process_webhooks_inline" value="0">
+                <label class="meraki-processing-switch">
+                    <input type="checkbox" name="process_webhooks_inline" value="1" @checked($automaticMerakiProcessing) onchange="this.form.requestSubmit()">
+                    <span aria-hidden="true"></span>
+                    <strong>Procesar automáticamente cada POST</strong>
+                    <small>El cambio se guarda al alternar.</small>
+                </label>
+                <button class="btn-secondary" type="submit">Aplicar modo</button>
+            </form>
+        </section>
+    @endif
+
     @include('connectors.partials.guide', ['connector' => $connector])
     @if($connector->last_error)<div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><strong>Último error:</strong> {{ $connector->last_error }}</div>@endif
 

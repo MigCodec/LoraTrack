@@ -47,7 +47,38 @@ class ConnectorManagementTest extends TestCase
             ->assertSee('v3.x (recomendada)')
             ->assertSee('v2.1 (compatibilidad)')
             ->assertSee('Validator de Meraki')
-            ->assertSee('Shared secret');
+            ->assertSee('Shared secret')
+            ->assertSee('Procesar automáticamente cada POST');
+    }
+
+    public function test_admin_can_change_meraki_processing_mode_without_losing_other_configuration(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $connector = Connector::query()->create([
+            'name' => 'Meraki planta',
+            'provider' => ConnectorProvider::MerakiLocation,
+            'kind' => 'telemetry',
+            'status' => 'active',
+            'configuration' => ['api_version' => '3', 'network_id' => 'L_123'],
+            'credentials' => ['validator' => 'validator-original', 'shared_secret' => 'shared-secret-original-value'],
+        ]);
+
+        $this->actingAs($admin)->get(route('connectors.show', $connector))
+            ->assertOk()
+            ->assertSee('Programado mediante scheduler')
+            ->assertSee('Procesar automáticamente cada POST');
+
+        $this->actingAs($admin)->put(route('connectors.meraki-processing-mode.update', $connector), [
+            'process_webhooks_inline' => '1',
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $connector->refresh();
+        $this->assertTrue($connector->configuration['process_webhooks_inline']);
+        $this->assertSame('L_123', $connector->configuration['network_id']);
+        $this->assertDatabaseHas('connector_activity_logs', [
+            'connector_id' => $connector->id,
+            'event' => 'meraki_processing_mode_changed',
+        ]);
     }
 
     public function test_admin_can_replace_meraki_validator_or_secret_after_creation(): void

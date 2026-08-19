@@ -8,6 +8,7 @@ use App\Connectors\ConnectorRejectedRequestRecorder;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessMerakiWebhookAfterResponse;
 use App\Models\Connector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,8 +83,9 @@ class MerakiLocationWebhookController extends Controller
 
         unset($payload['secret']);
         $now = now();
+        $batchId = (string) Str::ulid();
         $inserted = DB::table('meraki_webhook_batches')->insertOrIgnore([
-            'id' => (string) Str::ulid(),
+            'id' => $batchId,
             'organization_id' => $connector->organization_id,
             'connector_id' => $connector->id,
             'request_hash' => hash('sha256', $request->getContent()),
@@ -94,6 +96,10 @@ class MerakiLocationWebhookController extends Controller
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        if ($inserted === 1 && filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL)) {
+            ProcessMerakiWebhookAfterResponse::dispatchAfterResponse($batchId, (string) $connector->id);
+        }
 
         return response()->json([
             'accepted' => true,

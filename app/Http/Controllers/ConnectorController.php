@@ -12,7 +12,6 @@ use App\Enums\ConnectorStatus;
 use App\Http\Requests\StoreConnectorRequest;
 use App\Models\Connector;
 use App\Models\FloorPlan;
-use App\Models\ScheduledCommandStatus;
 use App\Models\TelemetryEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,30 +24,9 @@ class ConnectorController extends Controller
 {
     public function index(ConnectorRegistry $registry): View
     {
-        $commandStatuses = ScheduledCommandStatus::query()->get()->keyBy('task');
-
         return view('connectors.index', [
             'definitions' => collect($registry->all())->groupBy(fn (array $item) => $item['kind']->value),
             'connectors' => Connector::query()->latest()->get(),
-            'scheduledTasks' => collect(config('scheduled-tasks'))->map(function (array $definition, string $task) use ($commandStatuses): array {
-                $status = $commandStatuses->get($task);
-                $isRunning = $status?->last_started_at
-                    && (! $status->last_finished_at || $status->last_started_at->gt($status->last_finished_at));
-                $hasFailed = $status?->last_failed_at
-                    && (! $status->last_succeeded_at || $status->last_failed_at->gt($status->last_succeeded_at));
-
-                return [
-                    'task' => $task,
-                    'label' => $definition['label'],
-                    'description' => $definition['description'],
-                    'frequency' => $definition['frequency'],
-                    'command' => trim($definition['command'].' '.collect($definition['arguments'] ?? [])
-                        ->map(fn (mixed $value, string|int $key): string => is_int($key) ? (string) $value : "{$key}={$value}")
-                        ->implode(' ')),
-                    'status' => $status,
-                    'state' => $isRunning ? 'running' : ($hasFailed ? 'failed' : ($status ? 'healthy' : 'never')),
-                ];
-            })->values(),
         ]);
     }
 
@@ -252,5 +230,27 @@ class ConnectorController extends Controller
         );
 
         return back()->with('status', 'Credenciales Meraki actualizadas. Actualiza Meraki Dashboard si cambiaste el shared secret.');
+    }
+
+    public function updateMerakiProcessingMode(Request $request, Connector $connector): RedirectResponse
+    {
+        abort_unless($connector->provider === ConnectorProvider::MerakiLocation, 422);
+        $validated = $request->validate([
+            'process_webhooks_inline' => ['required', 'boolean'],
+        ]);
+
+        $configuration = $connector->configuration ?? [];
+        $configuration['process_webhooks_inline'] = (bool) $validated['process_webhooks_inline'];
+        $connector->forceFill(['configuration' => $configuration])->save();
+        $connector->logActivity(
+            'meraki_processing_mode_changed',
+            $configuration['process_webhooks_inline']
+                ? 'Procesamiento automático posterior a cada POST activado.'
+                : 'Procesamiento programado mediante scheduler activado.',
+        );
+
+        return back()->with('status', $configuration['process_webhooks_inline']
+            ? 'Modo automático activado. Cada POST se procesará después de responder a Meraki.'
+            : 'Modo programado activado. El scheduler procesará los lotes pendientes.');
     }
 }

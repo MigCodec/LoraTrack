@@ -11,6 +11,7 @@ use App\Enums\ConnectorKind;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Jobs\ProcessMerakiLocationObservation;
+use App\Jobs\ProcessMerakiWebhookAfterResponse;
 use App\Models\Asset;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Connector;
@@ -24,6 +25,7 @@ use App\Models\TelemetryEvent;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -31,6 +33,53 @@ use Tests\TestCase;
 class MerakiLocationWebhookTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_automatic_mode_schedules_both_meraki_processing_stages_after_the_response(): void
+    {
+        Bus::fake();
+        $organization = Organization::query()->create(['name' => 'ACME automático', 'slug' => 'acme-automatico']);
+        $connector = $this->connector($organization, '3');
+        $connector->update(['configuration' => [
+            'api_version' => '3',
+            'network_id' => 'L_123',
+            'process_webhooks_inline' => true,
+        ]]);
+
+        $this->postJson(
+            route('api.meraki.ingest', $connector),
+            $this->versionThreePayload('aa:bb:cc:dd:ee:90'),
+        )->assertOk()->assertJsonPath('accepted', true);
+
+        $batchId = (string) DB::table('meraki_webhook_batches')->value('id');
+        Bus::assertDispatchedAfterResponse(ProcessMerakiWebhookAfterResponse::class, fn ($job): bool => $job->batchId === $batchId);
+
+        (new ProcessMerakiWebhookAfterResponse($batchId, (string) $connector->id))->handle();
+
+        $this->assertDatabaseCount('meraki_webhook_batches', 0);
+        $event = TelemetryEvent::query()->firstOrFail();
+        $this->assertSame('processed', $event->processing_status);
+        $this->assertNotNull($event->processed_at);
+        $connector->refresh();
+        $this->assertSame(1, $connector->telemetry_events_count);
+        $this->assertSame(1, $connector->processed_events_count);
+        $this->assertSame(0, $connector->pending_events_count);
+    }
+
+    public function test_scheduled_mode_only_persists_the_post_for_the_scheduler(): void
+    {
+        Bus::fake();
+        $organization = Organization::query()->create(['name' => 'ACME programado', 'slug' => 'acme-programado']);
+        $connector = $this->connector($organization, '3');
+
+        $this->postJson(
+            route('api.meraki.ingest', $connector),
+            $this->versionThreePayload('aa:bb:cc:dd:ee:91'),
+        )->assertOk();
+
+        Bus::assertNotDispatchedAfterResponse(ProcessMerakiWebhookAfterResponse::class);
+        $this->assertDatabaseCount('meraki_webhook_batches', 1);
+        $this->assertDatabaseCount('telemetry_events', 0);
+    }
 
     public function test_meraki_v3_registers_mac_deduplicates_and_uses_provider_position(): void
     {

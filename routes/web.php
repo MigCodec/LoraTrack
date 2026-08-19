@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AlertRuleController;
+use App\Http\Controllers\AutomationSettingsController;
 use App\Http\Controllers\Api\MerakiAccessPointIndexController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssetDeviceAssignmentController;
@@ -134,6 +135,9 @@ Route::middleware('auth')->group(function (): void {
         Route::put('/organization', [OrganizationController::class, 'update'])->name('organizations.update');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::get('/connectors', [ConnectorController::class, 'index'])->name('connectors.index');
+        Route::get('/settings', [AutomationSettingsController::class, 'index'])->name('settings.index');
+        Route::put('/settings/automations', [AutomationSettingsController::class, 'update'])->name('settings.automation.update');
+        Route::post('/settings/automations/{task}/run', [AutomationSettingsController::class, 'run'])->middleware('throttle:20,1')->name('settings.automation.run');
         Route::get('/connectors/{connector}', [ConnectorController::class, 'show'])->name('connectors.show');
         Route::get('/connectors/{connector}/events/{telemetryEvent}', [ConnectorController::class, 'showEvent'])->name('connectors.events.show');
         Route::get('/connectors/create/{provider}', [ConnectorController::class, 'create'])->name('connectors.create');
@@ -146,6 +150,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/connectors/{connector}/meraki-floor-plans', [MerakiFloorPlanMappingController::class, 'store'])->name('connectors.meraki-floor-plans.store');
         Route::delete('/connectors/{connector}/meraki-floor-plans/{mapping}', [MerakiFloorPlanMappingController::class, 'destroy'])->name('connectors.meraki-floor-plans.destroy');
         Route::put('/connectors/{connector}/meraki-credentials', [ConnectorController::class, 'updateMerakiCredentials'])->name('connectors.meraki-credentials.update');
+        Route::put('/connectors/{connector}/meraki-processing-mode', [ConnectorController::class, 'updateMerakiProcessingMode'])->name('connectors.meraki-processing-mode.update');
         Route::delete('/connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::post('/users/invitations', [UserInvitationController::class, 'store'])->middleware('throttle:10,1')->name('user-invitations.store');

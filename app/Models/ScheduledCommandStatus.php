@@ -19,6 +19,8 @@ class ScheduledCommandStatus extends Model
     protected function casts(): array
     {
         return [
+            'interval_minutes' => 'integer',
+            'run_requested_at' => 'datetime',
             'last_started_at' => 'datetime',
             'last_finished_at' => 'datetime',
             'last_succeeded_at' => 'datetime',

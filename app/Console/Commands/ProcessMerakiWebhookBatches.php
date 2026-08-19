@@ -10,6 +10,7 @@ use App\Enums\ConnectorStatus;
 use App\Models\MerakiWebhookBatch;
 use App\Support\TelemetryTimestamp;
 use App\Tenancy\OrganizationContext;
+use App\Telemetry\TelemetryCounterUpdater;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +20,9 @@ use Throwable;
 
 class ProcessMerakiWebhookBatches extends Command
 {
-    protected $signature = 'loratrack:process-meraki-webhooks {--limit=25 : Cantidad máxima de lotes a procesar}';
+    protected $signature = 'loratrack:process-meraki-webhooks
+        {--limit=25 : Cantidad máxima de lotes a procesar}
+        {--batch= : Procesa exclusivamente este lote}';
 
     protected $description = 'Normaliza los lotes Meraki recibidos y crea eventos de telemetria idempotentes.';
 
@@ -34,6 +37,7 @@ class ProcessMerakiWebhookBatches extends Command
             return self::FAILURE;
         }
 
+        $requestedBatch = trim((string) $this->option('batch'));
         $batchIds = MerakiWebhookBatch::query()
             ->withoutGlobalScope('organization')
             ->where(function ($query): void {
@@ -43,6 +47,7 @@ class ProcessMerakiWebhookBatches extends Command
                             ->where('attempts', '<', 3);
                     });
             })
+            ->when($requestedBatch !== '', fn ($query) => $query->whereKey($requestedBatch))
             ->orderByRaw("CASE WHEN processing_status = 'pending' THEN 0 ELSE 1 END")
             ->orderBy('received_at')
             ->limit($limit)
@@ -253,6 +258,8 @@ class ProcessMerakiWebhookBatches extends Command
             ->values()
             ->all();
         $accepted = count($insertedIds);
+        app(TelemetryCounterUpdater::class)->recordBulkCreated($connectorId, $accepted);
+
         return [$accepted, count($records) - $accepted];
     }
 
