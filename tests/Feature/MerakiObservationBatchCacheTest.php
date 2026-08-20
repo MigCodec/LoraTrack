@@ -68,6 +68,18 @@ class MerakiObservationBatchCacheTest extends TestCase
         $this->assertEqualsCanonicalizing([$first->id, $second->id], $accessPoints->pluck('organization_id')->all());
     }
 
+    public function test_profile_option_renders_query_and_timing_diagnostics(): void
+    {
+        $organization = Organization::query()->create(['name' => 'Perfil', 'slug' => 'perfil']);
+        $this->event($organization, $this->connector($organization), 'AABBCCDDEE03', 'profile-event');
+
+        $this->artisan('loratrack:process-meraki-observations', ['--limit' => 1, '--profile' => true])
+            ->expectsOutputToContain('Perfil de rendimiento')
+            ->expectsOutputToContain('Consultas SQL')
+            ->expectsOutputToContain('Tiempo total')
+            ->assertSuccessful();
+    }
+
     private function connector(Organization $organization): Connector
     {
         return Connector::query()->create([
