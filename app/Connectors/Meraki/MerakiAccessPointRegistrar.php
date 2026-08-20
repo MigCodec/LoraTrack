@@ -6,11 +6,12 @@ namespace App\Connectors\Meraki;
 
 use App\Models\Device;
 use App\Positioning\BleObservationExtractor;
+use App\Tenancy\OrganizationContext;
 use Illuminate\Support\Carbon;
 
 class MerakiAccessPointRegistrar
 {
-    /** @var array<string, Device> */
+    /** @var array<string, Device> Cache scoped by organization and normalized MAC. */
     private array $registered = [];
 
     /** @param array<string, mixed> $reading */
@@ -21,27 +22,35 @@ class MerakiAccessPointRegistrar
             return null;
         }
 
-        if (isset($this->registered[$identifier])) {
-            return $this->registered[$identifier];
+        $organizationId = app(OrganizationContext::class)->id();
+        if ($organizationId === null) {
+            throw new \LogicException('No hay una organizacion activa para registrar el AP Meraki.');
         }
+        $cacheKey = $organizationId.'|'.$identifier;
 
-        $device = Device::query()
-            ->withExists([
-                'assignments as has_active_assignments' => fn ($query) => $query->whereNull('ended_at'),
-                'installations as has_active_installations' => fn ($query) => $query->whereNull('ended_at'),
-            ])
-            ->where('identifier', $identifier)
-            ->first() ?? Device::query()->make(['identifier' => $identifier]);
-        if ($device->exists && $device->type !== 'scanner') {
-            $hasActiveUsage = (bool) $device->has_active_assignments
-                || (bool) $device->has_active_installations;
-            if ($hasActiveUsage) {
-                return $this->registered[$identifier] = $device;
+        $device = $this->registered[$cacheKey] ?? null;
+        if ($device && $device->type !== 'scanner') {
+            return $device;
+        }
+        if (! $device) {
+            $device = Device::query()
+                ->withExists([
+                    'assignments as has_active_assignments' => fn ($query) => $query->whereNull('ended_at'),
+                    'installations as has_active_installations' => fn ($query) => $query->whereNull('ended_at'),
+                ])
+                ->where('identifier', $identifier)
+                ->first() ?? Device::query()->make(['identifier' => $identifier]);
+            if ($device->exists && $device->type !== 'scanner') {
+                $hasActiveUsage = (bool) $device->has_active_assignments
+                    || (bool) $device->has_active_installations;
+                if ($hasActiveUsage) {
+                    return $this->registered[$cacheKey] = $device;
+                }
             }
         }
 
         $metadata = $device->metadata ?? [];
-        $metadata['meraki'] = array_filter([
+        $metadata['meraki'] = array_replace($metadata['meraki'] ?? [], array_filter([
             'role' => 'access_point_scanner',
             'network_id' => $networkId !== '' ? $networkId : null,
             'serial' => $reading['apSerial'] ?? null,
@@ -50,7 +59,7 @@ class MerakiAccessPointRegistrar
             'installation_status' => $device->exists && (bool) $device->has_active_installations
                 ? 'installed'
                 : 'pending_floor_plan',
-        ], fn (mixed $value): bool => $value !== null);
+        ], fn (mixed $value): bool => $value !== null));
         $currentLastSeen = $device->last_seen_at;
         $name = trim((string) ($reading['apName'] ?? ''));
 
@@ -67,7 +76,7 @@ class MerakiAccessPointRegistrar
                 : $currentLastSeen,
         ])->save();
 
-        return $this->registered[$identifier] = $device;
+        return $this->registered[$cacheKey] = $device;
     }
 
     private function formattedMac(string $identifier): string
