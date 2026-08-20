@@ -48,7 +48,7 @@ class ConnectorManagementTest extends TestCase
             ->assertSee('v2.1 (compatibilidad)')
             ->assertSee('Validator de Meraki')
             ->assertSee('Shared secret')
-            ->assertSee('Procesar automáticamente cada POST');
+            ->assertSee('Procesar completamente dentro del POST');
     }
 
     public function test_admin_can_change_meraki_processing_mode_without_losing_other_configuration(): void
@@ -66,7 +66,7 @@ class ConnectorManagementTest extends TestCase
         $this->actingAs($admin)->get(route('connectors.show', $connector))
             ->assertOk()
             ->assertSee('Programado mediante scheduler')
-            ->assertSee('Procesar automáticamente cada POST');
+            ->assertSee('Procesar completamente dentro del POST');
 
         $this->actingAs($admin)->put(route('connectors.meraki-processing-mode.update', $connector), [
             'process_webhooks_inline' => '1',

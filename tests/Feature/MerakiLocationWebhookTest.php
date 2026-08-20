@@ -34,7 +34,7 @@ class MerakiLocationWebhookTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_automatic_mode_schedules_both_meraki_processing_stages_after_the_response(): void
+    public function test_automatic_mode_processes_both_meraki_stages_before_responding(): void
     {
         Bus::fake();
         $organization = Organization::query()->create(['name' => 'ACME automático', 'slug' => 'acme-automatico']);
@@ -50,11 +50,7 @@ class MerakiLocationWebhookTest extends TestCase
             $this->versionThreePayload('aa:bb:cc:dd:ee:90'),
         )->assertOk()->assertJsonPath('accepted', true);
 
-        $batchId = (string) DB::table('meraki_webhook_batches')->value('id');
-        Bus::assertDispatchedAfterResponse(ProcessMerakiWebhookAfterResponse::class, fn ($job): bool => $job->batchId === $batchId);
-
-        (new ProcessMerakiWebhookAfterResponse($batchId, (string) $connector->id))->handle();
-
+        Bus::assertNotDispatched(ProcessMerakiWebhookAfterResponse::class);
         $this->assertDatabaseCount('meraki_webhook_batches', 0);
         $event = TelemetryEvent::query()->firstOrFail();
         $this->assertSame('processed', $event->processing_status);

@@ -41,7 +41,7 @@ class ConnectorRegistry
                     ],
                     'network_id' => ['label' => 'Network ID permitido (opcional)', 'type' => 'text', 'required' => false],
                     'process_webhooks_inline' => [
-                        'label' => 'Procesar automáticamente cada POST después de responder a Meraki',
+                        'label' => 'Procesar completamente cada POST antes de responder a Meraki',
                         'type' => 'checkbox',
                         'required' => false,
                         'default' => false,

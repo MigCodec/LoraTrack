@@ -245,12 +245,12 @@ class ConnectorController extends Controller
         $connector->logActivity(
             'meraki_processing_mode_changed',
             $configuration['process_webhooks_inline']
-                ? 'Procesamiento automático posterior a cada POST activado.'
+                ? 'Procesamiento directo dentro de cada POST activado.'
                 : 'Procesamiento programado mediante scheduler activado.',
         );
 
         return back()->with('status', $configuration['process_webhooks_inline']
-            ? 'Modo automático activado. Cada POST se procesará después de responder a Meraki.'
+            ? 'Modo directo activado. Cada POST se procesará completamente antes de responder a Meraki.'
             : 'Modo programado activado. El scheduler procesará los lotes pendientes.');
     }
 }

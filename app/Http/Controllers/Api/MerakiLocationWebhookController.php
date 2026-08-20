@@ -98,7 +98,7 @@ class MerakiLocationWebhookController extends Controller
         ]);
 
         if ($inserted === 1 && filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL)) {
-            ProcessMerakiWebhookAfterResponse::dispatchAfterResponse($batchId, (string) $connector->id);
+            (new ProcessMerakiWebhookAfterResponse($batchId, (string) $connector->id))->handle();
         }
 
         return response()->json([
