@@ -6,13 +6,14 @@ namespace App\Console\Commands;
 
 use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiClientDeviceRegistrar;
-use App\Enums\ConnectorProvider;
 use App\Jobs\ProcessMerakiLocationObservation;
 use App\Models\Connector;
 use App\Models\TelemetryEvent;
 use App\Positioning\ZoneClassifier;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -60,21 +61,19 @@ class ProcessMerakiObservations extends Command
         $commandStartedAt = hrtime(true);
         $idSelectionStartedAt = hrtime(true);
         if ($profile) {
-            $this->line('Perfil: seleccionando IDs pendientes...');
+            $this->line('Perfil: seleccionando eventos pending...');
         }
-        $eventIds = TelemetryEvent::query()
-            ->where('event_type', 'meraki_location')
-            ->where(function ($query): void {
-                $query->where('processing_status', 'pending')
-                    ->orWhere(function ($failed): void {
-                        $failed->where('processing_status', 'failed')->where('processing_attempts', '<', 3);
-                    });
-            })
-            ->whereHas('connector', fn ($query) => $query->where('provider', ConnectorProvider::MerakiLocation->value))
-            ->when($connectorId !== '', fn ($query) => $query->where('connector_id', $connectorId))
-            ->orderBy('received_at')
-            ->limit($limit)
-            ->pluck('id');
+        $pendingCandidates = $this->queueCandidates('pending', $connectorId, $limit);
+        if ($profile) {
+            $this->line('Perfil: seleccionando eventos failed reintentables...');
+        }
+        $failedCandidates = $this->queueCandidates('failed', $connectorId, $limit);
+        $eventIds = $pendingCandidates
+            ->concat($failedCandidates)
+            ->sortBy(fn (TelemetryEvent $event): string => $event->received_at->format('Y-m-d H:i:s.u'))
+            ->take($limit)
+            ->pluck('id')
+            ->values();
         $idSelectionDurationMs = $this->elapsedMs($idSelectionStartedAt);
         if ($profile) {
             $this->line(sprintf(
@@ -171,6 +170,20 @@ class ProcessMerakiObservations extends Command
     private function elapsedMs(int $startedAt): float
     {
         return (hrtime(true) - $startedAt) / 1_000_000;
+    }
+
+    /** @return Collection<int, TelemetryEvent> */
+    private function queueCandidates(string $status, string $connectorId, int $limit): Collection
+    {
+        return TelemetryEvent::query()
+            ->select(['id', 'received_at'])
+            ->where('event_type', 'meraki_location')
+            ->where('processing_status', $status)
+            ->when($status === 'failed', fn (Builder $query) => $query->where('processing_attempts', '<', 3))
+            ->when($connectorId !== '', fn (Builder $query) => $query->where('connector_id', $connectorId))
+            ->orderBy('received_at')
+            ->limit($limit)
+            ->get();
     }
 
     private function queryGroup(string $sql): string
