@@ -59,6 +59,9 @@ class ProcessMerakiObservations extends Command
 
         $commandStartedAt = hrtime(true);
         $idSelectionStartedAt = hrtime(true);
+        if ($profile) {
+            $this->line('Perfil: seleccionando IDs pendientes...');
+        }
         $eventIds = TelemetryEvent::query()
             ->where('event_type', 'meraki_location')
             ->where(function ($query): void {
@@ -73,6 +76,13 @@ class ProcessMerakiObservations extends Command
             ->limit($limit)
             ->pluck('id');
         $idSelectionDurationMs = $this->elapsedMs($idSelectionStartedAt);
+        if ($profile) {
+            $this->line(sprintf(
+                'Perfil: %d IDs seleccionados en %.1f ms; cargando payloads...',
+                $eventIds->count(),
+                $idSelectionDurationMs,
+            ));
+        }
 
         $payloadLoadStartedAt = hrtime(true);
         $eventsById = TelemetryEvent::query()
@@ -86,6 +96,9 @@ class ProcessMerakiObservations extends Command
             ->get()
             ->keyBy('id');
         $payloadLoadDurationMs = $this->elapsedMs($payloadLoadStartedAt);
+        if ($profile) {
+            $this->line(sprintf('Perfil: payloads cargados en %.1f ms; procesando eventos...', $payloadLoadDurationMs));
+        }
         $events = $eventIds
             ->map(fn (string $eventId): ?TelemetryEvent => $eventsById->get($eventId))
             ->filter();
@@ -100,6 +113,9 @@ class ProcessMerakiObservations extends Command
             $eventStartedAt = hrtime(true);
             $queriesBefore = $queryCount;
             $queryTimeBefore = $queryTimeMs;
+            if ($profile) {
+                $this->line('Perfil: procesando evento '.(string) $event->id.'...');
+            }
             try {
                 $processor->process($event, $zones, $accessPoints, $clients, false);
                 $processed++;

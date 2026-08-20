@@ -74,6 +74,9 @@ class MerakiObservationBatchCacheTest extends TestCase
         $this->event($organization, $this->connector($organization), 'AABBCCDDEE03', 'profile-event');
 
         $this->artisan('loratrack:process-meraki-observations', ['--limit' => 1, '--profile' => true])
+            ->expectsOutputToContain('Perfil: seleccionando IDs pendientes...')
+            ->expectsOutputToContain('1 IDs seleccionados')
+            ->expectsOutputToContain('procesando evento')
             ->expectsOutputToContain('Perfil de rendimiento')
             ->expectsOutputToContain('Consultas SQL')
             ->expectsOutputToContain('Tiempo total')
