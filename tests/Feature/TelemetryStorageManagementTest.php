@@ -13,6 +13,7 @@ use App\Models\TelemetryEvent;
 use App\Telemetry\DatabaseStorageInspector;
 use App\Telemetry\DatabaseStorageUsage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -214,6 +215,33 @@ class TelemetryStorageManagementTest extends TestCase
 
         $this->assertDatabaseMissing('telemetry_events', ['id' => $first->id]);
         $this->assertDatabaseHas('telemetry_events', ['id' => $second->id]);
+    }
+
+    public function test_profile_displays_effective_retention_cutoffs_and_expired_counts(): void
+    {
+        Carbon::setTestNow('2026-08-21 12:00:00 UTC');
+        $organization = Organization::query()->create([
+            'name' => 'Perfil retención',
+            'slug' => 'perfil-retencion',
+            'storage_cleanup_enabled' => true,
+            'use_system_recommended_retention' => false,
+            'telemetry_retention_days' => 6,
+            'position_history_retention_days' => 30,
+            'operational_log_retention_days' => 14,
+            'terminal_inbox_retention_days' => 2,
+        ]);
+        $this->event($organization, $this->connector($organization), 'profile-old', now()->subDays(7));
+        $this->mock(DatabaseStorageInspector::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('inspect')->once()->andReturn(new DatabaseStorageUsage(600, 400, 60.0, 'test'));
+        });
+
+        $this->artisan('loratrack:manage-telemetry-storage', ['--profile' => true, '--dry-run' => true])
+            ->expectsOutputToContain('Políticas de retención efectivas')
+            ->expectsOutputToContain('Perfil retención')
+            ->expectsOutputToContain('6 días')
+            ->expectsOutputToContain('2026-08-15 12:00:00')
+            ->expectsOutputToContain('Antes de ejecutar')
+            ->assertSuccessful();
     }
 
     private function connector(Organization $organization): Connector
