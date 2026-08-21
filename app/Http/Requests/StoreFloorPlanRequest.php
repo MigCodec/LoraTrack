@@ -79,6 +79,13 @@ class StoreFloorPlanRequest extends FormRequest
                 return;
             }
 
+            $temporaryPath = $file->getRealPath();
+            if (! is_string($temporaryPath) || $temporaryPath === '' || ! is_file($temporaryPath) || ! is_readable($temporaryPath)) {
+                $validator->errors()->add('plan', 'El archivo temporal no está disponible. Selecciónalo nuevamente e intenta otra vez.');
+
+                return;
+            }
+
             $extension = strtolower($file->getClientOriginalExtension());
             $mode = $this->string('view_mode')->toString();
             $allowed = $mode === '3d' ? self::THREE_DIMENSIONAL_EXTENSIONS : self::TWO_DIMENSIONAL_EXTENSIONS;
@@ -102,18 +109,18 @@ class StoreFloorPlanRequest extends FormRequest
 
                     return;
                 }
-                $this->validateSelfContainedGltf($validator, $file);
+                $this->validateSelfContainedGltf($validator, $file, $temporaryPath);
             }
 
             if ($mode === '3d' && $extension === 'glb') {
-                $this->validateGlb($validator, $file);
+                $this->validateGlb($validator, $file, $temporaryPath);
             }
         });
     }
 
-    private function validateGlb(Validator $validator, UploadedFile $file): void
+    private function validateGlb(Validator $validator, UploadedFile $file, string $temporaryPath): void
     {
-        $handle = fopen($file->getRealPath(), 'rb');
+        $handle = fopen($temporaryPath, 'rb');
         $header = $handle === false ? false : fread($handle, 12);
         if (is_resource($handle)) {
             fclose($handle);
@@ -136,9 +143,9 @@ class StoreFloorPlanRequest extends FormRequest
         }
     }
 
-    private function validateSelfContainedGltf(Validator $validator, UploadedFile $file): void
+    private function validateSelfContainedGltf(Validator $validator, UploadedFile $file, string $temporaryPath): void
     {
-        $document = json_decode((string) file_get_contents($file->getRealPath()), true);
+        $document = json_decode((string) file_get_contents($temporaryPath), true);
         if (! is_array($document) || ! isset($document['asset']['version'])) {
             $validator->errors()->add('plan', 'El archivo glTF no contiene un documento válido.');
 

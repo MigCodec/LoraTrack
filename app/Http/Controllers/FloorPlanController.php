@@ -14,7 +14,9 @@ use App\Tenancy\OrganizationContext;
 use App\Tenancy\TenantRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class FloorPlanController extends Controller
@@ -65,9 +67,20 @@ class FloorPlanController extends Controller
         $validated = $request->validated();
 
         $file = $request->file('plan');
+        $temporaryPath = $file instanceof UploadedFile ? $file->getRealPath() : null;
+        if (! $file instanceof UploadedFile || ! is_string($temporaryPath) || $temporaryPath === '' || ! is_readable($temporaryPath)) {
+            throw ValidationException::withMessages([
+                'plan' => 'El archivo temporal no está disponible. Selecciónalo nuevamente e intenta otra vez.',
+            ]);
+        }
         $root = 'organizations/'.app(OrganizationContext::class)->id().'/floor-plans';
         $path = $file->store($root, 'local');
         $previewPath = $request->file('preview')?->store($root.'/previews', 'local');
+        if (! is_string($path) || $path === '') {
+            throw ValidationException::withMessages([
+                'plan' => 'No fue posible almacenar el archivo. Verifica el almacenamiento e intenta nuevamente.',
+            ]);
+        }
 
         $extension = strtolower($file->getClientOriginalExtension());
         $mimeType = match ($extension) {
