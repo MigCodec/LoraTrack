@@ -238,6 +238,8 @@ class TelemetryStorageManagementTest extends TestCase
         $this->artisan('loratrack:manage-telemetry-storage', ['--profile' => true, '--dry-run' => true])
             ->expectsOutputToContain('Políticas de retención efectivas')
             ->expectsOutputToContain('Perfil retención')
+            ->expectsOutputToContain('Uso lógico aprox.')
+            ->expectsOutputToContain('GB')
             ->expectsOutputToContain('6 días')
             ->expectsOutputToContain('2026-08-15 12:00:00')
             ->expectsOutputToContain('Antes de ejecutar')

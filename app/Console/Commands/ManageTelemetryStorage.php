@@ -8,6 +8,7 @@ use App\Models\Organization;
 use App\Telemetry\DatabaseStorageInspector;
 use App\Telemetry\DatabaseStorageUsage;
 use App\Telemetry\TenantRetentionPolicy;
+use App\Telemetry\TenantStorageUsageEstimator;
 use App\Telemetry\TelemetryStorageCleaner;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Console\Command;
@@ -17,6 +18,9 @@ use Throwable;
 
 class ManageTelemetryStorage extends Command
 {
+    /** @var array<string, array{telemetry: int, positions: int, operational: int, meraki_inbox: int, total: int}> */
+    private array $tenantStorage = [];
+
     protected $signature = 'loratrack:manage-telemetry-storage
         {--dry-run : Medir sin eliminar datos vencidos}
         {--max-delete=0 : Máximo por categoría y tenant; 0 procesa todo lo vencido}
@@ -27,12 +31,16 @@ class ManageTelemetryStorage extends Command
     public function handle(
         DatabaseStorageInspector $inspector,
         TelemetryStorageCleaner $cleaner,
+        TenantStorageUsageEstimator $tenantStorageEstimator,
         OrganizationContext $context,
     ): int {
         $allOrganizations = Organization::query()
             ->orderBy('id')
             ->get();
         if ($this->option('profile')) {
+            foreach ($allOrganizations as $organization) {
+                $this->tenantStorage[$organization->id] = $tenantStorageEstimator->estimate($organization);
+            }
             $this->renderPolicyOverview($allOrganizations);
         }
         $organizations = $allOrganizations->where('storage_cleanup_enabled', true);
@@ -113,7 +121,11 @@ class ManageTelemetryStorage extends Command
                 ));
                 $remaining = $cleaner->expiredCounts($organization);
                 if ($this->option('profile')) {
+                    $this->tenantStorage[$organization->id] = $tenantStorageEstimator->estimate($organization);
                     $this->renderExpiredCounts($remaining, 'Después de ejecutar');
+                    $this->line('Uso lógico aproximado después: '.$this->formatStorage(
+                        $this->tenantStorage[$organization->id]['total'],
+                    ));
                 }
                 $remainingCount = array_sum($remaining);
                 if ($remainingCount > 0) {
@@ -135,12 +147,13 @@ class ManageTelemetryStorage extends Command
     {
         $this->components->info('Políticas de retención efectivas');
         $this->table(
-            ['Organización', 'Limpieza', 'Modo', 'Telemetría', 'Posiciones', 'Operacional', 'Inbox Meraki'],
+            ['Organización', 'Uso lógico aprox.', 'Limpieza', 'Modo', 'Telemetría', 'Posiciones', 'Operacional', 'Inbox Meraki'],
             $organizations->map(function (Organization $organization): array {
                 $policy = TenantRetentionPolicy::for($organization);
 
                 return [
                     $organization->name,
+                    $this->formatStorage($this->tenantStorage[$organization->id]['total'] ?? 0),
                     $organization->storage_cleanup_enabled ? 'Activa' : 'Inactiva',
                     $organization->use_system_recommended_retention ? 'Recomendado' : 'Manual',
                     $policy->telemetryDays.' días',
@@ -156,15 +169,15 @@ class ManageTelemetryStorage extends Command
     private function renderRetentionDetails(Organization $organization, array $expired, string $moment): void
     {
         $policy = TenantRetentionPolicy::for($organization);
+        $storage = $this->tenantStorage[$organization->id] ?? [];
         $now = now()->utc();
         $this->newLine();
         $this->components->info("{$organization->name} · {$moment}");
-        $this->table(['Categoría', 'Retención', 'Fecha de corte UTC', 'Vencidos'], [
-            ['Telemetría y señales', $policy->telemetryDays.' días', $now->copy()->subDays($policy->telemetryDays)->format('Y-m-d H:i:s'), number_format($expired['telemetry_events'] ?? 0)],
-            ['Historial de posiciones', $policy->positionHistoryDays.' días', $now->copy()->subDays($policy->positionHistoryDays)->format('Y-m-d H:i:s'), number_format($expired['position_estimates'] ?? 0)],
-            ['Logs operacionales y auditoría', $policy->operationalLogDays.' días', $now->copy()->subDays($policy->operationalLogDays)->format('Y-m-d H:i:s'), number_format($expired['operational_logs'] ?? 0)],
-            ['Alertas resueltas', $policy->operationalLogDays.' días', $now->copy()->subDays($policy->operationalLogDays)->format('Y-m-d H:i:s'), number_format($expired['resolved_alerts'] ?? 0)],
-            ['Bandeja de entrada Meraki', $policy->terminalInboxDays.' días', $now->copy()->subDays($policy->terminalInboxDays)->format('Y-m-d H:i:s'), number_format($expired['meraki_inbox'] ?? 0)],
+        $this->table(['Categoría', 'Uso lógico aprox.', 'Retención', 'Fecha de corte UTC', 'Vencidos'], [
+            ['Telemetría y señales', $this->formatStorage($storage['telemetry'] ?? 0), $policy->telemetryDays.' días', $now->copy()->subDays($policy->telemetryDays)->format('Y-m-d H:i:s'), number_format($expired['telemetry_events'] ?? 0)],
+            ['Historial de posiciones', $this->formatStorage($storage['positions'] ?? 0), $policy->positionHistoryDays.' días', $now->copy()->subDays($policy->positionHistoryDays)->format('Y-m-d H:i:s'), number_format($expired['position_estimates'] ?? 0)],
+            ['Logs, auditoría y alertas', $this->formatStorage($storage['operational'] ?? 0), $policy->operationalLogDays.' días', $now->copy()->subDays($policy->operationalLogDays)->format('Y-m-d H:i:s'), number_format(($expired['operational_logs'] ?? 0) + ($expired['resolved_alerts'] ?? 0))],
+            ['Bandeja de entrada Meraki', $this->formatStorage($storage['meraki_inbox'] ?? 0), $policy->terminalInboxDays.' días', $now->copy()->subDays($policy->terminalInboxDays)->format('Y-m-d H:i:s'), number_format($expired['meraki_inbox'] ?? 0)],
         ]);
     }
 
@@ -198,5 +211,10 @@ class ManageTelemetryStorage extends Command
         }
 
         return number_format($value, $unit === 0 ? 0 : 2).' '.$units[$unit];
+    }
+
+    private function formatStorage(int $bytes): string
+    {
+        return number_format($bytes / 1_073_741_824, 4).' GB';
     }
 }
