@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -67,19 +68,23 @@ class FloorPlanController extends Controller
         $validated = $request->validated();
 
         $file = $request->file('plan');
-        $temporaryPath = $file instanceof UploadedFile ? $file->getRealPath() : null;
-        if (! $file instanceof UploadedFile || ! is_string($temporaryPath) || $temporaryPath === '' || ! is_readable($temporaryPath)) {
+        if (! $file instanceof UploadedFile) {
             throw ValidationException::withMessages([
                 'plan' => 'El archivo temporal no está disponible. Selecciónalo nuevamente e intenta otra vez.',
             ]);
         }
         $root = 'organizations/'.app(OrganizationContext::class)->id().'/floor-plans';
-        $path = $file->store($root, 'local');
-        $previewPath = $request->file('preview')?->store($root.'/previews', 'local');
-        if (! is_string($path) || $path === '') {
-            throw ValidationException::withMessages([
-                'plan' => 'No fue posible almacenar el archivo. Verifica el almacenamiento e intenta nuevamente.',
-            ]);
+        $path = $this->storeUploadedFile($file, $root, 'plan');
+        $previewPath = null;
+        $preview = $request->file('preview');
+        if ($preview instanceof UploadedFile) {
+            try {
+                $previewPath = $this->storeUploadedFile($preview, $root.'/previews', 'preview');
+            } catch (ValidationException $exception) {
+                Storage::disk('local')->delete($path);
+
+                throw $exception;
+            }
         }
 
         $extension = strtolower($file->getClientOriginalExtension());
@@ -117,6 +122,39 @@ class FloorPlanController extends Controller
             : 'Plano 2D cargado. Ya puedes navegarlo y dibujar zonas.';
 
         return redirect()->route('floor-plans.index', ['plan' => $plan])->with('status', $status);
+    }
+
+    private function storeUploadedFile(UploadedFile $file, string $directory, string $field): string
+    {
+        $temporaryPath = $file->getPathname();
+        if ($temporaryPath === '' || ! is_file($temporaryPath) || ! is_readable($temporaryPath)) {
+            throw ValidationException::withMessages([
+                $field => 'El archivo temporal no está disponible. Selecciónalo nuevamente e intenta otra vez.',
+            ]);
+        }
+
+        $extension = strtolower($file->getClientOriginalExtension());
+        $path = trim($directory, '/').'/'.Str::ulid().($extension !== '' ? '.'.$extension : '');
+        $stream = fopen($temporaryPath, 'rb');
+        if (! is_resource($stream)) {
+            throw ValidationException::withMessages([
+                $field => 'No fue posible leer el archivo temporal. Verifica sus permisos e intenta nuevamente.',
+            ]);
+        }
+
+        try {
+            $stored = Storage::disk('local')->put($path, $stream);
+        } finally {
+            fclose($stream);
+        }
+
+        if (! $stored) {
+            throw ValidationException::withMessages([
+                $field => 'No fue posible almacenar el archivo. Verifica el almacenamiento e intenta nuevamente.',
+            ]);
+        }
+
+        return $path;
     }
 
     public function destroy(FloorPlan $floorPlan): RedirectResponse

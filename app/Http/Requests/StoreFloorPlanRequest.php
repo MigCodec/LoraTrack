@@ -79,7 +79,7 @@ class StoreFloorPlanRequest extends FormRequest
                 return;
             }
 
-            $temporaryPath = $file->getRealPath();
+            $temporaryPath = $file->getPathname();
             if (! is_string($temporaryPath) || $temporaryPath === '' || ! is_file($temporaryPath) || ! is_readable($temporaryPath)) {
                 $validator->errors()->add('plan', 'El archivo temporal no está disponible. Selecciónalo nuevamente e intenta otra vez.');
 
