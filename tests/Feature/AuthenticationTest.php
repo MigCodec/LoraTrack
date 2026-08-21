@@ -54,7 +54,7 @@ class AuthenticationTest extends TestCase
         $this->get(route('register'))
             ->assertOk()
             ->assertSee('class="toast-region"', false)
-            ->assertSee('Revisa la informacion ingresada');
+            ->assertSee('Revisa la información ingresada');
 
         $this->assertDatabaseMissing('organizations', ['name' => 'Empresa no creada']);
     }

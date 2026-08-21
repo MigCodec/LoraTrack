@@ -510,7 +510,7 @@ class FloorPlanZoneTest extends TestCase
         $this->actingAs($admin)->get(route('floor-plans.index', ['plan' => $plan]))
             ->assertOk()
             ->assertSee('class="toast-region"', false)
-            ->assertSee('Revisa la informacion ingresada');
+            ->assertSee('Revisa la información ingresada');
 
         $this->actingAs($admin)->post(route('installations.store', $plan), [
             'device_id' => $merakiAp->id,

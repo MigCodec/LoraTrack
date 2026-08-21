@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Recuperar contraseña · LoraTrack</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/tenant-brand.css') }}?v={{ filemtime(public_path('css/tenant-brand.css')) }}">
     <script defer src="{{ asset('js/app.js') }}"></script>
 </head>
 <body class="login-shell min-h-screen px-5 py-10">

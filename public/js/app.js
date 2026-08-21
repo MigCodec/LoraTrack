@@ -70,16 +70,131 @@ window.LoraTrack.pollWhenVisible = (callback, intervalMs) => {
     };
 };
 
-document.querySelectorAll('[data-toast]').forEach((toast) => {
-    const close = () => {
-        toast.classList.add('is-dismissing');
-        window.setTimeout(() => toast.remove(), 160);
+(() => {
+    const region = document.querySelector('[data-toast-region]');
+    if (!region) return;
+    const recent = new Map();
+    const defaults = {
+        success: {title: 'Acción completada', icon: '✓', duration: 6000},
+        error: {title: 'Ocurrió un problema', icon: '!', duration: 10000},
+        warning: {title: 'Atención requerida', icon: '!', duration: 8000},
+        info: {title: 'Información', icon: 'i', duration: 6500},
+        loading: {title: 'Procesando', icon: '', duration: 0},
     };
-    toast.querySelector('[data-toast-close]')?.addEventListener('click', close);
-    if (toast.classList.contains('app-toast-success')) {
-        window.setTimeout(close, 6000);
-    }
-});
+
+    const activate = (toast, duration = Number(toast.dataset.toastDuration || 0)) => {
+        let timeout = null;
+        const close = () => {
+            if (toast.classList.contains('is-dismissing')) return;
+            window.clearTimeout(timeout);
+            toast.classList.add('is-dismissing');
+            window.setTimeout(() => toast.remove(), 220);
+        };
+        const schedule = () => {
+            window.clearTimeout(timeout);
+            if (duration > 0) timeout = window.setTimeout(close, duration);
+        };
+        toast.querySelector('[data-toast-close]')?.addEventListener('click', close);
+        toast.addEventListener('mouseenter', () => window.clearTimeout(timeout));
+        toast.addEventListener('mouseleave', schedule);
+        toast.addEventListener('focusin', () => window.clearTimeout(timeout));
+        toast.addEventListener('focusout', schedule);
+        schedule();
+        return {close, reschedule: schedule};
+    };
+
+    const show = ({type = 'info', title = null, message = '', duration = null, dedupeKey = null} = {}) => {
+        const meta = defaults[type] || defaults.info;
+        const key = dedupeKey || `${type}:${title || meta.title}:${message}`;
+        const lastShown = recent.get(key) || 0;
+        if (Date.now() - lastShown < 2500) return null;
+        recent.set(key, Date.now());
+
+        const toast = document.createElement('section');
+        toast.className = `app-toast app-toast-${type}`;
+        toast.dataset.toast = '';
+        toast.setAttribute('role', type === 'error' || type === 'warning' ? 'alert' : 'status');
+        const icon = document.createElement('div');
+        icon.className = 'app-toast-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = meta.icon;
+        const content = document.createElement('div');
+        content.className = 'app-toast-content';
+        const heading = document.createElement('p');
+        heading.className = 'app-toast-title';
+        heading.textContent = title || meta.title;
+        const body = document.createElement('p');
+        body.className = 'app-toast-message';
+        body.textContent = message;
+        content.append(heading, body);
+        const closeButton = document.createElement('button');
+        closeButton.className = 'app-toast-close';
+        closeButton.type = 'button';
+        closeButton.dataset.toastClose = '';
+        closeButton.setAttribute('aria-label', 'Cerrar notificación');
+        closeButton.textContent = '×';
+        const progress = document.createElement('span');
+        progress.className = 'app-toast-progress';
+        progress.setAttribute('aria-hidden', 'true');
+        toast.append(icon, content, closeButton, progress);
+        region.appendChild(toast);
+        region.scrollTo({top: region.scrollHeight, behavior: 'smooth'});
+        const lifetime = duration === null ? meta.duration : duration;
+        if (lifetime > 0) {
+            toast.style.setProperty('--toast-duration', `${lifetime}ms`);
+            toast.classList.add('has-timeout');
+        }
+        const controls = activate(toast, lifetime);
+
+        return {
+            element: toast,
+            close: controls.close,
+            update(next = {}) {
+                type = next.type || type;
+                const nextMeta = defaults[type] || defaults.info;
+                toast.className = `app-toast app-toast-${type}`;
+                icon.textContent = nextMeta.icon;
+                heading.textContent = next.title || nextMeta.title;
+                body.textContent = next.message || '';
+                const nextDuration = next.duration === undefined ? nextMeta.duration : next.duration;
+                if (nextDuration > 0) {
+                    toast.style.setProperty('--toast-duration', `${nextDuration}ms`);
+                    toast.classList.add('has-timeout');
+                }
+                activate(toast, nextDuration);
+            },
+        };
+    };
+
+    window.LoraTrack.toast = show;
+    window.LoraTrack.notify = (message, type = 'info', options = {}) => show({...options, message, type});
+    document.querySelectorAll('[data-toast]').forEach((toast) => {
+        const duration = Number(toast.dataset.toastDuration || 0);
+        if (duration > 0) {
+            toast.style.setProperty('--toast-duration', `${duration}ms`);
+            toast.classList.add('has-timeout');
+        }
+        activate(toast, duration);
+    });
+
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+        const managesOwnToast = new Headers(args[1]?.headers || {}).get('X-LoraTrack-Toast') === 'manual';
+        try {
+            const response = await nativeFetch(...args);
+            if (!response.ok && !managesOwnToast) {
+                const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || 'solicitud';
+                show({type: 'error', message: `La solicitud no pudo completarse (HTTP ${response.status}).`, dedupeKey: `http:${response.status}:${url}`});
+            }
+            return response;
+        } catch (error) {
+            if (error?.name !== 'AbortError' && !managesOwnToast) {
+                show({type: 'error', message: 'No fue posible comunicarse con el servidor. Verifica la conexión e intenta nuevamente.', dedupeKey: 'network-error'});
+            }
+            throw error;
+        }
+    };
+})();
 
 document.addEventListener('click', (event) => {
     const defineAreaButton = event.target.closest('#zone-draw-mode');

@@ -127,16 +127,27 @@
                 label.textContent = 'Ejecutando comando…';
                 result.className = 'automation-run-result';
                 result.textContent = 'La ejecución comenzó y se mantendrá activa aunque no recargues la página.';
+                const notification = window.LoraTrack.toast?.({
+                    type: 'loading',
+                    title: 'Ejecutando automatización',
+                    message: 'El comando se está ejecutando. Esta notificación se actualizará al finalizar.',
+                    duration: 0
+                });
 
                 try {
                     const response = await fetch(form.action, {
                         method: 'POST',
-                        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-LoraTrack-Toast': 'manual'},
                         body: new FormData(form)
                     });
                     const data = await response.json();
                     result.textContent = data.message;
                     result.classList.add(data.successful ? 'is-success' : 'is-error');
+                    notification?.update({
+                        type: data.successful ? 'success' : 'error',
+                        title: data.successful ? 'Ejecución completada' : 'Ejecución con errores',
+                        message: data.message
+                    });
                     if (data.completed) {
                         card.querySelector('[data-run-duration]').textContent = Number(data.duration_ms || 0).toLocaleString() + ' ms';
                         card.querySelector('[data-run-count]').textContent = Number(data.run_count || 0).toLocaleString() + ' ejecuciones';
@@ -146,6 +157,11 @@
                 } catch (error) {
                     result.textContent = 'No fue posible obtener el resultado del comando. Revisa el estado antes de volver a ejecutarlo.';
                     result.classList.add('is-error');
+                    notification?.update({
+                        type: 'error',
+                        title: 'No fue posible completar la ejecución',
+                        message: result.textContent
+                    });
                 } finally {
                     button.disabled = false;
                     button.classList.remove('is-loading');
