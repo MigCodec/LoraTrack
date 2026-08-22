@@ -21,6 +21,7 @@ use App\Models\Location;
 use App\Models\MerakiFloorPlanMapping;
 use App\Models\Organization;
 use App\Models\PositionEstimate;
+use App\Models\SignalObservation;
 use App\Models\TelemetryEvent;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
@@ -75,6 +76,31 @@ class MerakiLocationWebhookTest extends TestCase
         Bus::assertNotDispatchedAfterResponse(ProcessMerakiWebhookAfterResponse::class);
         $this->assertDatabaseCount('meraki_webhook_batches', 1);
         $this->assertDatabaseCount('telemetry_events', 0);
+    }
+
+    public function test_enabling_direct_mode_recovers_a_duplicate_batch_left_pending(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME recuperacion', 'slug' => 'acme-recuperacion']);
+        $connector = $this->connector($organization, '3');
+        $payload = $this->versionThreePayload('aa:bb:cc:dd:ee:92');
+
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertOk();
+        $this->assertDatabaseCount('meraki_webhook_batches', 1);
+
+        $connector->update(['configuration' => array_replace($connector->configuration, [
+            'process_webhooks_inline' => true,
+        ])]);
+
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)
+            ->assertOk()
+            ->assertJsonPath('duplicate', true);
+
+        $this->assertDatabaseCount('meraki_webhook_batches', 0);
+        $event = TelemetryEvent::query()->firstOrFail();
+        $this->assertSame('processed', $event->processing_status);
+        $connector->refresh();
+        $this->assertSame(0, $connector->pending_events_count);
+        $this->assertSame(1, $connector->processed_events_count);
     }
 
     public function test_meraki_v3_registers_mac_deduplicates_and_uses_provider_position(): void
@@ -185,8 +211,10 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertEqualsWithDelta(8, (float) $position->raw_y, 0.001);
         $this->assertEqualsWithDelta(2.5, (float) $position->accuracy_meters, 0.001);
         $this->assertTrue($asset->fresh()->last_seen_at->equalTo($event->observed_at));
-        $this->assertArrayNotHasKey('rssi_records', $event->fresh()->raw_payload);
-        $this->assertCount(3, $event->fresh()->normalized_payload['rssi_records']);
+        $event->refresh();
+        $this->assertSame(2, $event->payload_storage_version);
+        $this->assertNull($event->raw_payload);
+        $this->assertNull($event->normalized_payload);
     }
 
     public function test_scheduler_recovers_failed_batch_with_double_encoded_payload(): void
@@ -253,9 +281,10 @@ class MerakiLocationWebhookTest extends TestCase
         $connector->refresh();
         $this->assertSame(120, $connector->telemetry_events_count);
         $this->assertSame(120, $connector->pending_events_count);
-        $this->assertSame(1, TelemetryEvent::query()->get()->filter(
+        $this->assertSame(0, TelemetryEvent::query()->get()->filter(
             fn (TelemetryEvent $event): bool => ($event->raw_payload['reporting_aps'] ?? []) !== [],
         )->count());
+        $this->assertSame(40, Device::query()->where('type', 'scanner')->count());
 
         TelemetryEvent::query()->update(['processing_status' => 'processed']);
         $this->artisan('loratrack:sync-telemetry-counters', ['--connector' => $connector->id])->assertSuccessful();
@@ -594,8 +623,8 @@ class MerakiLocationWebhookTest extends TestCase
         $this->process($event);
         $event->refresh();
         $this->assertSame('E455A815A240', $event->device->identifier);
-        $this->assertSame(3, $event->normalized_payload['source_summary']['reporting_ap_count']);
-        $this->assertArrayNotHasKey('rssi_records', $event->raw_payload);
+        $this->assertNull($event->raw_payload);
+        $this->assertNull($event->normalized_payload);
         $scanners = Device::query()->where('type', 'scanner')->orderBy('identifier')->get();
         $this->assertCount(3, $scanners);
         $this->assertSame('AP-01', $scanners->firstWhere('identifier', 'E455A815A238')->name);
@@ -693,11 +722,11 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertSame('Q3AE-TGJL-V7HD', data_get($device->metadata, 'meraki.serial'));
     }
 
-    public function test_meraki_access_point_backfill_registers_aps_from_processed_normalized_payloads(): void
+    public function test_meraki_access_point_backfill_registers_aps_from_signal_observations(): void
     {
         $organization = Organization::query()->create(['name' => 'ACME', 'slug' => 'backfill-aps']);
         $connector = $this->connector($organization, '3');
-        TelemetryEvent::query()->create([
+        $event = TelemetryEvent::query()->create([
             'organization_id' => $organization->id,
             'connector_id' => $connector->id,
             'external_event_id' => 'backfill-meraki-aps',
@@ -705,28 +734,26 @@ class MerakiLocationWebhookTest extends TestCase
             'observed_at' => now()->subMinute(),
             'received_at' => now(),
             'raw_payload' => ['source_summary' => ['payload_checksum' => 'backfill']],
-            'normalized_payload' => [
-                'network_id' => 'L_123',
-                'rssi_records' => [
-                    [
-                        'apMac' => 'e4:55:a8:15:a3:b2',
-                        'rssi' => -63,
-                        'apName' => 'ANF-AP-THER-2-3',
-                        'apSerial' => 'Q3AE-TGJL-V7HD',
-                    ],
-                    [
-                        'apMac' => 'e4:55:a8:15:a2:ff',
-                        'rssi' => -65,
-                        'apName' => 'ANF-AP-THER-1-3',
-                        'apSerial' => 'Q3AE-TX6J-MQAL',
-                    ],
-                ],
-            ],
+            'normalized_payload' => [],
             'processing_status' => 'processed',
         ]);
+        foreach ([
+            ['receiver_identifier' => 'E455A815A3B2', 'rssi' => -63],
+            ['receiver_identifier' => 'E455A815A2FF', 'rssi' => -65],
+        ] as $reading) {
+            SignalObservation::query()->create([
+                'organization_id' => $organization->id,
+                'telemetry_event_id' => $event->id,
+                'transmitter_mac' => 'AABBCCDDEEFF',
+                'receiver_identifier' => $reading['receiver_identifier'],
+                'rssi' => $reading['rssi'],
+                'observed_at' => $event->observed_at,
+                'metadata' => ['source' => 'meraki'],
+            ]);
+        }
 
         $this->artisan('loratrack:backfill-meraki-access-points')
-            ->expectsOutput('AP Meraki detectables en eventos revisados: 2.')
+            ->expectsOutput('AP Meraki detectables en observaciones revisadas: 2.')
             ->expectsOutput('AP Meraki creados o actualizados como scanner: 2.')
             ->assertSuccessful();
 

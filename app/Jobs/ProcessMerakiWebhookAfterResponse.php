@@ -20,31 +20,38 @@ class ProcessMerakiWebhookAfterResponse
 
     public function handle(): void
     {
-        Artisan::call('loratrack:process-meraki-webhooks', [
-            '--batch' => $this->batchId,
-            '--limit' => 1,
-        ]);
-
-        for ($pass = 0; $pass < 100; $pass++) {
-            $pending = $this->eligibleObservations();
-            if ($pending === 0) {
-                $this->synchronizeCounters();
-
-                return;
+        try {
+            $batchExitCode = Artisan::call('loratrack:process-meraki-webhooks', [
+                '--batch' => $this->batchId,
+                '--limit' => 1,
+            ]);
+            if ($batchExitCode !== 0) {
+                throw new \RuntimeException("La normalizacion Meraki termino con codigo {$batchExitCode}.");
             }
 
-            Artisan::call('loratrack:process-meraki-observations', [
-                '--connector' => $this->connectorId,
-                '--limit' => min(1000, $pending),
-            ]);
-        }
+            for ($pass = 0; $pass < 100; $pass++) {
+                $pending = $this->eligibleObservations();
+                if ($pending === 0) {
+                    return;
+                }
 
-        Log::warning('El procesamiento posterior a la respuesta Meraki alcanzó su límite de seguridad.', [
-            'batch_id' => $this->batchId,
-            'connector_id' => $this->connectorId,
-            'remaining_observations' => $this->eligibleObservations(),
-        ]);
-        $this->synchronizeCounters();
+                $exitCode = Artisan::call('loratrack:process-meraki-observations', [
+                    '--connector' => $this->connectorId,
+                    '--limit' => min(1000, $pending),
+                ]);
+                if ($exitCode !== 0 && $this->eligibleObservations() >= $pending) {
+                    throw new \RuntimeException("El procesamiento Meraki termino con codigo {$exitCode} sin reducir los pendientes.");
+                }
+            }
+
+            Log::warning('El procesamiento directo Meraki alcanzo su limite de seguridad.', [
+                'batch_id' => $this->batchId,
+                'connector_id' => $this->connectorId,
+                'remaining_observations' => $this->eligibleObservations(),
+            ]);
+        } finally {
+            $this->synchronizeCounters();
+        }
     }
 
     private function eligibleObservations(): int

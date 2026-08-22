@@ -16,7 +16,6 @@ use App\Positioning\BleObservationExtractor;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -42,7 +41,13 @@ class ProcessMerakiLocationObservation
             ->with(['organization', 'connector'])
             ->findOrFail($this->telemetryEventId);
 
-        $this->process($event, $zones, $accessPoints, $clients ?? app(MerakiClientDeviceRegistrar::class));
+        $this->process(
+            $event,
+            $zones,
+            $accessPoints,
+            $clients ?? app(MerakiClientDeviceRegistrar::class),
+            true,
+        );
     }
 
     public function process(
@@ -67,7 +72,7 @@ class ProcessMerakiLocationObservation
                     'processing_status' => 'ignored',
                     'processed_at' => now(),
                     'processing_error' => 'Conector desactivado; telemetría no procesada.',
-                ])->saveQuietly();
+                ])->save();
 
                 return;
             }
@@ -79,19 +84,6 @@ class ProcessMerakiLocationObservation
             }
 
             $device = $clients->register($record, $event->observed_at ?? $event->received_at);
-
-            $event->forceFill([
-                'device_id' => $device->id,
-                'normalized_payload' => Arr::except($record, ['raw']),
-                'raw_payload' => [
-                    'version' => $record['version'] ?? null,
-                    'type' => $record['type'] ?? null,
-                    'network_id' => $record['network_id'] ?? null,
-                    'client_mac' => $clientMac,
-                    'observed_at' => $record['observed_at'] ?? null,
-                    'source_summary' => $record['source_summary'] ?? [],
-                ],
-            ]);
 
             $signalRows = [];
             foreach (($record['reporting_aps'] ?? []) as $accessPoint) {
@@ -150,10 +142,14 @@ class ProcessMerakiLocationObservation
             }
 
             $event->forceFill([
+                'device_id' => $device->id,
+                'raw_payload' => null,
+                'normalized_payload' => null,
+                'payload_storage_version' => 2,
                 'processing_status' => 'processed',
                 'processed_at' => now(),
                 'processing_error' => null,
-            ])->saveQuietly();
+            ])->save();
             if ($updateConnector) {
                 $event->connector()
                     ->where(function (Builder $query): void {
@@ -167,7 +163,7 @@ class ProcessMerakiLocationObservation
                 'processing_status' => 'failed',
                 'processing_attempts' => $event->processing_attempts + 1,
                 'processing_error' => mb_substr($exception->getMessage(), 0, 1000),
-            ])->saveQuietly();
+            ])->save();
             $event->connector()->update(['last_error' => mb_substr($exception->getMessage(), 0, 1000)]);
             Log::error('Falló el procesamiento de una observación Meraki.', [
                 'telemetry_event_id' => $event->id,

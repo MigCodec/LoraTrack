@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Connectors\Meraki\MerakiPayloadNormalizer;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
@@ -26,7 +27,10 @@ class ProcessMerakiWebhookBatches extends Command
 
     protected $description = 'Normaliza los lotes Meraki recibidos y crea eventos de telemetria idempotentes.';
 
-    public function handle(MerakiPayloadNormalizer $normalizer): int
+    public function handle(
+        MerakiPayloadNormalizer $normalizer,
+        MerakiAccessPointRegistrar $accessPoints,
+    ): int
     {
         $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1, 'max_range' => 1000],
@@ -55,7 +59,7 @@ class ProcessMerakiWebhookBatches extends Command
 
         $processed = 0;
         foreach ($batchIds as $batchId) {
-            if ($this->processBatch((string) $batchId, $normalizer)) {
+            if ($this->processBatch((string) $batchId, $normalizer, $accessPoints)) {
                 $processed++;
             }
         }
@@ -68,6 +72,7 @@ class ProcessMerakiWebhookBatches extends Command
     private function processBatch(
         string $batchId,
         MerakiPayloadNormalizer $normalizer,
+        MerakiAccessPointRegistrar $accessPoints,
     ): bool
     {
         $batch = DB::transaction(function () use ($batchId): ?MerakiWebhookBatch {
@@ -116,7 +121,7 @@ class ProcessMerakiWebhookBatches extends Command
             if ($records === []) {
                 throw ValidationException::withMessages(['data.observations' => 'El lote no contiene observaciones validas.']);
             }
-            $records = $this->avoidRepeatedAccessPoints($records);
+            $records = $this->registerBatchAccessPoints($records, $accessPoints, $batch);
 
             $configuredNetwork = trim((string) ($connector->configuration['network_id'] ?? ''));
             if ($configuredNetwork !== '' && ! collect($records)->every(
@@ -273,24 +278,36 @@ class ProcessMerakiWebhookBatches extends Command
     }
 
     /**
-     * Meraki includes the same global AP inventory in every normalized observation.
-     * Keeping it once per batch avoids multiplying a megabyte-sized payload hundreds of times.
+     * Register the global AP inventory once while the durable batch is available, then
+     * remove it from every event. RSSI observations remain event-specific.
      *
      * @param list<array<string, mixed>> $records
      * @return list<array<string, mixed>>
      */
-    private function avoidRepeatedAccessPoints(array $records): array
+    private function registerBatchAccessPoints(
+        array $records,
+        MerakiAccessPointRegistrar $accessPoints,
+        MerakiWebhookBatch $batch,
+    ): array
     {
-        $keptInventory = false;
+        $seen = [];
         foreach ($records as &$record) {
-            if (($record['reporting_aps'] ?? []) === []) {
-                continue;
+            foreach (($record['reporting_aps'] ?? []) as $accessPoint) {
+                if (! is_array($accessPoint)) {
+                    continue;
+                }
+                $identifier = mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($accessPoint['apMac'] ?? '')) ?? '');
+                if ($identifier === '' || isset($seen[$identifier])) {
+                    continue;
+                }
+                $seen[$identifier] = true;
+                $accessPoints->register(
+                    $accessPoint,
+                    $batch->received_at,
+                    (string) ($record['network_id'] ?? ''),
+                );
             }
-            if ($keptInventory) {
-                $record['reporting_aps'] = [];
-            } else {
-                $keptInventory = true;
-            }
+            $record['reporting_aps'] = [];
         }
         unset($record);
 

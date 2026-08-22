@@ -84,11 +84,12 @@ class MerakiLocationWebhookController extends Controller
         unset($payload['secret']);
         $now = now();
         $batchId = (string) Str::ulid();
+        $requestHash = hash('sha256', $request->getContent());
         $inserted = DB::table('meraki_webhook_batches')->insertOrIgnore([
             'id' => $batchId,
             'organization_id' => $connector->organization_id,
             'connector_id' => $connector->id,
-            'request_hash' => hash('sha256', $request->getContent()),
+            'request_hash' => $requestHash,
             'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
             'processing_status' => 'pending',
             'attempts' => 0,
@@ -97,7 +98,14 @@ class MerakiLocationWebhookController extends Controller
             'updated_at' => $now,
         ]);
 
-        if ($inserted === 1 && filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL)) {
+        if (filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL)) {
+            if ($inserted === 0) {
+                $batchId = (string) DB::table('meraki_webhook_batches')
+                    ->where('connector_id', $connector->id)
+                    ->where('request_hash', $requestHash)
+                    ->value('id');
+            }
+            set_time_limit(0);
             (new ProcessMerakiWebhookAfterResponse($batchId, (string) $connector->id))->handle();
         }
 

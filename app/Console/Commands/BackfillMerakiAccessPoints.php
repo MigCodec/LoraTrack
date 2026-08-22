@@ -6,7 +6,7 @@ namespace App\Console\Commands;
 
 use App\Connectors\Meraki\MerakiAccessPointRegistrar;
 use App\Enums\ConnectorProvider;
-use App\Models\TelemetryEvent;
+use App\Models\SignalObservation;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -15,9 +15,9 @@ class BackfillMerakiAccessPoints extends Command
 {
     protected $signature = 'loratrack:backfill-meraki-access-points
         {--dry-run : Contar AP detectables sin crear ni actualizar dispositivos}
-        {--limit=10000 : Maximo de eventos Meraki a revisar}';
+        {--limit=10000 : Maximo de observaciones de senal Meraki a revisar}';
 
-    protected $description = 'Reconstruye el inventario de AP Meraki desde payloads normalizados ya recibidos.';
+    protected $description = 'Reconstruye el inventario de AP Meraki desde observaciones de señal normalizadas.';
 
     public function handle(MerakiAccessPointRegistrar $registrar): int
     {
@@ -31,11 +31,12 @@ class BackfillMerakiAccessPoints extends Command
         }
 
         $context = app(OrganizationContext::class);
-        $events = TelemetryEvent::query()
+        $observations = SignalObservation::query()
             ->withoutGlobalScopes()
-            ->with('connector.organization')
-            ->where('event_type', 'meraki_location')
-            ->latest('received_at')
+            ->with('telemetryEvent.connector.organization')
+            ->whereHas('telemetryEvent', fn ($query) => $query->where('event_type', 'meraki_location'))
+            ->whereNotNull('receiver_identifier')
+            ->latest('observed_at')
             ->limit($limit)
             ->get();
 
@@ -43,41 +44,30 @@ class BackfillMerakiAccessPoints extends Command
         $registered = 0;
         $detectable = 0;
 
-        foreach ($events as $event) {
-            if ($event->connector?->provider !== ConnectorProvider::MerakiLocation || ! $event->organization?->active) {
+        foreach ($observations as $observation) {
+            $event = $observation->telemetryEvent;
+            $organization = $event?->connector?->organization;
+            if ($event?->connector?->provider !== ConnectorProvider::MerakiLocation || ! $organization?->active) {
                 continue;
             }
-
-            $payload = $event->normalized_payload ?: $event->raw_payload ?: [];
-            $readings = collect($payload['reporting_aps'] ?? [])
-                ->merge($payload['rssi_records'] ?? [])
-                ->filter(fn (mixed $reading): bool => is_array($reading) && is_string($reading['apMac'] ?? null))
-                ->unique(fn (array $reading): string => mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $reading['apMac']) ?? ''))
-                ->values();
-
-            if ($readings->isEmpty()) {
+            $identifier = mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $observation->receiver_identifier) ?? '');
+            $key = $event->organization_id.'|'.$identifier;
+            if ($identifier === '' || isset($seen[$key])) {
                 continue;
             }
+            $seen[$key] = true;
+            $detectable++;
 
-            $context->set($event->organization);
+            $context->set($organization);
             try {
-                foreach ($readings as $reading) {
-                    $key = $event->organization_id.'|'.mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $reading['apMac']) ?? '');
-                    if (isset($seen[$key])) {
-                        continue;
-                    }
-                    $seen[$key] = true;
-                    $detectable++;
-
-                    if (! $this->option('dry-run')) {
-                        $device = $registrar->register(
-                            $reading,
-                            $event->observed_at ?? $event->received_at ?? Carbon::now(),
-                            (string) ($payload['network_id'] ?? ''),
-                        );
-                        if ($device?->type === 'scanner') {
-                            $registered++;
-                        }
+                if (! $this->option('dry-run')) {
+                    $device = $registrar->register(
+                        ['apMac' => $identifier, 'rssi' => $observation->rssi],
+                        $observation->observed_at ?? $event->observed_at ?? $event->received_at ?? Carbon::now(),
+                        '',
+                    );
+                    if ($device?->type === 'scanner') {
+                        $registered++;
                     }
                 }
             } finally {
@@ -85,7 +75,7 @@ class BackfillMerakiAccessPoints extends Command
             }
         }
 
-        $this->info("AP Meraki detectables en eventos revisados: {$detectable}.");
+        $this->info("AP Meraki detectables en observaciones revisadas: {$detectable}.");
         if ($this->option('dry-run')) {
             return self::SUCCESS;
         }

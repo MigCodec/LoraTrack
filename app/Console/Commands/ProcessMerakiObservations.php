@@ -88,7 +88,7 @@ class ProcessMerakiObservations extends Command
             ->select([
                 'id', 'organization_id', 'connector_id', 'device_id', 'event_type',
                 'observed_at', 'received_at', 'processed_at', 'normalized_payload', 'raw_payload',
-                'processing_status', 'processing_attempts', 'processing_error',
+                'processing_status', 'processing_attempts', 'processing_error', 'payload_storage_version',
             ])
             ->with(['organization', 'connector'])
             ->whereKey($eventIds)
