@@ -44,7 +44,7 @@ class DrainMerakiBacklogTest extends TestCase
             'event_type' => 'meraki_location',
             'received_at' => now(),
             'raw_payload' => [],
-            'processing_status' => 'pending',
+            'processing_status' => 'processing',
         ]);
 
         $commands = [];

@@ -11,7 +11,6 @@ use App\Enums\ConnectorKind;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Jobs\ProcessMerakiLocationObservation;
-use App\Jobs\ProcessMerakiWebhookAfterResponse;
 use App\Models\Asset;
 use App\Models\AssetDeviceAssignment;
 use App\Models\Connector;
@@ -26,7 +25,6 @@ use App\Models\TelemetryEvent;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -37,7 +35,6 @@ class MerakiLocationWebhookTest extends TestCase
 
     public function test_automatic_mode_processes_both_meraki_stages_before_responding(): void
     {
-        Bus::fake();
         $organization = Organization::query()->create(['name' => 'ACME automático', 'slug' => 'acme-automatico']);
         $connector = $this->connector($organization, '3');
         $connector->update(['configuration' => [
@@ -51,7 +48,6 @@ class MerakiLocationWebhookTest extends TestCase
             $this->versionThreePayload('aa:bb:cc:dd:ee:90'),
         )->assertOk()->assertJsonPath('accepted', true);
 
-        Bus::assertNotDispatched(ProcessMerakiWebhookAfterResponse::class);
         $this->assertDatabaseCount('meraki_webhook_batches', 0);
         $event = TelemetryEvent::query()->firstOrFail();
         $this->assertSame('processed', $event->processing_status);
@@ -64,7 +60,6 @@ class MerakiLocationWebhookTest extends TestCase
 
     public function test_scheduled_mode_only_persists_the_post_for_the_scheduler(): void
     {
-        Bus::fake();
         $organization = Organization::query()->create(['name' => 'ACME programado', 'slug' => 'acme-programado']);
         $connector = $this->connector($organization, '3');
 
@@ -73,7 +68,6 @@ class MerakiLocationWebhookTest extends TestCase
             $this->versionThreePayload('aa:bb:cc:dd:ee:91'),
         )->assertOk();
 
-        Bus::assertNotDispatchedAfterResponse(ProcessMerakiWebhookAfterResponse::class);
         $this->assertDatabaseCount('meraki_webhook_batches', 1);
         $this->assertDatabaseCount('telemetry_events', 0);
     }

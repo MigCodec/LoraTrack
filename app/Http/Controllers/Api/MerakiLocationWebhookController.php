@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Connectors\ConnectorRejectedRequestRecorder;
+use App\Connectors\Meraki\ProcessMerakiWebhookInline;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Controllers\Controller;
-use App\Jobs\ProcessMerakiWebhookAfterResponse;
 use App\Models\Connector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +36,7 @@ class MerakiLocationWebhookController extends Controller
         Request $request,
         Connector $connector,
         ConnectorRejectedRequestRecorder $rejections,
+        ProcessMerakiWebhookInline $inlineProcessor,
     ): JsonResponse
     {
         abort_unless($connector->provider === ConnectorProvider::MerakiLocation, 404);
@@ -83,8 +84,29 @@ class MerakiLocationWebhookController extends Controller
 
         unset($payload['secret']);
         $now = now();
-        $batchId = (string) Str::ulid();
         $requestHash = hash('sha256', $request->getContent());
+
+        if (filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL)) {
+            $hadStoredBatch = DB::table('meraki_webhook_batches')
+                ->where('connector_id', $connector->id)
+                ->where('request_hash', $requestHash)
+                ->exists();
+            ignore_user_abort(true);
+            set_time_limit(0);
+            $result = $inlineProcessor->process($connector, $payload, $majorVersion, $now);
+            DB::table('meraki_webhook_batches')
+                ->where('connector_id', $connector->id)
+                ->where('request_hash', $requestHash)
+                ->delete();
+
+            return response()->json([
+                'accepted' => true,
+                'duplicate' => $hadStoredBatch || ($result['accepted'] === 0 && $result['duplicates'] > 0),
+                'processed' => $result['accepted'],
+            ], 200);
+        }
+
+        $batchId = (string) Str::ulid();
         $inserted = DB::table('meraki_webhook_batches')->insertOrIgnore([
             'id' => $batchId,
             'organization_id' => $connector->organization_id,
@@ -97,18 +119,6 @@ class MerakiLocationWebhookController extends Controller
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-
-        if (filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL)) {
-            if ($inserted === 0) {
-                $batchId = (string) DB::table('meraki_webhook_batches')
-                    ->where('connector_id', $connector->id)
-                    ->where('request_hash', $requestHash)
-                    ->value('id');
-            }
-            ignore_user_abort(true);
-            set_time_limit(0);
-            (new ProcessMerakiWebhookAfterResponse($batchId, (string) $connector->id))->handle();
-        }
 
         return response()->json([
             'accepted' => true,

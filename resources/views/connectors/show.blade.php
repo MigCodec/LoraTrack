@@ -24,10 +24,11 @@
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <article class="metric-card"><p class="text-sm text-slate-500">Estado</p><p class="mt-2 text-2xl font-semibold">{{ $connector->status->label() }}</p></article>
         @foreach([
-            ['Eventos recibidos', $connector->telemetry_events_count, 'received', 'telemetry'],
-            ['Procesados', $connector->processed_events_count, 'processed', 'telemetry'],
-            ['Pendientes', $connector->pending_events_count, 'pending', 'telemetry'],
-            ['Fallidos', $connector->failed_events_count, 'failed', 'telemetry'],
+            ['Eventos recibidos', $telemetryCounts->sum(), 'received', 'telemetry'],
+            ['Procesados', (int) ($telemetryCounts['processed'] ?? 0), 'processed', 'telemetry'],
+            ['En proceso', (int) ($telemetryCounts['processing'] ?? 0), 'processing', 'telemetry'],
+            ['Pendientes', (int) ($telemetryCounts['pending'] ?? 0), 'pending', 'telemetry'],
+            ['Fallidos', (int) ($telemetryCounts['failed'] ?? 0), 'failed', 'telemetry'],
             ['Rechazados', $rejectedRequests->count(), 'rejected', 'rejected-requests'],
         ] as $metric)
             <a class="metric-card block transition hover:border-brand-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent" href="{{ route('connectors.show', ['connector' => $connector, 'events' => $metric[2]]) }}#{{ $metric[3] }}" aria-label="Ver detalle de {{ mb_strtolower($metric[0]) }}">
@@ -89,7 +90,7 @@
         </section>
 
         <section class="panel" id="telemetry">
-            <div class="panel-header"><div><h2 class="panel-title">Telemetría: {{ ['received' => 'recibida', 'processed' => 'procesada', 'pending' => 'pendiente', 'failed' => 'fallida', 'rejected' => 'recibida'][$eventFilter] }}</h2><p class="panel-subtitle">Hasta 100 eventos; haz clic en una recepción para ver el JSON enviado</p></div>@if($eventFilter !== 'received')<a class="text-sm font-semibold text-brand-primary" href="{{ route('connectors.show', $connector) }}#telemetry">Ver todos</a>@endif</div>
+            <div class="panel-header"><div><h2 class="panel-title">Telemetría: {{ ['received' => 'recibida', 'processed' => 'procesada', 'processing' => 'en proceso', 'pending' => 'pendiente', 'failed' => 'fallida', 'rejected' => 'recibida'][$eventFilter] }}</h2><p class="panel-subtitle">Hasta 100 eventos; selecciona uno para consultar sus detalles disponibles</p></div>@if($eventFilter !== 'received')<a class="text-sm font-semibold text-brand-primary" href="{{ route('connectors.show', $connector) }}#telemetry">Ver todos</a>@endif</div>
             <div class="table-wrap"><table class="data-table"><thead><tr><th>Recepción</th><th>Estado</th><th>Dispositivo</th><th>Error</th></tr></thead><tbody>
                 @forelse($events as $event)
                     <tr>

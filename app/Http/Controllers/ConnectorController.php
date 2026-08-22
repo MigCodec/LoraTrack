@@ -33,7 +33,7 @@ class ConnectorController extends Controller
     public function show(Request $request, Connector $connector, ConnectorRegistry $registry): View
     {
         $eventFilter = (string) $request->query('events', 'received');
-        if (! in_array($eventFilter, ['received', 'processed', 'pending', 'failed', 'rejected'], true)) {
+        if (! in_array($eventFilter, ['received', 'processed', 'processing', 'pending', 'failed', 'rejected'], true)) {
             $eventFilter = 'received';
         }
         $eventsQuery = $connector->telemetryEvents()
@@ -49,12 +49,17 @@ class ConnectorController extends Controller
             ])
             ->with('device:id,name')
             ->latest('received_at');
-        if (in_array($eventFilter, ['processed', 'pending', 'failed'], true)) {
+        if (in_array($eventFilter, ['processed', 'processing', 'pending', 'failed'], true)) {
             $eventsQuery->where('processing_status', $eventFilter);
         }
+        $telemetryCounts = $connector->telemetryEvents()
+            ->selectRaw('processing_status, COUNT(*) AS aggregate')
+            ->groupBy('processing_status')
+            ->pluck('aggregate', 'processing_status');
 
         return view('connectors.show', [
             'connector' => $connector,
+            'telemetryCounts' => $telemetryCounts,
             'definition' => $registry->get($connector->provider),
             'eventFilter' => $eventFilter,
             'events' => $eventsQuery->limit(100)->get(),

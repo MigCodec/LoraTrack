@@ -195,7 +195,12 @@ class DrainMerakiBacklog extends Command
         return DB::table('telemetry_events')
             ->join('connectors', 'connectors.id', '=', 'telemetry_events.connector_id')
             ->where('telemetry_events.event_type', 'meraki_location')
-            ->where('telemetry_events.processing_status', 'pending')
+            ->where(function ($query): void {
+                $query->whereIn('telemetry_events.processing_status', ['pending', 'processing'])
+                    ->orWhere(function ($failed): void {
+                        $failed->where('telemetry_events.processing_status', 'failed')
+                            ->where('telemetry_events.processing_attempts', '<', 3);
+                    });
             ->where('connectors.provider', 'meraki_location')
             ->count();
     }
