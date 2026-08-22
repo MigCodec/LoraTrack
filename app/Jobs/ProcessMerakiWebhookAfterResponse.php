@@ -38,6 +38,7 @@ class ProcessMerakiWebhookAfterResponse
                 $exitCode = Artisan::call('loratrack:process-meraki-observations', [
                     '--connector' => $this->connectorId,
                     '--limit' => min(1000, $pending),
+                    '--include-processing' => true,
                 ]);
                 if ($exitCode !== 0 && $this->eligibleObservations() >= $pending) {
                     throw new \RuntimeException("El procesamiento Meraki termino con codigo {$exitCode} sin reducir los pendientes.");
@@ -61,7 +62,7 @@ class ProcessMerakiWebhookAfterResponse
             ->where('connector_id', $this->connectorId)
             ->where('event_type', 'meraki_location')
             ->where(function ($query): void {
-                $query->where('processing_status', 'pending')
+                $query->whereIn('processing_status', ['pending', 'processing'])
                     ->orWhere(function ($failed): void {
                         $failed->where('processing_status', 'failed')
                             ->where('processing_attempts', '<', 3);

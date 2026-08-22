@@ -23,6 +23,7 @@ class ProcessMerakiObservations extends Command
     protected $signature = 'loratrack:process-meraki-observations
         {--limit=1000 : Cantidad máxima de observaciones}
         {--connector= : Limita el procesamiento a un conector Meraki}
+        {--include-processing : Incluye eventos reservados por el flujo directo del POST}
         {--profile : Muestra tiempos y consultas para diagnosticar rendimiento}';
 
     protected $description = 'Procesa observaciones Meraki pendientes desde el scheduler.';
@@ -68,8 +69,12 @@ class ProcessMerakiObservations extends Command
             $this->line('Perfil: seleccionando eventos failed reintentables...');
         }
         $failedCandidates = $this->queueCandidates('failed', $connectorId, $limit);
+        $processingCandidates = $this->option('include-processing')
+            ? $this->queueCandidates('processing', $connectorId, $limit)
+            : collect();
         $eventIds = $pendingCandidates
             ->concat($failedCandidates)
+            ->concat($processingCandidates)
             ->sortBy(fn (TelemetryEvent $event): string => $event->received_at->format('Y-m-d H:i:s.u'))
             ->take($limit)
             ->pluck('id')

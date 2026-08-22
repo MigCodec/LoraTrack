@@ -105,6 +105,7 @@ class MerakiLocationWebhookController extends Controller
                     ->where('request_hash', $requestHash)
                     ->value('id');
             }
+            ignore_user_abort(true);
             set_time_limit(0);
             (new ProcessMerakiWebhookAfterResponse($batchId, (string) $connector->id))->handle();
         }

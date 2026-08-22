@@ -135,6 +135,9 @@ class ProcessMerakiWebhookBatches extends Command
                 $connector->id,
                 $connector->organization_id,
                 $records,
+                filter_var($connector->configuration['process_webhooks_inline'] ?? false, FILTER_VALIDATE_BOOL)
+                    ? 'processing'
+                    : 'pending',
             );
 
             $connector->forceFill(['last_activity_at' => now(), 'last_error' => null])->save();
@@ -206,6 +209,7 @@ class ProcessMerakiWebhookBatches extends Command
         string $connectorId,
         string $organizationId,
         array $records,
+        string $initialStatus,
     ): array
     {
         $uniqueRecords = [];
@@ -242,7 +246,7 @@ class ProcessMerakiWebhookBatches extends Command
                 'processed_at' => null,
                 'normalized_payload' => null,
                 'raw_payload' => json_encode($record, JSON_THROW_ON_ERROR),
-                'processing_status' => 'pending',
+                'processing_status' => $initialStatus,
                 'processing_error' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -263,7 +267,7 @@ class ProcessMerakiWebhookBatches extends Command
             ->values()
             ->all();
         $accepted = count($insertedIds);
-        app(TelemetryCounterUpdater::class)->recordBulkCreated($connectorId, $accepted);
+        app(TelemetryCounterUpdater::class)->recordBulkCreated($connectorId, $accepted, $initialStatus);
 
         return [$accepted, count($records) - $accepted];
     }
