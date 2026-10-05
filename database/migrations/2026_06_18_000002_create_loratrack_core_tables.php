@@ -66,7 +66,7 @@ return new class extends Migration
 
         Schema::create('locations', function (Blueprint $table): void {
             $table->ulid('id')->primary();
-            $table->foreignUlid('parent_id')->nullable()->constrained('locations')->nullOnDelete();
+            $table->ulid('parent_id')->nullable()->index();
             $table->string('type', 32);
             $table->string('name');
             $table->string('coordinate_system')->nullable();
@@ -75,6 +75,9 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
             $table->index(['type', 'name']);
+        });
+        Schema::table('locations', function (Blueprint $table): void {
+            $table->foreign('parent_id')->references('id')->on('locations')->nullOnDelete();
         });
 
         Schema::create('assets', function (Blueprint $table): void {
