@@ -81,6 +81,43 @@ class ConnectorManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_customize_unique_meraki_webhook_url(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $connector = Connector::query()->create([
+            'name' => 'Meraki planta',
+            'provider' => ConnectorProvider::MerakiLocation,
+            'kind' => 'telemetry',
+            'status' => 'draft',
+            'configuration' => ['api_version' => '3'],
+        ]);
+        Connector::query()->create([
+            'name' => 'Meraki duplicado',
+            'provider' => ConnectorProvider::MerakiLocation,
+            'kind' => 'telemetry',
+            'webhook_path' => 'meraki-existente',
+        ]);
+
+        $this->actingAs($admin)->put(route('connectors.meraki-webhook-url.update', $connector), [
+            'webhook_path' => 'meraki-bodega-norte',
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $connector->refresh();
+        $this->assertSame('meraki-bodega-norte', $connector->webhook_path);
+        $this->actingAs($admin)->get(route('connectors.show', $connector))
+            ->assertOk()
+            ->assertSee(route('api.meraki.ingest.custom', 'meraki-bodega-norte'))
+            ->assertSee(route('api.meraki.ingest', $connector));
+
+        $this->actingAs($admin)
+            ->from(route('connectors.show', $connector))
+            ->put(route('connectors.meraki-webhook-url.update', $connector), [
+                'webhook_path' => 'meraki-existente',
+            ])
+            ->assertRedirect(route('connectors.show', $connector))
+            ->assertSessionHasErrors('webhook_path');
+    }
+
     public function test_admin_can_replace_meraki_validator_or_secret_after_creation(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

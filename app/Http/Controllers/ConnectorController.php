@@ -16,6 +16,7 @@ use App\Models\TelemetryEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Throwable;
@@ -257,5 +258,33 @@ class ConnectorController extends Controller
         return back()->with('status', $configuration['process_webhooks_inline']
             ? 'Modo directo activado. Cada POST se procesará completamente antes de responder a Meraki.'
             : 'Modo programado activado. El scheduler procesará los lotes pendientes.');
+    }
+
+    public function updateMerakiWebhookUrl(Request $request, Connector $connector): RedirectResponse
+    {
+        abort_unless($connector->provider === ConnectorProvider::MerakiLocation, 422);
+        $validated = $request->validate([
+            'webhook_path' => [
+                'nullable',
+                'string',
+                'min:6',
+                'max:80',
+                'regex:/^[A-Za-z0-9._-]+$/',
+                Rule::unique('connectors', 'webhook_path')->ignore($connector->id),
+            ],
+        ]);
+
+        $path = trim((string) ($validated['webhook_path'] ?? ''));
+        $path = $path === '' ? null : $path;
+        $connector->forceFill(['webhook_path' => $path])->save();
+        $connector->logActivity(
+            'meraki_webhook_url_changed',
+            $path
+                ? 'URL personalizada del receptor Meraki actualizada.'
+                : 'URL personalizada del receptor Meraki eliminada; se usará la URL por defecto.',
+            'warning',
+        );
+
+        return back()->with('status', 'URL Meraki actualizada. Copia la URL vigente en Meraki Dashboard.');
     }
 }

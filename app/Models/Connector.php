@@ -19,7 +19,7 @@ class Connector extends Model
 
     protected $fillable = [
         'name', 'kind', 'provider', 'status', 'configuration', 'credentials',
-        'contract_version', 'sync_cursor', 'sync_requested_at', 'sync_started_at', 'last_activity_at', 'last_success_at',
+        'contract_version', 'webhook_path', 'sync_cursor', 'sync_requested_at', 'sync_started_at', 'last_activity_at', 'last_success_at',
         'last_tested_at', 'last_error', 'telemetry_events_count', 'pending_events_count',
         'processed_events_count', 'failed_events_count',
     ];
@@ -84,5 +84,12 @@ class Connector extends Model
     public function payloadDecoderProfiles(): HasMany
     {
         return $this->hasMany(PayloadDecoderProfile::class);
+    }
+
+    public function merakiWebhookUrl(): string
+    {
+        return $this->webhook_path
+            ? route('api.meraki.ingest.custom', $this->webhook_path)
+            : route('api.meraki.ingest', $this);
     }
 }

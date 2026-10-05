@@ -20,6 +20,11 @@ use Illuminate\Support\Str;
 
 class MerakiLocationWebhookController extends Controller
 {
+    public function validateCustomReceiver(string $webhookPath): Response
+    {
+        return $this->validateReceiver($this->connectorFromWebhookPath($webhookPath));
+    }
+
     public function validateReceiver(Connector $connector): Response
     {
         abort_unless(
@@ -31,6 +36,22 @@ class MerakiLocationWebhookController extends Controller
         abort_if($validator === '', 404);
 
         return response($validator, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+    }
+
+    public function receiveCustom(
+        Request $request,
+        string $webhookPath,
+        ConnectorRejectedRequestRecorder $rejections,
+        ProcessMerakiWebhookInline $inlineProcessor,
+        TelemetryMacFilterGate $macFilter,
+    ): JsonResponse {
+        return $this->receive(
+            $request,
+            $this->connectorFromWebhookPath($webhookPath),
+            $rejections,
+            $inlineProcessor,
+            $macFilter,
+        );
     }
 
     public function receive(
@@ -158,5 +179,17 @@ class MerakiLocationWebhookController extends Controller
         }
 
         abort($status, $message);
+    }
+
+    private function connectorFromWebhookPath(string $webhookPath): Connector
+    {
+        $connector = Connector::query()
+            ->withoutGlobalScopes()
+            ->where('webhook_path', $webhookPath)
+            ->first();
+
+        abort_unless($connector, 404);
+
+        return $connector;
     }
 }

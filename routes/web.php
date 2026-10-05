@@ -156,6 +156,7 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('/connectors/{connector}/meraki-floor-plans/{mapping}', [MerakiFloorPlanMappingController::class, 'destroy'])->name('connectors.meraki-floor-plans.destroy');
         Route::put('/connectors/{connector}/meraki-credentials', [ConnectorController::class, 'updateMerakiCredentials'])->name('connectors.meraki-credentials.update');
         Route::put('/connectors/{connector}/meraki-processing-mode', [ConnectorController::class, 'updateMerakiProcessingMode'])->name('connectors.meraki-processing-mode.update');
+        Route::put('/connectors/{connector}/meraki-webhook-url', [ConnectorController::class, 'updateMerakiWebhookUrl'])->name('connectors.meraki-webhook-url.update');
         Route::delete('/connectors/{connector}', [ConnectorController::class, 'destroy'])->name('connectors.destroy');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::post('/users/invitations', [UserInvitationController::class, 'store'])->middleware('throttle:10,1')->name('user-invitations.store');

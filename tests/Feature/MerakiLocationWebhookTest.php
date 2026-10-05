@@ -73,6 +73,23 @@ class MerakiLocationWebhookTest extends TestCase
         $this->assertDatabaseCount('telemetry_events', 0);
     }
 
+    public function test_custom_meraki_webhook_url_receives_posts(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME URL', 'slug' => 'acme-url']);
+        $connector = $this->connector($organization, '3');
+        $connector->forceFill(['webhook_path' => 'meraki-planta-sur'])->save();
+
+        $this->get(route('api.meraki.validate.custom', 'meraki-planta-sur'))
+            ->assertOk()
+            ->assertSeeText('meraki-validator-value');
+        $this->postJson(
+            route('api.meraki.ingest.custom', 'meraki-planta-sur'),
+            $this->versionThreePayload('aa:bb:cc:dd:ee:93'),
+        )->assertOk();
+
+        $this->assertDatabaseCount('meraki_webhook_batches', 1);
+    }
+
     public function test_meraki_post_is_ignored_before_batch_when_mac_is_not_allowed(): void
     {
         $organization = Organization::query()->create(['name' => 'ACME filtrado', 'slug' => 'acme-filtrado']);

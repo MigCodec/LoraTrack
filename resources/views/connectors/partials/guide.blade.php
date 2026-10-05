@@ -18,7 +18,7 @@
             <div class="mt-4 grid gap-4 lg:grid-cols-2">
                 <div class="rounded-xl border border-slate-200 p-4 text-sm">
                     <dl class="space-y-3">
-                        <div><dt class="font-semibold">Post URL</dt><dd><code class="mt-1 block break-all rounded bg-slate-100 p-2 text-xs">{{ route('api.meraki.ingest', $connector) }}</code></dd></div>
+                        <div><dt class="font-semibold">Post URL</dt><dd><code class="mt-1 block break-all rounded bg-slate-100 p-2 text-xs">{{ $connector->merakiWebhookUrl() }}</code></dd></div>
                         <div><dt class="font-semibold">Versión aceptada</dt><dd class="text-slate-500">v{{ $connector->configuration['api_version'] ?? '3' }}{{ ($connector->configuration['api_version'] ?? '3') === '3' ? '.x' : '.1' }}</dd></div>
                         <div><dt class="font-semibold">Network ID</dt><dd class="text-slate-500">{{ $connector->configuration['network_id'] ?? 'Cualquier red con el shared secret correcto' }}</dd></div>
                     </dl>
@@ -32,6 +32,23 @@
                     </ol>
                 </div>
             </div>
+
+            <details class="mt-6 rounded-xl border border-slate-200 p-4">
+                <summary class="cursor-pointer font-semibold text-slate-950">Editar URL del receptor Meraki</summary>
+                <p class="mt-2 text-xs leading-relaxed text-slate-500">Define el segmento final de una URL personalizada. Debe ser único entre conectores y usar letras, números, punto, guion o guion bajo.</p>
+                <form class="mt-4 grid gap-4 md:grid-cols-[1fr_auto]" method="POST" action="{{ route('connectors.meraki-webhook-url.update', $connector) }}">
+                    @csrf
+                    @method('PUT')
+                    <label class="field-label">Alias de URL
+                        <input class="field-input font-mono" name="webhook_path" value="{{ old('webhook_path', $connector->webhook_path) }}" minlength="6" maxlength="80" pattern="[A-Za-z0-9._-]+" placeholder="meraki-bodega-norte">
+                    </label>
+                    <div class="flex items-end"><button class="btn-primary">Guardar URL</button></div>
+                </form>
+                <dl class="mt-4 space-y-2 text-xs text-slate-600">
+                    <div><dt class="font-semibold">URL vigente</dt><dd><code class="mt-1 block break-all rounded bg-slate-100 p-2">{{ $connector->merakiWebhookUrl() }}</code></dd></div>
+                    <div><dt class="font-semibold">URL por defecto</dt><dd><code class="mt-1 block break-all rounded bg-slate-100 p-2">{{ route('api.meraki.ingest', $connector) }}</code></dd></div>
+                </dl>
+            </details>
 
             <details class="mt-6 rounded-xl border border-slate-200 p-4">
                 <summary class="cursor-pointer font-semibold text-slate-950">Actualizar validator o shared secret</summary>
