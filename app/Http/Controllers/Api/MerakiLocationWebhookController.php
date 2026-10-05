@@ -10,6 +10,7 @@ use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Connector;
+use App\Telemetry\TelemetryMacFilterGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -37,6 +38,7 @@ class MerakiLocationWebhookController extends Controller
         Connector $connector,
         ConnectorRejectedRequestRecorder $rejections,
         ProcessMerakiWebhookInline $inlineProcessor,
+        TelemetryMacFilterGate $macFilter,
     ): JsonResponse
     {
         abort_unless($connector->provider === ConnectorProvider::MerakiLocation, 404);
@@ -80,6 +82,15 @@ class MerakiLocationWebhookController extends Controller
             && is_array($payload['raw'] ?? null);
         if (! $hasObservationList && ! $isExpandedRecord) {
             $this->reject($rejections, $connector, $request, 422, 'empty_observations', 'El payload no contiene observaciones Meraki válidas.');
+        }
+
+        $payload = $macFilter->filterMerakiPayload($connector->organization_id, $payload);
+        if ($payload === null) {
+            return response()->json([
+                'accepted' => true,
+                'ignored' => true,
+                'reason' => 'mac_not_allowed',
+            ], 200);
         }
 
         unset($payload['secret']);

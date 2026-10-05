@@ -11,6 +11,7 @@ use App\Models\Connector;
 use App\Models\TelemetryEvent;
 use App\Support\TelemetryTimestamp;
 use App\Tenancy\OrganizationContext;
+use App\Telemetry\TelemetryMacFilterGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -18,7 +19,7 @@ use Illuminate\Support\Str;
 
 class TtiWebhookController extends Controller
 {
-    public function __invoke(Request $request, Connector $connector): JsonResponse
+    public function __invoke(Request $request, Connector $connector, TelemetryMacFilterGate $macFilter): JsonResponse
     {
         abort_if(strlen($request->getContent()) > 1024 * 1024, 413, 'El payload excede 1 MB.');
         $requestId = is_string($request->header('X-Request-ID')) && preg_match('/^[A-Za-z0-9._-]{8,36}$/', $request->header('X-Request-ID'))
@@ -46,6 +47,15 @@ class TtiWebhookController extends Controller
                 'uplink_message.received_at' => ['nullable', 'date'],
                 'received_at' => ['nullable', 'date'],
             ]);
+            if (! $macFilter->allows($connector->organization_id, $macFilter->ttiPayloadMacs($payload))) {
+                return response()->json([
+                    'accepted' => true,
+                    'ignored' => true,
+                    'reason' => 'mac_not_allowed',
+                    'request_id' => $requestId,
+                ], 202)->header('X-Request-ID', $requestId);
+            }
+
             $providerReceivedAt = Arr::get($payload, 'uplink_message.received_at') ?? Arr::get($payload, 'received_at');
 
             $identityParts = [

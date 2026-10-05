@@ -32,6 +32,7 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\PayloadDecoderProfileController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PublicDocumentationController;
+use App\Http\Controllers\TelemetryMacFilterController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ZoneController;
@@ -135,6 +136,10 @@ Route::middleware('auth')->group(function (): void {
         Route::put('/organization', [OrganizationController::class, 'update'])->name('organizations.update');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::get('/connectors', [ConnectorController::class, 'index'])->name('connectors.index');
+        Route::get('/telemetry-mac-filters', [TelemetryMacFilterController::class, 'index'])->name('telemetry-mac-filters.index');
+        Route::post('/telemetry-mac-filters', [TelemetryMacFilterController::class, 'store'])->name('telemetry-mac-filters.store');
+        Route::put('/telemetry-mac-filters/{telemetryMacFilter}', [TelemetryMacFilterController::class, 'update'])->name('telemetry-mac-filters.update');
+        Route::delete('/telemetry-mac-filters/{telemetryMacFilter}', [TelemetryMacFilterController::class, 'destroy'])->name('telemetry-mac-filters.destroy');
         Route::get('/settings', [AutomationSettingsController::class, 'index'])->name('settings.index');
         Route::put('/settings/automations', [AutomationSettingsController::class, 'update'])->name('settings.automation.update');
         Route::post('/settings/automations/{task}/run', [AutomationSettingsController::class, 'run'])->middleware('throttle:20,1')->name('settings.automation.run');

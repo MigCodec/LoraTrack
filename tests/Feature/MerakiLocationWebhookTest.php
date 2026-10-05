@@ -22,6 +22,7 @@ use App\Models\Organization;
 use App\Models\PositionEstimate;
 use App\Models\SignalObservation;
 use App\Models\TelemetryEvent;
+use App\Models\TelemetryMacFilter;
 use App\Positioning\ZoneClassifier;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,6 +71,57 @@ class MerakiLocationWebhookTest extends TestCase
 
         $this->assertDatabaseCount('meraki_webhook_batches', 1);
         $this->assertDatabaseCount('telemetry_events', 0);
+    }
+
+    public function test_meraki_post_is_ignored_before_batch_when_mac_is_not_allowed(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME filtrado', 'slug' => 'acme-filtrado']);
+        $connector = $this->connector($organization, '3');
+        TelemetryMacFilter::query()->create([
+            'organization_id' => $organization->id,
+            'normalized_mac' => 'AABBCCDDEE01',
+            'label' => 'Permitido',
+            'enabled' => true,
+        ]);
+
+        $this->postJson(
+            route('api.meraki.ingest', $connector),
+            $this->versionThreePayload('aa:bb:cc:dd:ee:02'),
+        )->assertOk()
+            ->assertJsonPath('accepted', true)
+            ->assertJsonPath('ignored', true)
+            ->assertJsonPath('reason', 'mac_not_allowed');
+
+        $this->assertDatabaseCount('meraki_webhook_batches', 0);
+        $this->assertDatabaseCount('telemetry_events', 0);
+    }
+
+    public function test_meraki_post_keeps_only_allowed_macs_before_batch(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME mixto', 'slug' => 'acme-mixto']);
+        $connector = $this->connector($organization, '3');
+        TelemetryMacFilter::query()->create([
+            'organization_id' => $organization->id,
+            'normalized_mac' => 'AABBCCDDEE01',
+            'label' => 'Permitido',
+            'enabled' => true,
+        ]);
+        $payload = $this->versionThreePayload('aa:bb:cc:dd:ee:01');
+        $payload['data']['observations'][] = [
+            'clientMac' => 'aa:bb:cc:dd:ee:02',
+            'locations' => [[
+                'floorPlan' => ['id' => 'g_123', 'x' => 9, 'y' => 8],
+                'time' => '2026-06-23T12:00:00Z',
+                'variance' => 2.5,
+                'rssiRecords' => [['apMac' => '00:11:22:33:44:01', 'rssi' => -51]],
+            ]],
+        ];
+
+        $this->postJson(route('api.meraki.ingest', $connector), $payload)->assertOk();
+
+        $storedPayload = json_decode((string) DB::table('meraki_webhook_batches')->value('payload'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertCount(1, $storedPayload['data']['observations']);
+        $this->assertSame('aa:bb:cc:dd:ee:01', $storedPayload['data']['observations'][0]['clientMac']);
     }
 
     public function test_enabling_direct_mode_recovers_a_duplicate_batch_left_pending(): void

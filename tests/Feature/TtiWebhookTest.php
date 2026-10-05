@@ -8,7 +8,9 @@ use App\Enums\ConnectorStatus;
 use App\Jobs\ProcessTtiUplink;
 use App\Models\Connector;
 use App\Models\Device;
+use App\Models\Organization;
 use App\Models\TelemetryEvent;
+use App\Models\TelemetryMacFilter;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\PayloadProfileDecoder;
 use App\Positioning\TelemetryPositioningService;
@@ -91,6 +93,40 @@ class TtiWebhookTest extends TestCase
         Queue::assertNotPushed(ProcessTtiUplink::class);
         $this->artisan('loratrack:process-tti-uplinks')->assertSuccessful();
         $this->assertSame(2, TelemetryEvent::query()->where('processing_status', 'processed')->count());
+    }
+
+    public function test_tti_uplink_is_ignored_before_event_when_mac_is_not_allowed(): void
+    {
+        $organization = Organization::query()->create(['name' => 'ACME TTI', 'slug' => 'acme-tti']);
+        $connector = Connector::query()->create([
+            'organization_id' => $organization->id,
+            'name' => 'TTI',
+            'kind' => ConnectorKind::Telemetry,
+            'provider' => ConnectorProvider::TtiWebhook,
+            'status' => ConnectorStatus::Active,
+            'credentials' => ['webhook_token' => 'a-secure-token-with-24-characters'],
+        ]);
+        TelemetryMacFilter::query()->create([
+            'organization_id' => $organization->id,
+            'normalized_mac' => 'AABBCCDDEE01',
+            'label' => 'Permitido',
+            'enabled' => true,
+        ]);
+
+        $this->postJson(route('api.tti.ingest', $connector), [
+            'end_device_ids' => ['device_id' => 'tracker-01', 'dev_eui' => '0011223344556677'],
+            'received_at' => '2026-06-18T20:00:00Z',
+            'uplink_message' => [
+                'f_cnt' => 42,
+                'f_port' => 1,
+                'decoded_payload' => ['observations' => [['mac' => 'aa:bb:cc:dd:ee:02', 'rssi' => -70]]],
+            ],
+        ], ['Authorization' => 'Bearer a-secure-token-with-24-characters'])
+            ->assertAccepted()
+            ->assertJsonPath('ignored', true)
+            ->assertJsonPath('reason', 'mac_not_allowed');
+
+        $this->assertDatabaseCount('telemetry_events', 0);
     }
 
     public function test_tti_scheduler_processes_at_most_three_uplinks_per_execution(): void
