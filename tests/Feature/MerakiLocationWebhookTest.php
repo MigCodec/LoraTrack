@@ -79,11 +79,11 @@ class MerakiLocationWebhookTest extends TestCase
         $connector = $this->connector($organization, '3');
         $connector->forceFill(['webhook_path' => 'meraki-planta-sur'])->save();
 
-        $this->get(route('api.meraki.validate.custom', 'meraki-planta-sur'))
+        $this->get(route('api.meraki.validate', 'meraki-planta-sur'))
             ->assertOk()
             ->assertSeeText('meraki-validator-value');
         $this->postJson(
-            route('api.meraki.ingest.custom', 'meraki-planta-sur'),
+            route('api.meraki.ingest', 'meraki-planta-sur'),
             $this->versionThreePayload('aa:bb:cc:dd:ee:93'),
         )->assertOk();
 

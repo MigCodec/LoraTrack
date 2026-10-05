@@ -20,13 +20,9 @@ use Illuminate\Support\Str;
 
 class MerakiLocationWebhookController extends Controller
 {
-    public function validateCustomReceiver(string $webhookPath): Response
+    public function validateReceiver(string $connector): Response
     {
-        return $this->validateReceiver($this->connectorFromWebhookPath($webhookPath));
-    }
-
-    public function validateReceiver(Connector $connector): Response
-    {
+        $connector = $this->connectorFromRoute($connector);
         abort_unless(
             $connector->provider === ConnectorProvider::MerakiLocation
             && $connector->organization?->active,
@@ -38,30 +34,15 @@ class MerakiLocationWebhookController extends Controller
         return response($validator, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
     }
 
-    public function receiveCustom(
-        Request $request,
-        string $webhookPath,
-        ConnectorRejectedRequestRecorder $rejections,
-        ProcessMerakiWebhookInline $inlineProcessor,
-        TelemetryMacFilterGate $macFilter,
-    ): JsonResponse {
-        return $this->receive(
-            $request,
-            $this->connectorFromWebhookPath($webhookPath),
-            $rejections,
-            $inlineProcessor,
-            $macFilter,
-        );
-    }
-
     public function receive(
         Request $request,
-        Connector $connector,
+        string $connector,
         ConnectorRejectedRequestRecorder $rejections,
         ProcessMerakiWebhookInline $inlineProcessor,
         TelemetryMacFilterGate $macFilter,
     ): JsonResponse
     {
+        $connector = $this->connectorFromRoute($connector);
         abort_unless($connector->provider === ConnectorProvider::MerakiLocation, 404);
         if (strlen($request->getContent()) > 5 * 1024 * 1024) {
             $this->reject($rejections, $connector, $request, 413, 'payload_too_large', 'El payload excede 5 MB.');
@@ -181,11 +162,12 @@ class MerakiLocationWebhookController extends Controller
         abort($status, $message);
     }
 
-    private function connectorFromWebhookPath(string $webhookPath): Connector
+    private function connectorFromRoute(string $identifier): Connector
     {
         $connector = Connector::query()
             ->withoutGlobalScopes()
-            ->where('webhook_path', $webhookPath)
+            ->where('id', $identifier)
+            ->orWhere('webhook_path', $identifier)
             ->first();
 
         abort_unless($connector, 404);

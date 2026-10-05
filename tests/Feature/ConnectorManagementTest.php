@@ -106,7 +106,7 @@ class ConnectorManagementTest extends TestCase
         $this->assertSame('meraki-bodega-norte', $connector->webhook_path);
         $this->actingAs($admin)->get(route('connectors.show', $connector))
             ->assertOk()
-            ->assertSee(route('api.meraki.ingest.custom', 'meraki-bodega-norte'))
+            ->assertSee(route('api.meraki.ingest', 'meraki-bodega-norte'))
             ->assertSee(route('api.meraki.ingest', $connector));
 
         $this->actingAs($admin)

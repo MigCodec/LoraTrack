@@ -88,8 +88,6 @@ class Connector extends Model
 
     public function merakiWebhookUrl(): string
     {
-        return $this->webhook_path
-            ? route('api.meraki.ingest.custom', $this->webhook_path)
-            : route('api.meraki.ingest', $this);
+        return route('api.meraki.ingest', $this->webhook_path ?: $this);
     }
 }
