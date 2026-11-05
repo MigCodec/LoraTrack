@@ -29,7 +29,7 @@ class ProcessTtiUplinks extends Command
         }
 
         $eventIds = TelemetryEvent::query()
-            ->where('event_type', 'uplink')
+            ->whereIn('event_type', ['uplink', 'beacon_scan'])
             ->where(function ($query): void {
                 $query->where('processing_status', 'pending')
                     ->orWhere(function ($failed): void {

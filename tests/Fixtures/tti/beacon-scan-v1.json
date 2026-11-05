@@ -1,0 +1,26 @@
+{
+  "end_device_ids": {
+    "device_id": "lco-lw3-2",
+    "application_ids": {"application_id": "lco-app-01"},
+    "dev_eui": "CC1615FFFF8E4476"
+  },
+  "uplink_message": {
+    "f_port": 5,
+    "f_cnt": 479,
+    "decoded_payload": {
+      "beacon_count": 3,
+      "beacons": [
+        {"data_raw": "00", "mac": "7B:AF:71:F4:FE:85", "rssi": -87, "time_utc": "2026-07-05T12:49:52.000Z", "timestamp": 1783255792, "type_raw": 10},
+        {"data_raw": "00", "mac": "79:F8:DD:C4:5A:DF", "rssi": -57, "time_utc": "2026-07-05T12:49:52.000Z", "timestamp": 1783255792, "type_raw": 10},
+        {"data_raw": "00", "mac": "7C:FB:DB:3B:DA:83", "rssi": -35, "time_utc": "2026-07-05T12:49:52.000Z", "timestamp": 1783255792, "type_raw": 10}
+      ],
+      "packet_flag": 0,
+      "time_utc": "2026-07-05T12:50:00.000Z",
+      "timestamp": 1783255800,
+      "timezone_raw": 16,
+      "type": "beacon_scan"
+    },
+    "received_at": "2026-11-05T15:50:16.635136656Z"
+  },
+  "received_at": "2026-11-05T15:50:16.840769962Z"
+}

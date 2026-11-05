@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="generator" content="tools/build_docs_pdf.py">
-  <meta name="doc-version" content="1.5">
+  <meta name="doc-version" content="1.6">
   <title>LoraTrack - Customer Technical and User Guide</title>
   <style>
 @page {
@@ -92,7 +92,7 @@ li { margin: 2pt 0; }
 <section class="cover">
 <h1>LoraTrack</h1>
 <h2>Customer Technical and User Guide</h2>
-<p><strong>Document version:</strong> 1.5</p>
+<p><strong>Document version:</strong> 1.6</p>
 <p><strong>Classification:</strong> Public product documentation</p>
 </section>
 
@@ -117,7 +117,7 @@ li { margin: 2pt 0; }
 </tr>
 <tr>
 <td>Document version</td>
-<td>1.5</td>
+<td>1.6</td>
 </tr>
 <tr>
 <td>Audience</td>
@@ -1359,6 +1359,17 @@ order by calculated_at desc;
 <li>Idempotent identity: stable hash of device, session, frame counter, and TTI timestamp</li>
 </ul>
 <p>LoraTrack stores <code>raw_payload</code>, receive time, and the normalized version. The job extracts <code>decoded_payload</code>, <code>frm_payload</code>, <code>rx_metadata</code>, frame counter, port, and device information.</p>
+<h2 id="fixed-ble-scanner-contract">Fixed BLE Scanner Contract</h2>
+<p>The built-in formatter <code>tti_beacon_scan</code> version <code>1.0</code> recognizes uplinks whose <code>uplink_message.decoded_payload.type</code> is <code>beacon_scan</code>.</p>
+<ul>
+<li>The LoRaWAN <code>dev_eui</code> identifies a fixed <code>scanner</code> device. The TTI <code>device_id</code> is used only as a fallback when the EUI is absent.</li>
+<li>Each entry under <code>decoded_payload.beacons</code> produces one normalized signal observation with <code>transmitter_mac</code>, integer <code>rssi</code>, the fixed receiver identifier, and the original sanitized entry as metadata.</li>
+<li>MAC addresses are stored as uppercase hexadecimal without separators.</li>
+<li>The scan's <code>time_utc</code> (or Unix <code>timestamp</code>) becomes the event observation time. Each beacon's own time becomes its observation time.</li>
+<li>TTI delivery timestamps remain in the raw auditable payload and the application stores its own receipt time separately. Delayed and out-of-order delivery does not rewrite the sensor observation time.</li>
+<li>Invalid MAC/RSSI entries are ignored. Reprocessing uses the event and transmitter uniqueness constraint and does not duplicate observations.</li>
+</ul>
+<p>The corresponding mobile BLE tag must be registered as a <code>beacon</code> and assigned to an asset with the <code>mobile_beacon_fixed_scanners</code> strategy. The scanner must have an active fixed installation before it can contribute to positioning. At least three fixed scanners with compatible coordinates are still required for a 2D estimate.</p>
 <p>Reference: <a href="https://www.thethingsindustries.com/docs/integrations/webhooks/">https://www.thethingsindustries.com/docs/integrations/webhooks/</a></p>
 <div class="page-break"></div>
 

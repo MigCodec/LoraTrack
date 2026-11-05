@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Connectors\Tti\BeaconScanPayloadFormatter;
 use App\Enums\ConnectorStatus;
 use App\Models\Device;
 use App\Models\TelemetryEvent;
 use App\Positioning\BleObservationExtractor;
 use App\Positioning\PayloadProfileDecoder;
 use App\Positioning\TelemetryPositioningService;
+use App\Support\TelemetryTimestamp;
 use App\Telemetry\AssetLastSeenUpdater;
 use App\Tenancy\OrganizationContext;
 use Illuminate\Support\Arr;
@@ -20,7 +22,7 @@ class ProcessTtiUplink
 {
     public function __construct(public readonly string $telemetryEventId) {}
 
-    public function handle(BleObservationExtractor $extractor, PayloadProfileDecoder $profileDecoder, TelemetryPositioningService $positioning, AssetLastSeenUpdater $lastSeenUpdater): void
+    public function handle(BleObservationExtractor $extractor, PayloadProfileDecoder $profileDecoder, TelemetryPositioningService $positioning, AssetLastSeenUpdater $lastSeenUpdater, ?BeaconScanPayloadFormatter $beaconScanFormatter = null): void
     {
         $event = TelemetryEvent::query()->findOrFail($this->telemetryEventId);
         $context = app(OrganizationContext::class);
@@ -40,20 +42,26 @@ class ProcessTtiUplink
                 return;
             }
             $payload = $event->raw_payload;
+            $beaconScan = ($beaconScanFormatter ?? app(BeaconScanPayloadFormatter::class))->format($payload);
             $deviceIdentifier = (string) (Arr::get($payload, 'end_device_ids.dev_eui') ?: Arr::get($payload, 'end_device_ids.device_id'));
             $device = $deviceIdentifier !== '' ? Device::query()->firstOrNew(['identifier' => $deviceIdentifier]) : null;
             if ($device) {
                 $device->fill([
                     'name' => $device->exists ? $device->name : (string) (Arr::get($payload, 'end_device_ids.device_id') ?: $deviceIdentifier),
-                    'type' => $device->exists ? $device->type : 'lorawan_tracker',
+                    'type' => $beaconScan['receiver_type'] ?? ($device->exists ? $device->type : 'lorawan_tracker'),
                     'status' => 'active',
-                    'last_seen_at' => $event->observed_at ?? now(),
+                    'last_seen_at' => $beaconScan['observed_at'] ?? $event->observed_at ?? now(),
                 ])->save();
             }
 
-            $profileResult = $profileDecoder->decode($payload, $event->connector);
-            $decoded = $profileResult['decoded'];
-            $receiverIdentifier = $profileResult['receiver_identifier'] ?: $deviceIdentifier;
+            $profileResult = $beaconScan ? null : $profileDecoder->decode($payload, $event->connector);
+            $decoded = $beaconScan['decoded'] ?? $profileResult['decoded'];
+            $receiverIdentifier = $beaconScan['receiver_identifier'] ?? ($profileResult['receiver_identifier'] ?: $deviceIdentifier);
+            $profile = $profileResult['profile'] ?? null;
+            if ($beaconScan['observed_at'] ?? null) {
+                $event->observed_at = $beaconScan['observed_at'];
+                $event->event_type = 'beacon_scan';
+            }
 
             $event->forceFill([
                 'device_id' => $device?->id,
@@ -62,9 +70,11 @@ class ProcessTtiUplink
                     'frame_counter' => Arr::get($payload, 'uplink_message.f_cnt'),
                     'frame_port' => Arr::get($payload, 'uplink_message.f_port'),
                     'decoded' => $decoded,
-                    'decoder_profile_id' => $profileResult['profile']?->id,
-                    'decoder_profile_name' => $profileResult['profile']?->name,
-                    'decoder_product_ids' => $profileResult['profile']?->products()->pluck('products.id')->all() ?? [],
+                    'formatter' => $beaconScan['formatter'] ?? null,
+                    'formatter_version' => $beaconScan['formatter_version'] ?? null,
+                    'decoder_profile_id' => $profile?->id,
+                    'decoder_profile_name' => $profile?->name,
+                    'decoder_product_ids' => $profile?->products()->pluck('products.id')->all() ?? [],
                     'raw_base64' => Arr::get($payload, 'uplink_message.frm_payload'),
                     'rx_metadata' => Arr::get($payload, 'uplink_message.rx_metadata', []),
                     'settings' => Arr::get($payload, 'uplink_message.settings', []),
@@ -77,7 +87,9 @@ class ProcessTtiUplink
                     [
                         'receiver_identifier' => BleObservationExtractor::normalizeMac($receiverIdentifier),
                         'rssi' => $observation['rssi'],
-                        'observed_at' => $event->observed_at ?? $event->received_at,
+                        'observed_at' => TelemetryTimestamp::parseProviderTime(
+                            $observation['metadata']['observed_at'] ?? $observation['metadata']['time_utc'] ?? null,
+                        ) ?? $event->observed_at ?? $event->received_at,
                         'metadata' => $observation['metadata'],
                     ],
                 );

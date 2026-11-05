@@ -1,7 +1,7 @@
 <section class="cover">
 <h1>LoraTrack</h1>
 <h2>Production Infrastructure and Operations Guide</h2>
-<p><strong>Document version:</strong> 1.5</p>
+<p><strong>Document version:</strong> 1.6</p>
 <p><strong>Classification:</strong> Public product documentation</p>
 </section>
 
@@ -13,7 +13,7 @@
 | --- | --- |
 | Product | LoraTrack |
 | Document type | Production Infrastructure and Operations Guide |
-| Document version | 1.5 |
+| Document version | 1.6 |
 | Audience | Users, administrators, engineering, operations, and security teams |
 
 > This documentation describes product capabilities and procedures. References to practices or standards do not constitute certification, independent assurance, or formal customer acceptance.

@@ -57,6 +57,8 @@ class BleObservationExtractor
 
         if ($this->looksLikeObservation($value)) {
             $candidates[] = $value;
+
+            return;
         }
         foreach ($value as $nested) {
             if (is_array($nested)) {

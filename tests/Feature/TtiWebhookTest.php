@@ -95,6 +95,65 @@ class TtiWebhookTest extends TestCase
         $this->assertSame(2, TelemetryEvent::query()->where('processing_status', 'processed')->count());
     }
 
+    public function test_static_tti_beacon_scanner_payload_is_formatted_with_per_tag_times(): void
+    {
+        $connector = Connector::query()->create([
+            'name' => 'TTI scanner BLE',
+            'kind' => ConnectorKind::Telemetry,
+            'provider' => ConnectorProvider::TtiWebhook,
+            'status' => ConnectorStatus::Active,
+            'credentials' => ['webhook_token' => 'a-secure-token-with-24-characters'],
+        ]);
+        $payload = json_decode(
+            file_get_contents(base_path('tests/Fixtures/tti/beacon-scan-v1.json')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        $this->postJson(route('api.tti.ingest', $connector), $payload, [
+            'Authorization' => 'Bearer a-secure-token-with-24-characters',
+        ])->assertAccepted()->assertJsonPath('duplicate', false);
+
+        $event = TelemetryEvent::query()->firstOrFail();
+        $this->assertSame('beacon_scan', $event->event_type);
+        $this->assertSame('2026-07-05T08:50:00-04:00', $event->observed_at->toIso8601String());
+        $this->assertSame('2026-11-05T15:50:16.635136656Z', data_get($event->raw_payload, 'uplink_message.received_at'));
+
+        $this->artisan('loratrack:process-tti-uplinks')->assertSuccessful();
+
+        $event->refresh();
+        $scanner = Device::query()->where('identifier', 'CC1615FFFF8E4476')->firstOrFail();
+        $this->assertSame('scanner', $scanner->type);
+        $this->assertSame($scanner->id, $event->device_id);
+        $this->assertSame('tti_beacon_scan', data_get($event->normalized_payload, 'formatter'));
+        $this->assertSame('1.0', data_get($event->normalized_payload, 'formatter_version'));
+        $this->assertSame('CC1615FFFF8E4476', data_get($event->normalized_payload, 'device_identifier'));
+        $this->assertCount(3, $event->signalObservations);
+        $this->assertSame(
+            ['79F8DDC45ADF', '7BAF71F4FE85', '7CFBDB3BDA83'],
+            $event->signalObservations->pluck('transmitter_mac')->sort()->values()->all(),
+        );
+        $this->assertSame(
+            ['CC1615FFFF8E4476'],
+            $event->signalObservations->pluck('receiver_identifier')->unique()->values()->all(),
+        );
+        $this->assertSame(
+            ['2026-07-05T12:49:52+00:00'],
+            $event->signalObservations->map(
+                fn ($observation): string => $observation->observed_at->copy()->utc()->toIso8601String(),
+            )->unique()->values()->all(),
+        );
+
+        (new ProcessTtiUplink($event->id))->handle(
+            app(BleObservationExtractor::class),
+            app(PayloadProfileDecoder::class),
+            app(TelemetryPositioningService::class),
+            app(AssetLastSeenUpdater::class),
+        );
+        $this->assertSame(3, $event->signalObservations()->count());
+    }
+
     public function test_tti_uplink_is_ignored_before_event_when_mac_is_not_allowed(): void
     {
         $organization = Organization::query()->create(['name' => 'ACME TTI', 'slug' => 'acme-tti']);

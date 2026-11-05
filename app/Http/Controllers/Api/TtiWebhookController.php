@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Connectors\Tti\BeaconScanPayloadFormatter;
 use App\Enums\ConnectorProvider;
 use App\Enums\ConnectorStatus;
 use App\Http\Controllers\Controller;
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
 
 class TtiWebhookController extends Controller
 {
-    public function __invoke(Request $request, Connector $connector, TelemetryMacFilterGate $macFilter): JsonResponse
+    public function __invoke(Request $request, Connector $connector, TelemetryMacFilterGate $macFilter, BeaconScanPayloadFormatter $beaconScanFormatter): JsonResponse
     {
         abort_if(strlen($request->getContent()) > 1024 * 1024, 413, 'El payload excede 1 MB.');
         $requestId = is_string($request->header('X-Request-ID')) && preg_match('/^[A-Za-z0-9._-]{8,36}$/', $request->header('X-Request-ID'))
@@ -57,6 +58,7 @@ class TtiWebhookController extends Controller
             }
 
             $providerReceivedAt = Arr::get($payload, 'uplink_message.received_at') ?? Arr::get($payload, 'received_at');
+            $beaconScan = $beaconScanFormatter->format($payload);
 
             $identityParts = [
                 Arr::get($payload, 'end_device_ids.dev_eui'),
@@ -70,8 +72,8 @@ class TtiWebhookController extends Controller
             $event = TelemetryEvent::query()->firstOrCreate(
                 ['connector_id' => $connector->id, 'external_event_id' => $externalEventId],
                 [
-                    'event_type' => 'uplink',
-                    'observed_at' => TelemetryTimestamp::parseProviderTime($providerReceivedAt),
+                    'event_type' => $beaconScan ? 'beacon_scan' : 'uplink',
+                    'observed_at' => $beaconScan['observed_at'] ?? TelemetryTimestamp::parseProviderTime($providerReceivedAt),
                     'received_at' => now(),
                     'raw_payload' => $payload,
                     'processing_status' => 'pending',
